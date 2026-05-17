@@ -232,6 +232,11 @@ with st.sidebar:
                     pmatch = dedup_result.get("persona_match", "")
                     if dedup_result.get("persona_action") == "merge" and pmatch:
                         existing = gap().get(pmatch)
+                        if not existing:
+                            # 可能在 family_profiles 中
+                            fp_match = get_profile(pmatch)
+                            if fp_match:
+                                p = merge_persona(p, {"role_label": fp_match.name, "personality": fp_match.personality})
                         if existing:
                             p = merge_persona(existing, persona_part)
                     else:

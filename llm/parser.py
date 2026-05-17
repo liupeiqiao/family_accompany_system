@@ -119,7 +119,8 @@ def _empty_result() -> dict:
 
 DEDUP_SYSTEM = """你是人物去重助手。判断新解析结果中的人物是否与已有数据中的人物相同。只返回JSON。"""
 
-DEDUP_USER = """已有的人物：
+DEDUP_USER = """已有的人物（注意：persona和family_profile中可能存着同一个人）：
+
 ## AI 扮演角色 (personas)
 {existing_personas}
 
@@ -127,16 +128,24 @@ DEDUP_USER = """已有的人物：
 {existing_families}
 
 新解析结果：
-## 新角色
+## 新角色 (persona)
 {new_persona}
 
-## 新家人
+## 新家人 (family_profiles)
 {new_families}
 
-判断每个新人物的去重动作。返回严格JSON：
+判断每个新人物的去重动作。**重要：新角色可能是已有家人档案中的同一个人，反之亦然。要交叉对比。**
+例如：已有family中"丈夫(子女)" + 新persona"儿子刘承文(子女)" → 是同一个人 → persona merge + family merge_into。
+
+判断规则：
+- 名字包含关系（如"儿子刘承文" vs "刘承文" = 同一人）
+- 名字完全相同或部分匹配 + 关系一致 = 同一人
+- 通过家庭关系推断（如新角色"张怀粉的丈夫"而张怀粉已知是儿媳 → 此人是儿子，与已有"儿子刘承文"匹配）
+
+返回严格JSON：
 {{
   "persona_action": "merge" | "new" | "skip",
-  "persona_match": "匹配到的已有角色名（merge时填）",
+  "persona_match": "匹配到的已有角色名或家人名（merge/merge_into时填）",
   "family_actions": [
     {{"new_name":"...", "action":"merge_into", "target":"已有名字"}},
     {{"new_name":"...", "action":"new"}},
@@ -145,10 +154,11 @@ DEDUP_USER = """已有的人物：
 }}
 
 规则：
-- 同一个人但名字不同（如"丈夫"="小明"）→ merge_into，target填已有名字
+- 同一个人但名字不同 → merge / merge_into
 - 全新人物 → new
 - 完全相同无需改 → skip
-- 如果有合并 (merge/merge_into)，要保留旧名字的已有信息，用新信息补充空白字段"""
+- 合并时保留旧名字已有信息，新信息补空白字段
+- **交叉匹配：新 persona 可能与已有 family_profile 同名；新 family 可能与已有 persona 同名**"""
 
 
 def dedup_check(
