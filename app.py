@@ -133,6 +133,15 @@ div[data-testid="stVerticalBlock"] > div > div > div > div[style*="border"] {
 /* 侧边栏 header 表情区亮色 */
 [data-testid="stSidebar"] .stHeader { color: #f5c898 !important; }
 
+/* 侧边栏 expander 内按钮 */
+[data-testid="stSidebar"] [data-testid="stExpander"] .stButton > button {
+    background: rgba(170,130,95,0.35) !important; border-color: rgba(190,150,115,0.5) !important;
+    color: #7a5030 !important; font-weight: 600 !important;
+}
+[data-testid="stSidebar"] [data-testid="stExpander"] .stButton > button:hover {
+    background: rgba(170,130,95,0.55) !important; color: #5c3220 !important;
+}
+
 /* 主区域字幕 */
 .stCaption { color: #8b6b50 !important; }
 
