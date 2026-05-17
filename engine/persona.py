@@ -33,9 +33,13 @@ _all_personas: dict[str, PersonaProfile] = {}
 
 
 def set_persona(p: PersonaProfile) -> None:
-    global _current_persona
+    global _current_persona, _all_personas
     _current_persona = p
     if p.is_complete():
+        # 清理可能因改名产生的旧 key
+        to_remove = [k for k, v in _all_personas.items() if k != p.role_label and v is p]
+        for k in to_remove:
+            _all_personas.pop(k, None)
         _all_personas[p.role_label] = p
 
 
@@ -49,6 +53,9 @@ def get_all_personas() -> dict[str, PersonaProfile]:
 
 def add_or_update_persona(p: PersonaProfile) -> None:
     if p.is_complete():
+        to_remove = [k for k, v in _all_personas.items() if k != p.role_label and v is p]
+        for k in to_remove:
+            _all_personas.pop(k, None)
         _all_personas[p.role_label] = p
 
 
