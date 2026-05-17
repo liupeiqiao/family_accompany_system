@@ -1,6 +1,7 @@
 """DeepSeek V4 Pro API client (OpenAI-compatible)."""
 
 import os
+import time
 from openai import OpenAI
 
 
@@ -13,16 +14,26 @@ def get_client() -> OpenAI:
 
 
 MODEL = os.environ.get("DEEPSEEK_MODEL", "deepseek-chat")
+MAX_RETRIES = 2
 
 
 def chat(system_prompt: str, user_prompt: str, temperature: float = 0.7) -> str:
     client = get_client()
-    response = client.chat.completions.create(
-        model=MODEL,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-        temperature=temperature,
-    )
-    return response.choices[0].message.content
+    last_error = None
+    for attempt in range(MAX_RETRIES):
+        try:
+            response = client.chat.completions.create(
+                model=MODEL,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                temperature=temperature,
+                timeout=10,
+            )
+            return response.choices[0].message.content
+        except Exception as e:
+            last_error = e
+            if attempt < MAX_RETRIES - 1:
+                time.sleep(2)
+    raise last_error
