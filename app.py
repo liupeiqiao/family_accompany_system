@@ -62,7 +62,7 @@ h3 { color: #6b4228 !important; font-size: 1rem !important; }
 [data-testid="stSidebar"] .stTextInput > div > div > input,
 [data-testid="stSidebar"] .stTextArea > div > div > textarea {
     background: rgba(255,255,255,0.06) !important; border: 1px solid rgba(255,255,255,0.25) !important;
-    color: #f0dcc8 !important; border-radius: 8px !important; font-size: 0.92rem !important;
+    color: #f5c080 !important; border-radius: 8px !important; font-size: 0.92rem !important;
 }
 [data-testid="stSidebar"] .stTextInput > div > div > input::placeholder,
 [data-testid="stSidebar"] .stTextArea > div > div > textarea::placeholder {
