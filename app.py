@@ -575,7 +575,10 @@ with st.sidebar:
 
     # 角色切换下拉框
     if persona_labels:
-        current_label = current_persona.role_label if current_persona.is_complete() and current_persona.role_label in persona_labels else persona_labels[0]
+        # 自动同步：如果 pipeline 切换了角色，下拉框跟随
+        auto_switched = st.session_state.get("persona_selector", "")
+        current_label = auto_switched if auto_switched in persona_labels else (
+            current_persona.role_label if current_persona.is_complete() and current_persona.role_label in persona_labels else persona_labels[0])
         selected_label = st.selectbox("当前角色", persona_labels,
             index=persona_labels.index(current_label) if current_label in persona_labels else 0,
             key="persona_selector")
@@ -894,6 +897,26 @@ def run_pipeline(user_input: str) -> str:
     emotion = result.get("emotion", "平静")
     mentioned_names = result.get("mentioned", [])
 
+    # 自动切换人物画像：检测老人正在和谁说话
+    talk_to = result.get("talk_to", "")
+    all_personas = get_all_personas()
+    # 模糊匹配：LLM 返回"小明"可匹配"儿子小明"
+    matched_persona = None
+    if talk_to:
+        if talk_to in all_personas:
+            matched_persona = talk_to
+        else:
+            for k in all_personas:
+                if talk_to in k or k in talk_to:
+                    matched_persona = k
+                    break
+    if matched_persona:
+        if persona.role_label != matched_persona:
+            switch_persona(matched_persona)
+            persona = get_persona()
+            st.session_state.persona_selector = matched_persona  # 同步下拉框
+    # 没提到具体角色 → 保持当前 persona（可能为空，走通用模式）
+
     # Step 2: 根据提及人物 + 对话对象检索相关记忆
     relevant_memories = []
     for mem in all_memories:
@@ -928,10 +951,9 @@ def run_pipeline(user_input: str) -> str:
             mentioned_context += "\n## 老人提到的人\n老人提到了" + name + "。" + "，".join(parts) + "。你可以用你对" + name + "的了解来自然地聊到ta。\n"
 
     # 如果老人在和某个已存储角色说话，注入该角色画像
-    talk_to = result.get("talk_to", "")
-    if talk_to and talk_to in all_personas and talk_to != persona.role_label:
-        tp = all_personas[talk_to]
-        mentioned_context += f"\n## 对话对象\n老人正在和{talk_to}说话。{talk_to}是{tp.relation}，性格{'、'.join(tp.personality) if tp.personality else '随和'}。\n"
+    if matched_persona and matched_persona != persona.role_label:
+        tp = all_personas[matched_persona]
+        mentioned_context += f"\n## 对话对象\n老人正在和{matched_persona}说话。{matched_persona}是{tp.relation}，性格{'、'.join(tp.personality) if tp.personality else '随和'}。\n"
 
     # Step 6: 构建上下文（老人画像 + 家人偏好 + 关系表）
     elder_context = ""
@@ -1018,7 +1040,7 @@ def run_pipeline(user_input: str) -> str:
     st.session_state.debug = {
         "intent": intent,
         "emotion": emotion,
-        "talk_to": talk_to,
+        "talk_to": matched_persona or talk_to,
         "mentioned": mentioned_names,
         "strategy": strategy,
         "top_memories": [
