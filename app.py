@@ -69,16 +69,22 @@ h3 { color: #6b4228 !important; font-size: 1rem !important; }
 
 /* 按钮 — 哑光陶土 */
 .stButton > button {
-    background: rgba(198,122,74,0.9) !important; color: #fff !important; border: none !important;
+    background: rgba(190,140,105,0.25) !important; color: #5c3822 !important;
+    border: 1px solid rgba(180,135,100,0.4) !important;
     border-radius: 8px !important; font-weight: 500 !important; font-size: 0.88rem !important;
     letter-spacing: 0.02em; transition: all 0.2s ease; padding: 6px 16px !important;
-    backdrop-filter: blur(4px);
+    backdrop-filter: blur(6px);
 }
-.stButton > button:hover { background: rgba(176,102,56,0.95) !important; transform: translateY(-1px); }
+.stButton > button:hover {
+    background: rgba(190,140,105,0.45) !important; color: #3d2210 !important; transform: translateY(-1px);
+}
 [data-testid="stSidebar"] .stButton > button {
-    background: rgba(255,255,255,0.12) !important; border: 1px solid rgba(255,255,255,0.2) !important; color: #f5ede0 !important;
+    background: rgba(180,140,110,0.3) !important; border: 1px solid rgba(200,160,130,0.35) !important;
+    color: #f5ede0 !important; backdrop-filter: blur(6px);
 }
-[data-testid="stSidebar"] .stButton > button:hover { background: rgba(255,255,255,0.2) !important; color: #fff !important; }
+[data-testid="stSidebar"] .stButton > button:hover {
+    background: rgba(180,140,110,0.5) !important; color: #fff !important;
+}
 
 /* 输入框占位符 — 米色可见 */
 [data-testid="stSidebar"] input::placeholder,
