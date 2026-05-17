@@ -55,7 +55,10 @@ PARSER_USER = """请从以下描述中提取人物画像和家庭记忆：
 
 def parse_user_text(user_text: str) -> dict:
     """解析用户的自然语言描述，返回 {persona: dict, memories: list[dict]}"""
-    raw = chat(PARSER_SYSTEM, PARSER_USER.format(user_text=user_text), temperature=0.3)
+    try:
+        raw = chat(PARSER_SYSTEM, PARSER_USER.format(user_text=user_text), temperature=0.3)
+    except Exception:
+        return {"persona": {}, "memories": []}
 
     # JSON 解析容错
     try:
