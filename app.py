@@ -45,15 +45,22 @@ h3 { color: #6b4228 !important; font-size: 1rem !important; }
 
 /* 侧边栏 */
 [data-testid="stSidebar"] { background: #2a1f18 !important; }
-[data-testid="stSidebar"] * { color: #d4c4b0 !important; }
-[data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 { color: #e8b88a !important; font-family: 'ZCOOL XiaoWei', serif !important; }
+[data-testid="stSidebar"] label, [data-testid="stSidebar"] p, [data-testid="stSidebar"] span,
+[data-testid="stSidebar"] div, [data-testid="stSidebar"] small, [data-testid="stSidebar"] caption,
+[data-testid="stSidebar"] .stMarkdown, [data-testid="stSidebar"] .stCaption,
+[data-testid="stSidebar"] .stTextInput label, [data-testid="stSidebar"] .stTextArea label,
+[data-testid="stSidebar"] .stSelectbox label, [data-testid="stSidebar"] .stMultiselect label,
+[data-testid="stSidebar"] .stRadio label { color: #e8ddd0 !important; }
+[data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 { color: #f0c090 !important; font-family: 'ZCOOL XiaoWei', serif !important; }
 [data-testid="stSidebar"] .stTextInput > div > div > input,
 [data-testid="stSidebar"] .stTextArea > div > div > textarea {
-    background: #35281e !important; border: 1px solid #5a4638 !important; color: #d4c4b0 !important; border-radius: 6px !important;
+    background: #35281e !important; border: 1px solid #5a4638 !important; color: #f0e0d0 !important; border-radius: 6px !important;
 }
 [data-testid="stSidebar"] [data-baseweb="select"] > div {
-    background: #35281e !important; border-color: #5a4638 !important;
+    background: #35281e !important; border-color: #5a4638 !important; color: #f0e0d0 !important;
 }
+[data-testid="stSidebar"] [data-baseweb="select"] svg { fill: #e8ddd0 !important; }
+[data-testid="stSidebar"] .st-bq, [data-testid="stSidebar"] .st-br { color: #e8ddd0 !important; }
 
 /* 按钮 */
 .stButton > button {
@@ -87,6 +94,14 @@ div[data-testid="stVerticalBlock"] > div > div > div > div[style*="border"] {
 
 /* Radio */
 [data-testid="stRadio"] label { font-weight: 500 !important; }
+
+/* Expander 标题 */
+[data-testid="stSidebar"] [data-testid="stExpander"] summary { color: #e8ddd0 !important; }
+[data-testid="stSidebar"] [data-testid="stExpander"] summary:hover { color: #f0c090 !important; }
+[data-testid="stSidebar"] [data-testid="stExpander"] p { color: #e8ddd0 !important; }
+
+/* 主区域字幕 */
+.stCaption { color: #8b6b50 !important; }
 
 /* 提示 */
 .stSuccess { background: #edf5e8 !important; border-left: 3px solid #8aaa6e !important; border-radius: 4px !important; }
