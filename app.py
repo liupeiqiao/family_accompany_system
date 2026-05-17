@@ -37,11 +37,8 @@ if "messages" not in st.session_state:
     st.session_state.messages = []
 if "debug" not in st.session_state:
     st.session_state.debug = {}
-if "db_loaded" not in st.session_state:
-    st.session_state.db_loaded = False
-
-# 首次加载：从 SQLite 恢复到内存
-if not st.session_state.db_loaded:
+# 每次重载时，若内存为空则从 SQLite 恢复
+if not st.session_state.get("db_loaded", False) or not get_all_personas():
     all_pdata = db_load_all_personas()
     if all_pdata:
         for pdata in all_pdata:
@@ -59,11 +56,12 @@ if not st.session_state.db_loaded:
             from engine.persona import add_or_update_persona
             add_or_update_persona(persona)
         first = all_pdata[0]
-        set_persona(PersonaProfile(
-            role_label=first["role_label"], relation=first["relation"],
-            appellation=first["appellation"], personality=first.get("personality",[]),
-            speech_style=first.get("speech_style",[]), comfort_style=first.get("comfort_style",[]),
-        ))
+        if not get_persona().is_complete():
+            set_persona(PersonaProfile(
+                role_label=first["role_label"], relation=first["relation"],
+                appellation=first["appellation"], personality=first.get("personality",[]),
+                speech_style=first.get("speech_style",[]), comfort_style=first.get("comfort_style",[]),
+            ))
         st.session_state.update({
             "form_role_label": first["role_label"],
             "form_relation": first["relation"],
@@ -73,6 +71,7 @@ if not st.session_state.db_loaded:
             "form_comfort_style": first.get("comfort_style", []),
         })
 
+if not get_all_memories():
     for mdata in db_load_memories():
         mem = MemoryUnit(
             id=mdata["id"],
@@ -86,6 +85,7 @@ if not st.session_state.db_loaded:
         )
         add_memory(mem)
 
+if not get_all_profiles():
     for fdata in db_load_families():
         fp = FamilyProfile(
             name=fdata["name"], relation=fdata.get("relation",""),
@@ -95,6 +95,7 @@ if not st.session_state.db_loaded:
         )
         add_profile(fp)
 
+if not get_elder().full_name:
     edata = db_load_elder()
     if edata and edata.get("full_name"):
         set_elder(ElderProfile(
@@ -106,17 +107,17 @@ if not st.session_state.db_loaded:
             important_memories=edata.get("important_memories",[]), notes=edata.get("notes",""),
         ))
 
-    # 确保表单字段有初始值
-    for key, default in [
-        ("form_role_label", "儿子小明"), ("form_relation", "子女"), ("form_appellation", "妈"),
-        ("form_personality", ["温和", "细心"]),
-        ("form_speech_style", "喜欢用叠词\n开头爱问吃了没"),
-        ("form_comfort_style", ["唠家常", "讲趣事", "一起回忆"]),
-    ]:
-        if key not in st.session_state:
-            st.session_state[key] = default
+st.session_state.db_loaded = True
 
-    st.session_state.db_loaded = True
+# 确保表单字段有初始值
+for key, default in [
+    ("form_role_label", "儿子小明"), ("form_relation", "子女"), ("form_appellation", "妈"),
+    ("form_personality", ["温和", "细心"]),
+    ("form_speech_style", "喜欢用叠词\n开头爱问吃了没"),
+    ("form_comfort_style", ["唠家常", "讲趣事", "一起回忆"]),
+]:
+    if key not in st.session_state:
+        st.session_state[key] = default
 
 
 # ===== 辅助函数 =====
@@ -632,7 +633,7 @@ with st.sidebar:
                 _role = st.text_input("角色标签", key="edit_role_label")
                 _rel = st.selectbox("与老人的关系", ["子女","配偶","孙辈","朋友","护工"], key="edit_relation")
                 _app = st.text_input("对老人的称呼", key="edit_appellation")
-                _pers = st.multiselect("性格标签", ["温和","幽默","细心","沉稳","话多","乐观","感性"], key="edit_personality")
+                _pers = st.multiselect("性格标签", ["温和","幽默","细心","沉稳","话多","乐观","感性","活泼","内向","开朗","随和","大条"], key="edit_personality")
                 _sp = st.text_area("说话风格（一行一条）", key="edit_speech_style")
                 _sp_list = [s.strip() for s in _sp.split("\n") if s.strip()]
                 _comf = st.multiselect("陪伴行为方式", ["唠家常","撒娇","讲趣事","一起回忆","逗开心","讲道理","转移话题","鼓励","附和倾听","默默陪伴"], key="edit_comfort_style")
@@ -640,8 +641,12 @@ with st.sidebar:
                 c_save, c_cancel = st.columns(2)
                 with c_save:
                     if st.button("💾 保存", key="btn_save_persona", use_container_width=True):
+                        old_label = current_persona.role_label
                         persona = PersonaProfile(role_label=_role, relation=_rel, appellation=_app, personality=_pers, speech_style=_sp_list, comfort_style=_comf)
                         set_persona(persona)
+                        if old_label and old_label != persona.role_label:
+                            remove_persona(old_label)
+                            db_delete_persona(old_label)
                         db_save_persona({"role_label":persona.role_label,"relation":persona.relation,"appellation":persona.appellation,"personality":persona.personality,"speech_style":persona.speech_style,"comfort_style":persona.comfort_style,"mood_preference":persona.mood_preference,"topic_affinity":persona.topic_affinity,"sensitivity_map":persona.sensitivity_map})
                         st.session_state.edit_persona = False
                         st.rerun()
@@ -656,7 +661,7 @@ with st.sidebar:
                 _nrole = st.text_input("角色标签", key="new_persona_role", placeholder="如：女儿小红")
                 _nrel = st.selectbox("与老人的关系", ["子女","配偶","孙辈","朋友","护工"], key="new_persona_rel")
                 _napp = st.text_input("对老人的称呼", key="new_persona_app", placeholder="如：妈")
-                _npers = st.multiselect("性格标签", ["温和","幽默","细心","沉稳","话多","乐观","感性"], key="new_persona_pers")
+                _npers = st.multiselect("性格标签", ["温和","幽默","细心","沉稳","话多","乐观","感性","活泼","内向","开朗","随和","大条"], key="new_persona_pers")
                 _nsp = st.text_area("说话风格（一行一条）", key="new_persona_speech", placeholder="喜欢用叠词")
                 _nsp_list = [s.strip() for s in _nsp.split("\n") if s.strip()]
                 _ncomf = st.multiselect("陪伴行为方式", ["唠家常","撒娇","讲趣事","一起回忆","逗开心","讲道理","转移话题","鼓励","附和倾听","默默陪伴"], key="new_persona_comf")
@@ -681,7 +686,7 @@ with st.sidebar:
             _role = st.text_input("角色标签", value="儿子小明", key="form_role_label")
             _rel = st.selectbox("与老人的关系", ["子女","配偶","孙辈","朋友","护工"], key="form_relation")
             _app = st.text_input("对老人的称呼", value="妈", key="form_appellation")
-            _pers = st.multiselect("性格标签", ["温和","幽默","细心","沉稳","话多","乐观","感性"], default=["温和","细心"], key="form_personality")
+            _pers = st.multiselect("性格标签", ["温和","幽默","细心","沉稳","话多","乐观","感性","活泼","内向","开朗","随和","大条"], default=["温和","细心"], key="form_personality")
             _sp = st.text_area("说话风格（一行一条）", value="喜欢用叠词\n开头爱问吃了没", key="form_speech_style")
             _sp_list = [s.strip() for s in _sp.split("\n") if s.strip()]
             _comf = st.multiselect("陪伴行为方式", ["唠家常","撒娇","讲趣事","一起回忆","逗开心","讲道理","转移话题","鼓励","附和倾听","默默陪伴"], default=["唠家常","讲趣事"], key="form_comfort_style")
