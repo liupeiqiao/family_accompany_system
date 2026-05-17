@@ -228,27 +228,27 @@ with st.sidebar:
                         comfort_style=persona_part.get("comfort_style", []),
                     )
                     from engine.persona import get_all_personas as gap, merge_persona, add_or_update_persona as add_p
-                    # 用 dedup 结果判断合并目标（模糊匹配）
-                    pmatch = dedup_result.get("persona_match", "")
                     def _find_persona(name: str):
                         """模糊查找：名字包含或等于 role_label"""
                         all_p = gap()
+                        if not name:
+                            return None
                         if name in all_p:
                             return all_p[name]
                         for k, v in all_p.items():
                             if name in k or k in name:
                                 return v
                         return None
-                    if dedup_result.get("persona_action") == "merge" and pmatch:
+                    # 优先通过 dedup 合并，兜底用模糊名匹配
+                    pmatch = dedup_result.get("persona_match", "")
+                    merged = False
+                    if pmatch:
                         existing = _find_persona(pmatch)
-                        if not existing:
-                            fp_match = get_profile(pmatch)
-                            if fp_match:
-                                p = merge_persona(p, {"role_label": fp_match.name, "personality": fp_match.personality})
                         if existing:
                             p = merge_persona(existing, persona_part)
-                    else:
-                        existing = _find_persona(p.role_label) or gap().get(p.role_label)
+                            merged = True
+                    if not merged:
+                        existing = _find_persona(p.role_label)
                         if existing:
                             p = merge_persona(existing, persona_part)
                     add_p(p)
