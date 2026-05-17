@@ -24,3 +24,8 @@ companion.db
 # Large binary files
 *.docx
 *.txt
+
+# Local Python packages (accidental pip install in project dir)
+Lib/
+Scripts/
+pyvenv.cfg
