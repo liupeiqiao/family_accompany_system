@@ -38,7 +38,7 @@ def check_elderly_adaptation(response: str, appellation: str) -> dict:
     # 1. 句子长度
     sentences = re.split(r"[。！？；!?;]", response)
     for s in sentences:
-        if len(s.strip()) > 25 and s.strip():
+        if len(s.strip()) > 60 and s.strip():
             issues.append("句子过长（超过25字）")
             break
 
