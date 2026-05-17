@@ -41,7 +41,7 @@ PARSER_USER = """请从以下描述中提取人物画像、家庭记忆、家人
 - personality: ["温和","爱吃"]
 - preferences: ["吃辣","打篮球"]
 - habits: ["每周回家一次"]
-- relations: [{"person":"小红","relation":"妻子"}] — 该家人与其他家人的关系
+- relations: [{{"person":"小红","relation":"妻子"}}] — 该家人与其他家人的关系
 - notes: 补充说明
 
 ## 老人画像 (elder_profile)
