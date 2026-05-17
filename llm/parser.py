@@ -1,15 +1,15 @@
-"""LLM-based smart parser: natural language → structured persona + memories."""
+"""LLM-based smart parser: natural language -> structured persona + memories."""
 
 import json
 import re
 
 from .client import chat
 
-PARSER_SYSTEM = """你是一个信息提取助手。用户会用自然语言描述一个家庭角色和相关记忆。你需要提取出结构化信息。
+PARSER_SYSTEM = """你是一个信息提取助手。用户会用自然语言描述家庭角色和相关记忆。你需要从老人的视角出发，提取结构化信息。
 
 只返回 JSON，不要任何解释或额外文字。"""
 
-PARSER_USER = """请从以下描述中提取人物画像和家庭记忆：
+PARSER_USER = """请从以下描述中提取人物画像和家庭记忆。请始终以老人的视角进行提取：
 
 "{user_text}"
 
@@ -23,7 +23,8 @@ PARSER_USER = """请从以下描述中提取人物画像和家庭记忆：
 
 ## 家庭记忆列表
 每条记忆需包含：
-- content: 记忆正文（一句话描述）
+- content: 记忆正文（一句话描述，以老人视角描述）
+- subject: 这条记忆是关于谁的（主角是谁），填入角色名如"儿子小明"。整段描述的主人公是老人且未提其他人时填"老人"
 - memory_type: 事件 | 习惯 | 偏好 | 重要日期 | 趣事
 - family_members: 涉及家人列表，如["小明(儿子)","小红(孙女)"]
 - emotion_tags: 情感标签列表，从以下选择：温馨 | 快乐 | 感动 | 搞笑 | 难忘 | 遗憾 | 伤感 | 兴奋
@@ -42,6 +43,7 @@ PARSER_USER = """请从以下描述中提取人物画像和家庭记忆：
   "memories": [
     {{
       "content": "...",
+      "subject": "...",
       "memory_type": "...",
       "family_members": [...],
       "emotion_tags": [...],

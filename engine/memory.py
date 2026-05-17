@@ -11,6 +11,7 @@ class MemoryUnit:
 
     content: str
     memory_type: str  # 事件 | 习惯 | 偏好 | 重要日期 | 趣事
+    subject: str = ""  # 这条记忆是关于谁的，如 "儿子小明"
     family_members: list[str] = field(default_factory=list)
     emotion_tags: list[str] = field(default_factory=list)
     topic_tags: list[str] = field(default_factory=list)

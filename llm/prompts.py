@@ -12,8 +12,12 @@ INTENT_EMOTION_USER = """分析以下老人话语：
 
 ## 情绪（9选1）：平静 | 开心 | 难过 | 焦虑 | 孤独 | 兴奋 | 委屈 | 怀疑 | 思念
 
+## 对话对象：老人在和谁说话？（如无明确对象填"陪伴者"）
+
+## 提及人物：老人提到了哪些家人？（从老人话语中提取名字，如["小明","小红"]，无则[]）
+
 返回严格JSON，不要```包裹：
-{{"intent": "类别", "emotion": "类别", "confidence": 0.0~1.0, "keywords": ["关键词"]}}"""
+{{"intent": "类别", "emotion": "类别", "confidence": 0.0~1.0, "keywords": ["关键词"], "talk_to": "对话对象", "mentioned": ["人物名"]}}"""
 
 
 # ===== Prompt B: 共情回复生成 =====
@@ -39,8 +43,8 @@ RESPONSE_SYSTEM = """你是一个老年人的{role_label}。你不是AI助手，
 - 每句话不超过25个字，用简单朴素的日常语言
 - 不要用成语、网络用语、外语
 
-## 可用的家庭记忆
-以下是你可以自然融入对话的共同记忆，用你自己的话自然地提起，不要说"根据记忆"或"资料显示"：
+## 可用的家庭记忆（共 {memory_count} 条，按相关度排序）
+以下是你可以自然融入对话的共同记忆。每条标注了主语（关于谁的）。用你自己的话自然地提起1-2条最合适的，不要说"根据记忆"或"资料显示"：
 
 {memory_context}
 
@@ -97,6 +101,10 @@ def build_response_system(
     strategy_desc = STRATEGY_DESCRIPTIONS.get(strategy, STRATEGY_DESCRIPTIONS["唠家常"])
 
     template = RESPONSE_SYSTEM_RETRY if retry_hint else RESPONSE_SYSTEM
+
+    # Count non-empty memory entries
+    mem_count = len([m for m in (memory_context or "").split("\n---\n") if m.strip()]) if memory_context else 0
+
     return template.format(
         role_label=role_label,
         appellation=appellation,
@@ -105,6 +113,7 @@ def build_response_system(
         comfort_style_text=comfort_style_text,
         strategy_description=strategy_desc,
         memory_context=memory_context or "暂无可用记忆，用你自己的话自然关心老人。",
+        memory_count=mem_count or "无",
         retry_hint=retry_hint or "",
         mentioned_persona_context=mentioned_persona_context,
     )

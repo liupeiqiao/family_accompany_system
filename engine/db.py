@@ -40,6 +40,7 @@ def init_db() -> None:
             id TEXT PRIMARY KEY,
             content TEXT NOT NULL,
             memory_type TEXT DEFAULT '',
+            subject TEXT DEFAULT '',
             family_members TEXT DEFAULT '[]',
             emotion_tags TEXT DEFAULT '[]',
             topic_tags TEXT DEFAULT '[]',
@@ -47,6 +48,11 @@ def init_db() -> None:
             created_at TEXT DEFAULT ''
         )
     """)
+    # Migration: add subject column if not exists
+    try:
+        conn.execute("ALTER TABLE memories ADD COLUMN subject TEXT DEFAULT ''")
+    except Exception:
+        pass
     conn.commit()
     conn.close()
 
@@ -118,12 +124,13 @@ def save_memory(memory_dict: dict) -> None:
     conn = _connect()
     conn.execute("""
         INSERT OR REPLACE INTO memories
-            (id, content, memory_type, family_members, emotion_tags, topic_tags, intimacy_weight, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            (id, content, memory_type, subject, family_members, emotion_tags, topic_tags, intimacy_weight, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         memory_dict.get("id", ""),
         memory_dict["content"],
         memory_dict.get("memory_type", ""),
+        memory_dict.get("subject", ""),
         json.dumps(memory_dict.get("family_members", []), ensure_ascii=False),
         json.dumps(memory_dict.get("emotion_tags", []), ensure_ascii=False),
         json.dumps(memory_dict.get("topic_tags", []), ensure_ascii=False),
@@ -151,6 +158,7 @@ def load_all_memories() -> list[dict]:
             "id": row["id"],
             "content": row["content"],
             "memory_type": row["memory_type"],
+            "subject": row["subject"] if "subject" in row.keys() else "",
             "family_members": json.loads(row["family_members"]),
             "emotion_tags": json.loads(row["emotion_tags"]),
             "topic_tags": json.loads(row["topic_tags"]),

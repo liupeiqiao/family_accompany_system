@@ -262,10 +262,8 @@ def score_memories(
     return results
 
 
-def get_best_memory(
-    scored: list[ScoreResult], min_score: float = 0.3
-) -> MemoryUnit | None:
-    """获取评分最高的记忆。低于 min_score 视为无合格记忆。"""
-    if not scored or scored[0].total < min_score:
-        return None
-    return scored[0].memory
+def get_top_memories(
+    scored: list[ScoreResult], n: int = 5, min_score: float = 0.3
+) -> list[MemoryUnit]:
+    """返回评分最高的 top-N 条记忆（按 total 降序）。低于 min_score 的不取。"""
+    return [sr.memory for sr in scored[:n] if sr.total >= min_score]

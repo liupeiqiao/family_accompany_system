@@ -15,7 +15,7 @@ from llm.prompts import (
 from llm.parser import parse_user_text
 from engine.memory import MemoryUnit, add_memory, remove_memory, get_all_memories, clear_memories
 from engine.persona import PersonaProfile, set_persona, get_persona, get_all_personas, remove_persona, switch_persona
-from engine.scorer import score_memories, get_best_memory, DEFAULT_WEIGHTS
+from engine.scorer import score_memories, get_top_memories, DEFAULT_WEIGHTS
 from engine.strategy import select_strategy
 from engine.adaptation import check_elderly_adaptation, safety_check, build_retry_hint
 from engine.db import init_db, save_persona as db_save_persona, load_persona as db_load_persona
@@ -74,6 +74,7 @@ if not st.session_state.db_loaded:
             id=mdata["id"],
             content=mdata["content"],
             memory_type=mdata.get("memory_type", ""),
+            subject=mdata.get("subject", ""),
             family_members=mdata.get("family_members", []),
             emotion_tags=mdata.get("emotion_tags", []),
             topic_tags=mdata.get("topic_tags", []),
@@ -115,16 +116,22 @@ def parse_llm_json(raw: str) -> dict:
     return {"intent": "日常闲聊", "emotion": "平静", "confidence": 0.5, "keywords": []}
 
 
-def build_memory_context(selected_memory: MemoryUnit | None) -> str:
-    if selected_memory is None:
+def build_memory_context(top_memories: list[MemoryUnit]) -> str:
+    if not top_memories:
         return ""
-    parts = [
-        f"事件：{selected_memory.content}",
-        f"涉及：{', '.join(selected_memory.family_members)}",
-    ]
-    if selected_memory.emotion_tags:
-        parts.append(f"当时心情：{'、'.join(selected_memory.emotion_tags)}")
-    return "\n".join(parts)
+    blocks = []
+    for i, mem in enumerate(top_memories):
+        parts = [f"记忆{i+1}：{mem.content}"]
+        subject_label = mem.subject or "老人"
+        parts.append(f"主语：{subject_label}")
+        if mem.family_members:
+            parts.append(f"涉及：{', '.join(mem.family_members)}")
+        if mem.emotion_tags:
+            parts.append(f"情感：{'、'.join(mem.emotion_tags)}")
+        if mem.topic_tags:
+            parts.append(f"话题：{'、'.join(mem.topic_tags)}")
+        blocks.append("\n".join(parts))
+    return "\n---\n".join(blocks)
 
 
 # ===== Sidebar =====
@@ -190,19 +197,17 @@ with st.sidebar:
                     mem = MemoryUnit(
                         content=md.get("content", ""),
                         memory_type=md.get("memory_type", "事件"),
+                        subject=md.get("subject", ""),
                         family_members=md.get("family_members", []),
                         emotion_tags=md.get("emotion_tags", []),
                         topic_tags=md.get("topic_tags", []),
                     )
                     add_memory(mem)
                     db_save_memory({
-                        "id": mem.id,
-                        "content": mem.content,
-                        "memory_type": mem.memory_type,
-                        "family_members": mem.family_members,
-                        "emotion_tags": mem.emotion_tags,
-                        "topic_tags": mem.topic_tags,
-                        "intimacy_weight": mem.intimacy_weight,
+                        "id": mem.id, "content": mem.content,
+                        "memory_type": mem.memory_type, "subject": mem.subject,
+                        "family_members": mem.family_members, "emotion_tags": mem.emotion_tags,
+                        "topic_tags": mem.topic_tags, "intimacy_weight": mem.intimacy_weight,
                     })
                 st.success(f"已导入！画像+{len(parsed.get('memories', []))}条记忆")
                 st.session_state.parsed = {}
@@ -466,7 +471,7 @@ with st.sidebar:
                         mem.emotion_tags = new_emo
                         mem.topic_tags = new_topic
                         mem.intimacy_weight = new_intimacy
-                        db_save_memory({"id":mem.id,"content":mem.content,"memory_type":mem.memory_type,"family_members":mem.family_members,"emotion_tags":mem.emotion_tags,"topic_tags":mem.topic_tags,"intimacy_weight":mem.intimacy_weight})
+                        db_save_memory({"id":mem.id,"content":mem.content,"memory_type":mem.memory_type,"subject":mem.subject,"family_members":mem.family_members,"emotion_tags":mem.emotion_tags,"topic_tags":mem.topic_tags,"intimacy_weight":mem.intimacy_weight})
                         st.session_state[edit_key] = False
                         st.rerun()
                 with cc:
@@ -487,7 +492,7 @@ with st.sidebar:
                 members = [m.strip() for m in new_fam.split(",") if m.strip()]
                 mem = MemoryUnit(content=new_content.strip(), memory_type=new_type, family_members=members, emotion_tags=new_emo, topic_tags=new_topic, intimacy_weight=new_intimacy)
                 add_memory(mem)
-                db_save_memory({"id":mem.id,"content":mem.content,"memory_type":mem.memory_type,"family_members":mem.family_members,"emotion_tags":mem.emotion_tags,"topic_tags":mem.topic_tags,"intimacy_weight":mem.intimacy_weight})
+                db_save_memory({"id":mem.id,"content":mem.content,"memory_type":mem.memory_type,"subject":mem.subject,"family_members":mem.family_members,"emotion_tags":mem.emotion_tags,"topic_tags":mem.topic_tags,"intimacy_weight":mem.intimacy_weight})
                 for k in ["new_mem_content","new_mem_type","new_mem_family","new_mem_emo","new_mem_topic","new_mem_intimacy"]:
                     st.session_state.pop(k, None)
                 st.rerun()
@@ -508,39 +513,60 @@ with st.sidebar:
 
 def run_pipeline(user_input: str) -> str:
     persona = get_persona()
-    memories = get_all_memories()
+    all_memories = get_all_memories()
 
+    # Step 1: LLM 识别意图+情绪+对话对象+提及人物
     try:
         raw = chat(INTENT_EMOTION_SYSTEM, INTENT_EMOTION_USER.format(user_input=user_input), temperature=0.3)
         result = parse_llm_json(raw)
     except Exception:
-        result = {"intent": "日常闲聊", "emotion": "平静", "confidence": 0.0, "keywords": []}
+        result = {"intent": "日常闲聊", "emotion": "平静", "confidence": 0.0, "keywords": [], "talk_to": "陪伴者", "mentioned": []}
 
     intent = result.get("intent", "日常闲聊")
     emotion = result.get("emotion", "平静")
+    mentioned_names = result.get("mentioned", [])
 
-    selected_memory = None
+    # Step 2: 根据提及人物 + 对话对象检索相关记忆
+    relevant_memories = []
+    for mem in all_memories:
+        # 记忆被提及人物匹配，或记忆主语是当前角色
+        if mem.subject in mentioned_names or mem.subject == persona.role_label:
+            relevant_memories.append(mem)
+    # 如果没匹配到特定记忆，用全部记忆
+    if not relevant_memories:
+        relevant_memories = list(all_memories)
+
+    # Step 3: 评分 → 过滤(S/M) → 排序(R+C) → top-5
+    top_memories = []
     scored_list = []
-    if memories:
-        scored_list = score_memories(memories, user_input, intent, emotion, persona, weights)
-        selected_memory = get_best_memory(scored_list)
+    if relevant_memories:
+        scored_list = score_memories(relevant_memories, user_input, intent, emotion, persona, weights)
+        top_memories = get_top_memories(scored_list, n=5)
 
+    # Step 4: 策略选择
     strategy = select_strategy(intent, emotion, persona)
-    memory_context = build_memory_context(selected_memory)
 
-    # 检测是否提及其他已存储角色
+    # Step 5: 构建提及人物画像上下文
     mentioned_context = ""
     all_personas = get_all_personas()
-    for name, other_p in all_personas.items():
-        if name != persona.role_label and name in user_input:
+    for name in mentioned_names:
+        other_p = all_personas.get(name)
+        if other_p and name != persona.role_label:
             parts = [f"{name}是{other_p.relation}"]
             if other_p.personality:
                 parts.append(f"性格{'、'.join(other_p.personality)}")
             if other_p.speech_style:
                 parts.append(f"说话风格{'；'.join(other_p.speech_style)}")
-            mentioned_context = "\n## 老人提到的人\n老人提到了" + name + "。" + "，".join(parts) + "。你可以用你对" + name + "的了解来自然地聊到ta。\n"
-            break
+            mentioned_context += "\n## 老人提到的人\n老人提到了" + name + "。" + "，".join(parts) + "。你可以用你对" + name + "的了解来自然地聊到ta。\n"
 
+    # 如果老人在和某个已存储角色说话，注入该角色画像
+    talk_to = result.get("talk_to", "")
+    if talk_to and talk_to in all_personas and talk_to != persona.role_label:
+        tp = all_personas[talk_to]
+        mentioned_context += f"\n## 对话对象\n老人正在和{talk_to}说话。{talk_to}是{tp.relation}，性格{'、'.join(tp.personality) if tp.personality else '随和'}。\n"
+
+    # Step 6: LLM 生成回复
+    memory_context = build_memory_context(top_memories)
     system_prompt = build_response_system(
         role_label=persona.role_label or "家人",
         appellation=persona.appellation or "您",
@@ -581,18 +607,24 @@ def run_pipeline(user_input: str) -> str:
                 mentioned_persona_context=mentioned_context,
             )
 
-    if selected_memory:
-        selected_memory.access_count += 1
-        selected_memory.last_accessed = datetime.now()
+    # 更新记忆访问记录
+    for mem in top_memories[:3]:
+        mem.access_count += 1
+        mem.last_accessed = datetime.now()
 
     st.session_state.debug = {
         "intent": intent,
         "emotion": emotion,
+        "talk_to": talk_to,
+        "mentioned": mentioned_names,
         "strategy": strategy,
-        "selected_memory": selected_memory.content[:80] + "..." if selected_memory else "无",
-        "memory_id": selected_memory.id if selected_memory else "N/A",
+        "top_memories": [
+            {"subject": m.subject or "老人", "content": m.content[:40]}
+            for m in top_memories
+        ],
         "scores": [
-            {"id": sr.memory.id, "content": sr.memory.content[:40],
+            {"id": sr.memory.id, "subject": sr.memory.subject or "-",
+             "content": sr.memory.content[:30],
              "R": round(sr.score_r, 3), "E": round(sr.score_e, 3),
              "C": round(sr.score_c, 3), "S": round(sr.score_s, 3),
              "M": round(sr.penalty_m, 3), "total": round(sr.total, 3)}
@@ -627,19 +659,22 @@ if user_input := st.chat_input("在这里输入老人的话..."):
 with st.expander("🔍 调试面板", expanded=False):
     debug = st.session_state.debug
     if debug:
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            st.metric("意图", debug.get("intent", "N/A"))
-        with col2:
-            st.metric("情绪", debug.get("emotion", "N/A"))
-        with col3:
-            st.metric("策略", debug.get("strategy", "N/A"))
-        with col4:
-            st.metric("置信度", debug.get("confidence", 0))
-        st.write(f"**选中记忆**: {debug.get('selected_memory', 'N/A')}")
+        col1, col2, col3, col4, col5 = st.columns(5)
+        with col1: st.metric("意图", debug.get("intent", "N/A"))
+        with col2: st.metric("情绪", debug.get("emotion", "N/A"))
+        with col3: st.metric("对话对象", debug.get("talk_to", "N/A"))
+        with col4: st.metric("策略", debug.get("strategy", "N/A"))
+        with col5: st.metric("置信度", debug.get("confidence", 0))
+        mentioned = debug.get("mentioned", [])
+        if mentioned:
+            st.write(f"**提及人物**: {', '.join(mentioned)}")
+        top = debug.get("top_memories", [])
+        if top:
+            st.write("**Top 记忆**:")
+            st.dataframe(top, use_container_width=True)
         scores = debug.get("scores", [])
         if scores:
-            st.write("**评分详情 (Top 5):**")
+            st.write("**评分详情**:")
             st.dataframe(scores, use_container_width=True)
     else:
         st.caption("发送一条消息后查看调试信息")
