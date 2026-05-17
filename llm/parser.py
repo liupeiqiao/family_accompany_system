@@ -7,36 +7,34 @@ from .client import chat
 
 PARSER_SYSTEM = """你是一个信息提取助手。从用户描述中提取结构化信息。只返回JSON，不要任何解释。"""
 
-PARSER_USER_FAMILY = """从以下「家人回忆」视角的描述中提取信息：
+PARSER_USER_FAMILY = """从以下「家人回忆」视角的描述中提取信息。
 
+**重要：所有关系 (relation) 都是相对于老人的，不是相对于其他家人的。**
+例如"我是张怀粉的丈夫"→张怀粉是儿媳，所以我是儿子→relation应填"子女"，不是"配偶"。
+
+{existing_families_context}
+## 用户描述
 "{user_text}"
 
 ## AI 扮演角色画像 (persona)
-提取描述者在与老人对话时，AI 应模仿的角色：
 - role_label: 角色称呼，如"儿子小明"
-- relation: 与老人的关系（单选）：子女 | 儿媳 | 女婿 | 配偶 | 孙辈 | 朋友 | 护工
-- appellation: 角色对老人的称呼（单个，如"妈"或"爸"，不要写"爸妈"）
-- personality: 性格标签，从以下选：温和 | 幽默 | 细心 | 沉稳 | 话多 | 乐观 | 感性 | 活泼 | 内向 | 开朗 | 随和 | 大条
-- speech_style: 说话风格列表，如["喜欢用叠词","开头爱问吃了没"]
-- comfort_style: 陪伴方式，从以下选：唠家常 | 撒娇 | 讲趣事 | 一起回忆 | 逗开心 | 讲道理 | 转移话题 | 鼓励 | 附和倾听 | 默默陪伴
+- relation: 该角色与老人（不是其他人）的关系：子女 | 儿媳 | 女婿 | 配偶 | 孙辈 | 朋友 | 护工
+- appellation: 角色对老人的称呼（单个，如"妈"或"爸"）
+- personality: 从以下选：温和 | 幽默 | 细心 | 沉稳 | 话多 | 乐观 | 感性 | 活泼 | 内向 | 开朗 | 随和 | 大条
+- speech_style: 说话风格列表
+- comfort_style: 唠家常 | 撒娇 | 讲趣事 | 一起回忆 | 逗开心 | 讲道理 | 转移话题 | 鼓励 | 附和倾听 | 默默陪伴
 
 ## 家庭记忆 (memories)
 每条记忆：
 - content: 记忆正文
-- subject: 记忆主语（主角名字，如"儿子小明"）
+- subject: 记忆主语
 - memory_type: 事件 | 习惯 | 偏好 | 重要日期 | 趣事
-- family_members: ["小明(儿子)","小红(孙女)"]
+- family_members: ["小明(儿子)"]
 - emotion_tags: 温馨 | 快乐 | 感动 | 搞笑 | 难忘 | 遗憾 | 伤感 | 兴奋
 - topic_tags: 饮食 | 旅行 | 节日 | 成长 | 健康 | 宠物 | 工作 | 日常
 
 ## 家人档案 (family_profiles)
-- name: 如"小明"
-- relation: 与老人关系：子女 | 儿媳 | 女婿 | 配偶 | 孙辈 | 朋友 | 护工
-- personality: 同上性格标签
-- preferences: ["吃辣","打篮球"]
-- habits: ["每周回家"]
-- relations: [{{"person":"小红","relation":"妻子"}}]
-- notes: 补充
+- name, relation(与老人关系), personality, preferences, habits, relations, notes
 
 ## 输出JSON
 {{
@@ -53,7 +51,7 @@ PARSER_USER_ELDER = """从以下「老人回忆」视角的描述中提取信息
 
 ## 老人画像 (elder_profile)
 - name: 老人称呼，如"妈""奶奶"
-- personality: 性格标签：温和 | 幽默 | 细心 | 沉稳 | 话多 | 乐观 | 感性 | 活泼 | 内向 | 开朗 | 随和 | 大条
+- personality: 温和 | 幽默 | 细心 | 沉稳 | 话多 | 乐观 | 感性 | 活泼 | 内向 | 开朗 | 随和 | 大条
 - preferences: ["听戏曲","养花"]
 - habits: ["早起","饭后散步"]
 - health_notes: ["高血压","忌油腻"]
@@ -64,12 +62,7 @@ PARSER_USER_ELDER = """从以下「老人回忆」视角的描述中提取信息
 
 ## 家庭记忆 (memories)
 每条记忆（老人在回忆中提到的事件、习惯、偏好等）：
-- content: 记忆正文
-- subject: "老人"（因为是老人的记忆）
-- memory_type: 事件 | 习惯 | 偏好 | 重要日期 | 趣事
-- family_members: ["儿子小明(儿子)","孙女小红(孙女)"]
-- emotion_tags: 温馨 | 快乐 | 感动 | 搞笑 | 难忘 | 遗憾 | 伤感 | 兴奋
-- topic_tags: 饮食 | 旅行 | 节日 | 成长 | 健康 | 宠物 | 工作 | 日常
+- content, subject:"老人", memory_type, family_members, emotion_tags, topic_tags
 
 ## 输出JSON
 {{
@@ -80,11 +73,18 @@ PARSER_USER_ELDER = """从以下「老人回忆」视角的描述中提取信息
 无内容返回空对象/空数组。"""
 
 
-def parse_user_text(user_text: str, perspective: str = "family") -> dict:
-    """解析描述，perspective: 'family'（家人回忆）或 'elder'（老人回忆）"""
-    template = PARSER_USER_ELDER if perspective == "elder" else PARSER_USER_FAMILY
+def parse_user_text(user_text: str, perspective: str = "family",
+                    existing_families_text: str = "") -> dict:
+    """解析描述，perspective: 'family' 或 'elder'"""
+    if perspective == "elder":
+        template = PARSER_USER_ELDER
+        formatted = template.format(user_text=user_text)
+    else:
+        template = PARSER_USER_FAMILY
+        formatted = template.format(user_text=user_text,
+                                     existing_families_context=existing_families_text)
     try:
-        raw = chat(PARSER_SYSTEM, template.format(user_text=user_text), temperature=0.3)
+        raw = chat(PARSER_SYSTEM, formatted, temperature=0.3)
     except Exception:
         return _empty_result()
 
@@ -148,7 +148,6 @@ DEDUP_USER = """已有的人物：
 - 同一个人但名字不同（如"丈夫"="小明"）→ merge_into，target填已有名字
 - 全新人物 → new
 - 完全相同无需改 → skip
-- persona 如果已有角色名匹配 → merge；无匹配 → new；完全相同 → skip
 - 如果有合并 (merge/merge_into)，要保留旧名字的已有信息，用新信息补充空白字段"""
 
 
@@ -158,7 +157,6 @@ def dedup_check(
     existing_families: list[dict],
 ) -> dict:
     """去重检查，返回 {persona_action, persona_match, family_actions}"""
-    # 格式化已有数据
     ep_text = "\n".join(
         f"- {p.get('role_label','')} (关系:{p.get('relation','')}, 称呼:{p.get('appellation','')})"
         for p in existing_personas
@@ -183,8 +181,6 @@ def dedup_check(
         result.setdefault("persona_match", "")
         return result
     except Exception:
-        # Fallback: all new
         actions = [{"new_name": f.get("name",""), "action": "new"}
                    for f in new_parsed.get("family_profiles", [])]
         return {"persona_action": "new", "persona_match": "", "family_actions": actions}
-

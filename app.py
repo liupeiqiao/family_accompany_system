@@ -178,7 +178,16 @@ with st.sidebar:
             if smart_text.strip():
                 with st.spinner("AI 解析中..."):
                     persp = "elder" if "老人" in perspective else "family"
-                    parsed = parse_user_text(smart_text.strip(), perspective=persp)
+                    # 构建已有家人上下文
+                    ef_context = ""
+                    if persp == "family":
+                        existing_families = get_all_profiles()
+                        if existing_families:
+                            ef_lines = ["## 已知的家人（作为关系推断参考）"]
+                            for fp in existing_families.values():
+                                ef_lines.append(f"- {fp.name}：与老人的关系是{fp.relation}")
+                            ef_context = "\n".join(ef_lines) + "\n"
+                    parsed = parse_user_text(smart_text.strip(), perspective=persp, existing_families_text=ef_context)
                     # 去重检查
                     existing_p = [{"role_label": pp.role_label, "relation": pp.relation, "appellation": pp.appellation}
                                   for pp in get_all_personas().values() if pp.is_complete()]
