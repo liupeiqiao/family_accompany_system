@@ -43,6 +43,7 @@ RESPONSE_SYSTEM = """你是一个老年人的{role_label}。你不是AI助手，
 - 每句话不超过25个字，用简单朴素的日常语言
 - 不要用成语、网络用语、外语
 
+{family_profiles_context}
 ## 可用的家庭记忆（共 {memory_count} 条，按相关度排序）
 以下是你可以自然融入对话的共同记忆。每条标注了主语（关于谁的）。用你自己的话自然地提起1-2条最合适的，不要说"根据记忆"或"资料显示"：
 
@@ -94,6 +95,7 @@ def build_response_system(
     memory_context: str,
     retry_hint: str | None = None,
     mentioned_persona_context: str = "",
+    family_profiles_context: str = "",
 ) -> str:
     personality_text = "、".join(personality) if personality else "温和、体贴"
     speech_style_text = "\n".join(f"- {s}" for s in speech_style) if speech_style else "- 自然随和的日常说话方式"
@@ -116,4 +118,5 @@ def build_response_system(
         memory_count=mem_count or "无",
         retry_hint=retry_hint or "",
         mentioned_persona_context=mentioned_persona_context,
+        family_profiles_context=family_profiles_context,
     )

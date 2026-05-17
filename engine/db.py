@@ -48,6 +48,16 @@ def init_db() -> None:
             created_at TEXT DEFAULT ''
         )
     """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS family_profiles (
+            name TEXT PRIMARY KEY,
+            relation TEXT DEFAULT '',
+            personality TEXT DEFAULT '[]',
+            preferences TEXT DEFAULT '[]',
+            habits TEXT DEFAULT '[]',
+            notes TEXT DEFAULT ''
+        )
+    """)
     # Migration: add subject column if not exists
     try:
         conn.execute("ALTER TABLE memories ADD COLUMN subject TEXT DEFAULT ''")
@@ -163,5 +173,48 @@ def load_all_memories() -> list[dict]:
             "emotion_tags": json.loads(row["emotion_tags"]),
             "topic_tags": json.loads(row["topic_tags"]),
             "intimacy_weight": row["intimacy_weight"],
+        })
+    return result
+
+
+# ===== Family Profiles =====
+
+def save_family_profile(profile_dict: dict) -> None:
+    conn = _connect()
+    conn.execute("""
+        INSERT OR REPLACE INTO family_profiles (name, relation, personality, preferences, habits, notes)
+        VALUES (?, ?, ?, ?, ?, ?)
+    """, (
+        profile_dict.get("name", ""),
+        profile_dict.get("relation", ""),
+        json.dumps(profile_dict.get("personality", []), ensure_ascii=False),
+        json.dumps(profile_dict.get("preferences", []), ensure_ascii=False),
+        json.dumps(profile_dict.get("habits", []), ensure_ascii=False),
+        profile_dict.get("notes", ""),
+    ))
+    conn.commit()
+    conn.close()
+
+
+def delete_family_profile(name: str) -> None:
+    conn = _connect()
+    conn.execute("DELETE FROM family_profiles WHERE name = ?", (name,))
+    conn.commit()
+    conn.close()
+
+
+def load_all_family_profiles() -> list[dict]:
+    conn = _connect()
+    rows = conn.execute("SELECT * FROM family_profiles ORDER BY name").fetchall()
+    conn.close()
+    result = []
+    for row in rows:
+        result.append({
+            "name": row["name"],
+            "relation": row["relation"],
+            "personality": json.loads(row["personality"]),
+            "preferences": json.loads(row["preferences"]),
+            "habits": json.loads(row["habits"]),
+            "notes": row["notes"],
         })
     return result

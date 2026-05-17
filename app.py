@@ -15,12 +15,14 @@ from llm.prompts import (
 from llm.parser import parse_user_text
 from engine.memory import MemoryUnit, add_memory, remove_memory, get_all_memories, clear_memories
 from engine.persona import PersonaProfile, set_persona, get_persona, get_all_personas, remove_persona, switch_persona
+from engine.family import FamilyProfile, add_profile, remove_profile, get_all_profiles, clear_profiles, get_profile
 from engine.scorer import score_memories, get_top_memories, DEFAULT_WEIGHTS
 from engine.strategy import select_strategy
 from engine.adaptation import check_elderly_adaptation, safety_check, build_retry_hint
 from engine.db import init_db, save_persona as db_save_persona, load_persona as db_load_persona
 from engine.db import load_all_personas as db_load_all_personas, delete_persona as db_delete_persona
 from engine.db import save_memory as db_save_memory, delete_memory as db_delete_memory, load_all_memories as db_load_memories
+from engine.db import save_family_profile as db_save_family, delete_family_profile as db_delete_family, load_all_family_profiles as db_load_families
 
 st.set_page_config(page_title="亲情陪伴系统", page_icon="❤️", layout="wide")
 st.title("❤️ 亲情陪伴系统")
@@ -81,6 +83,14 @@ if not st.session_state.db_loaded:
             intimacy_weight=mdata.get("intimacy_weight", 0.5),
         )
         add_memory(mem)
+
+    for fdata in db_load_families():
+        fp = FamilyProfile(
+            name=fdata["name"], relation=fdata.get("relation",""),
+            personality=fdata.get("personality",[]), preferences=fdata.get("preferences",[]),
+            habits=fdata.get("habits",[]), notes=fdata.get("notes",""),
+        )
+        add_profile(fp)
 
     # 确保表单字段有初始值
     for key, default in [
@@ -209,7 +219,18 @@ with st.sidebar:
                         "family_members": mem.family_members, "emotion_tags": mem.emotion_tags,
                         "topic_tags": mem.topic_tags, "intimacy_weight": mem.intimacy_weight,
                     })
-                st.success(f"已导入！画像+{len(parsed.get('memories', []))}条记忆")
+                # 导入家人偏好档案
+                for fd in parsed.get("family_profiles", []):
+                    if fd.get("name"):
+                        fp = FamilyProfile(
+                            name=fd["name"], relation=fd.get("relation",""),
+                            personality=fd.get("personality",[]), preferences=fd.get("preferences",[]),
+                            habits=fd.get("habits",[]), notes=fd.get("notes",""),
+                        )
+                        add_profile(fp)
+                        db_save_family({"name":fp.name,"relation":fp.relation,"personality":fp.personality,"preferences":fp.preferences,"habits":fp.habits,"notes":fp.notes})
+
+                st.success(f"已导入！画像+{len(parsed.get('memories', []))}条记忆+{len(parsed.get('family_profiles', []))}人档案")
                 st.session_state.parsed = {}
                 st.rerun()
             else:
@@ -419,6 +440,86 @@ with st.sidebar:
 
     st.divider()
 
+    # ===== 家人偏好档案 =====
+    st.header("👥 家人档案")
+
+    family_profiles = get_all_profiles()
+    st.caption(f"共 {len(family_profiles)} 人")
+
+    for fname, fp in list(family_profiles.items()):
+        edit_fp_key = f"edit_fp_{fname}"
+        if not st.session_state.get(edit_fp_key, False):
+            with st.container(border=True):
+                st.caption(f"**{fp.name}** · {fp.relation}")
+                if fp.personality:
+                    st.caption(f"性格：{'、'.join(fp.personality)}")
+                if fp.preferences:
+                    st.caption(f"喜好：{'、'.join(fp.preferences)}")
+                if fp.habits:
+                    st.caption(f"习惯：{'、'.join(fp.habits)}")
+                if fp.notes:
+                    st.caption(fp.notes)
+                c1, c2 = st.columns(2)
+                with c1:
+                    if st.button("✏️", key=f"btn_edit_fp_{fname}", help="编辑"):
+                        st.session_state[edit_fp_key] = True
+                        st.rerun()
+                with c2:
+                    if st.button("🗑️", key=f"btn_del_fp_{fname}", help="删除"):
+                        remove_profile(fname)
+                        db_delete_family(fname)
+                        st.rerun()
+        else:
+            with st.expander(f"✏️ {fp.name}", expanded=True):
+                new_name = st.text_input("姓名", value=fp.name, key=f"edit_fp_name_{fname}")
+                new_rel = st.text_input("关系", value=fp.relation, key=f"edit_fp_rel_{fname}")
+                new_pers = st.text_input("性格（逗号分隔）", value="、".join(fp.personality), key=f"edit_fp_pers_{fname}")
+                new_prefs = st.text_input("喜好（逗号分隔）", value="、".join(fp.preferences), key=f"edit_fp_prefs_{fname}")
+                new_habits = st.text_input("习惯（逗号分隔）", value="、".join(fp.habits), key=f"edit_fp_hab_{fname}")
+                new_notes = st.text_input("备注", value=fp.notes, key=f"edit_fp_notes_{fname}")
+                cs, cc = st.columns(2)
+                with cs:
+                    if st.button("💾 保存", key=f"btn_save_fp_{fname}", use_container_width=True):
+                        fp.name = new_name.strip()
+                        fp.relation = new_rel.strip()
+                        fp.personality = [x.strip() for x in new_pers.split("、") if x.strip()]
+                        fp.preferences = [x.strip() for x in new_prefs.split("、") if x.strip()]
+                        fp.habits = [x.strip() for x in new_habits.split("、") if x.strip()]
+                        fp.notes = new_notes.strip()
+                        add_profile(fp)
+                        db_save_family({"name":fp.name,"relation":fp.relation,"personality":fp.personality,"preferences":fp.preferences,"habits":fp.habits,"notes":fp.notes})
+                        if fp.name != fname: remove_profile(fname); db_delete_family(fname)
+                        st.session_state[edit_fp_key] = False
+                        st.rerun()
+                with cc:
+                    if st.button("取消", key=f"btn_cancel_fp_{fname}", use_container_width=True):
+                        st.session_state[edit_fp_key] = False
+                        st.rerun()
+
+    with st.expander("➕ 新增家人", expanded=len(family_profiles)==0):
+        nf_name = st.text_input("姓名", key="new_fp_name", placeholder="如：小明")
+        nf_rel = st.text_input("关系", key="new_fp_rel", placeholder="如：儿子")
+        nf_pers = st.text_input("性格（逗号分隔）", key="new_fp_pers")
+        nf_prefs = st.text_input("喜好（逗号分隔）", key="new_fp_prefs")
+        nf_habits = st.text_input("习惯（逗号分隔）", key="new_fp_hab")
+        nf_notes = st.text_input("备注", key="new_fp_notes")
+        if st.button("➕ 添加家人", key="btn_add_fp"):
+            if nf_name.strip():
+                fp = FamilyProfile(
+                    name=nf_name.strip(), relation=nf_rel.strip(),
+                    personality=[x.strip() for x in nf_pers.split("、") if x.strip()],
+                    preferences=[x.strip() for x in nf_prefs.split("、") if x.strip()],
+                    habits=[x.strip() for x in nf_habits.split("、") if x.strip()],
+                    notes=nf_notes.strip(),
+                )
+                add_profile(fp)
+                db_save_family({"name":fp.name,"relation":fp.relation,"personality":fp.personality,"preferences":fp.preferences,"habits":fp.habits,"notes":fp.notes})
+                for k in ["new_fp_name","new_fp_rel","new_fp_pers","new_fp_prefs","new_fp_hab","new_fp_notes"]:
+                    st.session_state.pop(k, None)
+                st.rerun()
+
+    st.divider()
+
     # ===== 家庭记忆管理 =====
     st.header("📝 家庭记忆")
 
@@ -565,7 +666,21 @@ def run_pipeline(user_input: str) -> str:
         tp = all_personas[talk_to]
         mentioned_context += f"\n## 对话对象\n老人正在和{talk_to}说话。{talk_to}是{tp.relation}，性格{'、'.join(tp.personality) if tp.personality else '随和'}。\n"
 
-    # Step 6: LLM 生成回复
+    # Step 6: 构建家人偏好上下文
+    family_context = ""
+    all_families = get_all_profiles()
+    for name in mentioned_names:
+        fp = all_families.get(name)
+        if fp:
+            parts = [f"{fp.name}是老人的{fp.relation}"]
+            if fp.personality: parts.append(f"性格{'、'.join(fp.personality)}")
+            if fp.preferences: parts.append(f"喜好{'、'.join(fp.preferences)}")
+            if fp.habits: parts.append(f"习惯{'、'.join(fp.habits)}")
+            family_context += f"- {fp.name}（{'，'.join(parts)}）\n"
+    if family_context:
+        family_context = "## 家人偏好档案\n" + family_context + "\n"
+
+    # Step 7: LLM 生成回复
     memory_context = build_memory_context(top_memories)
     system_prompt = build_response_system(
         role_label=persona.role_label or "家人",
@@ -576,6 +691,7 @@ def run_pipeline(user_input: str) -> str:
         strategy=strategy,
         memory_context=memory_context,
         mentioned_persona_context=mentioned_context,
+        family_profiles_context=family_context,
     )
 
     max_retries = 2
@@ -605,6 +721,7 @@ def run_pipeline(user_input: str) -> str:
                 memory_context=memory_context,
                 retry_hint=hint,
                 mentioned_persona_context=mentioned_context,
+                family_profiles_context=family_context,
             )
 
     # 更新记忆访问记录
