@@ -115,3 +115,76 @@ def parse_user_text(user_text: str, perspective: str = "family") -> dict:
 
 def _empty_result() -> dict:
     return {"persona": {}, "memories": [], "family_profiles": [], "elder_profile": {}}
+
+
+DEDUP_SYSTEM = """你是人物去重助手。判断新解析结果中的人物是否与已有数据中的人物相同。只返回JSON。"""
+
+DEDUP_USER = """已有的人物：
+## AI 扮演角色 (personas)
+{existing_personas}
+
+## 家人档案 (family_profiles)
+{existing_families}
+
+新解析结果：
+## 新角色
+{new_persona}
+
+## 新家人
+{new_families}
+
+判断每个新人物的去重动作。返回严格JSON：
+{{
+  "persona_action": "merge" | "new" | "skip",
+  "persona_match": "匹配到的已有角色名（merge时填）",
+  "family_actions": [
+    {{"new_name":"...", "action":"merge_into", "target":"已有名字"}},
+    {{"new_name":"...", "action":"new"}},
+    {{"new_name":"...", "action":"skip"}}
+  ]
+}}
+
+规则：
+- 同一个人但名字不同（如"丈夫"="小明"）→ merge_into，target填已有名字
+- 全新人物 → new
+- 完全相同无需改 → skip
+- persona 如果已有角色名匹配 → merge；无匹配 → new；完全相同 → skip
+- 如果有合并 (merge/merge_into)，要保留旧名字的已有信息，用新信息补充空白字段"""
+
+
+def dedup_check(
+    new_parsed: dict,
+    existing_personas: list[dict],
+    existing_families: list[dict],
+) -> dict:
+    """去重检查，返回 {persona_action, persona_match, family_actions}"""
+    # 格式化已有数据
+    ep_text = "\n".join(
+        f"- {p.get('role_label','')} (关系:{p.get('relation','')}, 称呼:{p.get('appellation','')})"
+        for p in existing_personas
+    ) if existing_personas else "（无）"
+
+    ef_text = "\n".join(
+        f"- {f.get('name','')} (关系:{f.get('relation','')}, 性格:{'、'.join(f.get('personality',[]))})"
+        for f in existing_families
+    ) if existing_families else "（无）"
+
+    np_text = json.dumps(new_parsed.get("persona", {}), ensure_ascii=False)
+    nf_text = json.dumps(new_parsed.get("family_profiles", []), ensure_ascii=False)
+
+    try:
+        raw = chat(DEDUP_SYSTEM, DEDUP_USER.format(
+            existing_personas=ep_text, existing_families=ef_text,
+            new_persona=np_text, new_families=nf_text,
+        ), temperature=0.2)
+        result = json.loads(raw)
+        result.setdefault("family_actions", [])
+        result.setdefault("persona_action", "new")
+        result.setdefault("persona_match", "")
+        return result
+    except Exception:
+        # Fallback: all new
+        actions = [{"new_name": f.get("name",""), "action": "new"}
+                   for f in new_parsed.get("family_profiles", [])]
+        return {"persona_action": "new", "persona_match": "", "family_actions": actions}
+

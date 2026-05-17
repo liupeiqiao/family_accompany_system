@@ -12,7 +12,7 @@ from llm.prompts import (
     RESPONSE_USER,
     build_response_system,
 )
-from llm.parser import parse_user_text
+from llm.parser import parse_user_text, dedup_check
 from engine.memory import MemoryUnit, add_memory, remove_memory, get_all_memories, clear_memories
 from engine.persona import PersonaProfile, set_persona, get_persona, get_all_personas, remove_persona, switch_persona
 from engine.family import FamilyProfile, add_profile, remove_profile, get_all_profiles, clear_profiles, get_profile
@@ -179,16 +179,26 @@ with st.sidebar:
                 with st.spinner("AI 解析中..."):
                     persp = "elder" if "老人" in perspective else "family"
                     parsed = parse_user_text(smart_text.strip(), perspective=persp)
+                    # 去重检查
+                    existing_p = [{"role_label": pp.role_label, "relation": pp.relation, "appellation": pp.appellation}
+                                  for pp in get_all_personas().values() if pp.is_complete()]
+                    existing_f = [{"name": fp.name, "relation": fp.relation, "personality": fp.personality,
+                                   "preferences": fp.preferences, "habits": fp.habits}
+                                  for fp in get_all_profiles().values()]
+                    dedup = dedup_check(parsed, existing_p, existing_f) if (existing_p or existing_f) else {}
                     st.session_state.parsed = parsed
+                    st.session_state.dedup = dedup
                     p_count = 1 if parsed.get("persona",{}).get("role_label") else 0
                     m_count = len(parsed.get("memories", []))
                     e_count = 1 if parsed.get("elder_profile",{}).get("name") else 0
                     f_count = len(parsed.get("family_profiles", []))
+                    d_count = sum(1 for a in dedup.get("family_actions",[]) if a.get("action")=="merge_into")
                     parts = []
                     if p_count: parts.append("画像1份")
                     if m_count: parts.append(f"记忆{m_count}条")
                     if e_count: parts.append("老人画像")
                     if f_count: parts.append(f"家人{f_count}人")
+                    if d_count: parts.append(f"🔀合并{d_count}人")
                     st.success(f"解析完成：{' + '.join(parts) if parts else '无有效数据'}")
             else:
                 st.warning("请先输入描述文字")
@@ -197,6 +207,7 @@ with st.sidebar:
         if st.button("📥 一键导入", use_container_width=True):
             parsed = st.session_state.get("parsed", {})
             if parsed:
+                dedup_result = st.session_state.get("dedup", {})
                 persona_part = parsed.get("persona", {})
                 if persona_part.get("role_label"):
                     p = PersonaProfile(
@@ -208,11 +219,17 @@ with st.sidebar:
                         comfort_style=persona_part.get("comfort_style", []),
                     )
                     from engine.persona import get_all_personas as gap, merge_persona, add_or_update_persona as add_p
-                    existing = gap().get(p.role_label)
-                    if existing:
-                        p = merge_persona(existing, persona_part)
+                    # 用 dedup 结果判断合并目标
+                    pmatch = dedup_result.get("persona_match", "")
+                    if dedup_result.get("persona_action") == "merge" and pmatch:
+                        existing = gap().get(pmatch)
+                        if existing:
+                            p = merge_persona(existing, persona_part)
+                    else:
+                        existing = gap().get(p.role_label)
+                        if existing:
+                            p = merge_persona(existing, persona_part)
                     add_p(p)
-                    # 如果没有当前画像，自动切换到刚导入的角色
                     if not get_persona().is_complete():
                         set_persona(p)
                     db_save_persona({
@@ -254,14 +271,38 @@ with st.sidebar:
                     set_elder(ep)
                     db_save_elder({"name":ep.name,"personality":ep.personality,"preferences":ep.preferences,"habits":ep.habits,"health_notes":ep.health_notes,"speech_traits":ep.speech_traits,"life_experiences":ep.life_experiences,"important_memories":ep.important_memories,"notes":ep.notes})
 
-                # 导入家人偏好档案
+                # 导入家人偏好档案（处理去重合并）
+                family_actions = {a["new_name"]: a for a in dedup_result.get("family_actions", [])}
                 for fd in parsed.get("family_profiles", []):
-                    if fd.get("name"):
-                        fp = FamilyProfile(
-                            name=fd["name"], relation=fd.get("relation",""),
+                    fname = fd.get("name", "")
+                    if not fname:
+                        continue
+                    fa = family_actions.get(fname, {})
+                    if fa.get("action") == "skip":
+                        continue
+                    elif fa.get("action") == "merge_into":
+                        target = fa.get("target", "")
+                        existing_fp = get_profile(target) if target else None
+                        if existing_fp:
+                            existing_fp.relation = fd.get("relation") or existing_fp.relation
+                            existing_fp.personality = list(dict.fromkeys(existing_fp.personality + fd.get("personality", [])))
+                            existing_fp.preferences = list(dict.fromkeys(existing_fp.preferences + fd.get("preferences", [])))
+                            existing_fp.habits = list(dict.fromkeys(existing_fp.habits + fd.get("habits", [])))
+                            existing_fp.relations = fd.get("relations") or existing_fp.relations
+                            existing_fp.notes = fd.get("notes") or existing_fp.notes
+                            add_profile(existing_fp)
+                            db_save_family({"name":existing_fp.name,"relation":existing_fp.relation,"personality":existing_fp.personality,"preferences":existing_fp.preferences,"habits":existing_fp.habits,"relations":existing_fp.relations,"notes":existing_fp.notes})
+                        else:
+                            # target 不存在，当新档案添加
+                            fp = FamilyProfile(name=fname, relation=fd.get("relation",""),
+                                personality=fd.get("personality",[]), preferences=fd.get("preferences",[]),
+                                habits=fd.get("habits",[]), relations=fd.get("relations",[]), notes=fd.get("notes",""))
+                            add_profile(fp)
+                            db_save_family({"name":fp.name,"relation":fp.relation,"personality":fp.personality,"preferences":fp.preferences,"habits":fp.habits,"relations":fp.relations,"notes":fp.notes})
+                    else:
+                        fp = FamilyProfile(name=fname, relation=fd.get("relation",""),
                             personality=fd.get("personality",[]), preferences=fd.get("preferences",[]),
-                            habits=fd.get("habits",[]), relations=fd.get("relations",[]), notes=fd.get("notes",""),
-                        )
+                            habits=fd.get("habits",[]), relations=fd.get("relations",[]), notes=fd.get("notes",""))
                         add_profile(fp)
                         db_save_family({"name":fp.name,"relation":fp.relation,"personality":fp.personality,"preferences":fp.preferences,"habits":fp.habits,"relations":fp.relations,"notes":fp.notes})
 
@@ -286,6 +327,23 @@ with st.sidebar:
         else:
             with st.expander("📋 解析预览（可直接修改后导入）", expanded=True):
                 st.caption("以下字段均可直接编辑，修改后点「一键导入」即用编辑后的数据入库")
+
+            # 去重结果概览
+            dedup_result = st.session_state.get("dedup", {})
+            if dedup_result:
+                pa = dedup_result.get("persona_action", "")
+                pm = dedup_result.get("persona_match", "")
+                fa = dedup_result.get("family_actions", [])
+                merges = [a for a in fa if a.get("action") == "merge_into"]
+                news = [a for a in fa if a.get("action") == "new"]
+                if pa == "merge" and pm:
+                    st.info(f"🔄 角色「{parsed_preview.get('persona',{}).get('role_label','')}」将合并到已有的「{pm}」")
+                if merges:
+                    for mg in merges:
+                        st.info(f"🔄 家人「{mg.get('new_name','')}」将合并到已有的「{mg.get('target','')}」")
+                if news:
+                    names = [n.get('new_name','') for n in news if n.get('new_name')]
+                    if names: st.success(f"🆕 新增家人：{'、'.join(names)}")
 
             # 老人画像预览
             ep = parsed_preview.get("elder_profile", {})
