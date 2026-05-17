@@ -55,6 +55,25 @@ def init_db() -> None:
             personality TEXT DEFAULT '[]',
             preferences TEXT DEFAULT '[]',
             habits TEXT DEFAULT '[]',
+            notes TEXT DEFAULT '',
+            relations TEXT DEFAULT '[]'
+        )
+    """)
+    # Migration: add missing columns
+    try:
+        conn.execute("ALTER TABLE family_profiles ADD COLUMN relations TEXT DEFAULT '[]'")
+    except Exception:
+        pass
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS elder_profile (
+            name TEXT PRIMARY KEY,
+            personality TEXT DEFAULT '[]',
+            preferences TEXT DEFAULT '[]',
+            habits TEXT DEFAULT '[]',
+            health_notes TEXT DEFAULT '[]',
+            speech_traits TEXT DEFAULT '[]',
+            life_experiences TEXT DEFAULT '[]',
+            important_memories TEXT DEFAULT '[]',
             notes TEXT DEFAULT ''
         )
     """)
@@ -182,8 +201,8 @@ def load_all_memories() -> list[dict]:
 def save_family_profile(profile_dict: dict) -> None:
     conn = _connect()
     conn.execute("""
-        INSERT OR REPLACE INTO family_profiles (name, relation, personality, preferences, habits, notes)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT OR REPLACE INTO family_profiles (name, relation, personality, preferences, habits, notes, relations)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
     """, (
         profile_dict.get("name", ""),
         profile_dict.get("relation", ""),
@@ -191,6 +210,7 @@ def save_family_profile(profile_dict: dict) -> None:
         json.dumps(profile_dict.get("preferences", []), ensure_ascii=False),
         json.dumps(profile_dict.get("habits", []), ensure_ascii=False),
         profile_dict.get("notes", ""),
+        json.dumps(profile_dict.get("relations", []), ensure_ascii=False),
     ))
     conn.commit()
     conn.close()
@@ -215,6 +235,56 @@ def load_all_family_profiles() -> list[dict]:
             "personality": json.loads(row["personality"]),
             "preferences": json.loads(row["preferences"]),
             "habits": json.loads(row["habits"]),
+            "relations": json.loads(row["relations"]) if "relations" in row.keys() else [],
             "notes": row["notes"],
         })
     return result
+
+
+# ===== Elder Profile =====
+
+def save_elder(profile_dict: dict) -> None:
+    conn = _connect()
+    conn.execute("""
+        INSERT OR REPLACE INTO elder_profile
+            (name, personality, preferences, habits, health_notes, speech_traits, life_experiences, important_memories, notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        profile_dict.get("name", ""),
+        json.dumps(profile_dict.get("personality", []), ensure_ascii=False),
+        json.dumps(profile_dict.get("preferences", []), ensure_ascii=False),
+        json.dumps(profile_dict.get("habits", []), ensure_ascii=False),
+        json.dumps(profile_dict.get("health_notes", []), ensure_ascii=False),
+        json.dumps(profile_dict.get("speech_traits", []), ensure_ascii=False),
+        json.dumps(profile_dict.get("life_experiences", []), ensure_ascii=False),
+        json.dumps(profile_dict.get("important_memories", []), ensure_ascii=False),
+        profile_dict.get("notes", ""),
+    ))
+    conn.commit()
+    conn.close()
+
+
+def load_elder() -> dict | None:
+    conn = _connect()
+    row = conn.execute("SELECT * FROM elder_profile LIMIT 1").fetchone()
+    conn.close()
+    if row is None:
+        return None
+    return {
+        "name": row["name"],
+        "personality": json.loads(row["personality"]),
+        "preferences": json.loads(row["preferences"]),
+        "habits": json.loads(row["habits"]),
+        "health_notes": json.loads(row["health_notes"]),
+        "speech_traits": json.loads(row["speech_traits"]),
+        "life_experiences": json.loads(row["life_experiences"]),
+        "important_memories": json.loads(row["important_memories"]),
+        "notes": row["notes"],
+    }
+
+
+def delete_elder() -> None:
+    conn = _connect()
+    conn.execute("DELETE FROM elder_profile")
+    conn.commit()
+    conn.close()

@@ -16,6 +16,7 @@ from llm.parser import parse_user_text
 from engine.memory import MemoryUnit, add_memory, remove_memory, get_all_memories, clear_memories
 from engine.persona import PersonaProfile, set_persona, get_persona, get_all_personas, remove_persona, switch_persona
 from engine.family import FamilyProfile, add_profile, remove_profile, get_all_profiles, clear_profiles, get_profile
+from engine.elder import ElderProfile, set_elder, get_elder
 from engine.scorer import score_memories, get_top_memories, DEFAULT_WEIGHTS
 from engine.strategy import select_strategy
 from engine.adaptation import check_elderly_adaptation, safety_check, build_retry_hint
@@ -23,6 +24,7 @@ from engine.db import init_db, save_persona as db_save_persona, load_persona as 
 from engine.db import load_all_personas as db_load_all_personas, delete_persona as db_delete_persona
 from engine.db import save_memory as db_save_memory, delete_memory as db_delete_memory, load_all_memories as db_load_memories
 from engine.db import save_family_profile as db_save_family, delete_family_profile as db_delete_family, load_all_family_profiles as db_load_families
+from engine.db import save_elder as db_save_elder, load_elder as db_load_elder, delete_elder as db_delete_elder
 
 st.set_page_config(page_title="亲情陪伴系统", page_icon="❤️", layout="wide")
 st.title("❤️ 亲情陪伴系统")
@@ -88,9 +90,20 @@ if not st.session_state.db_loaded:
         fp = FamilyProfile(
             name=fdata["name"], relation=fdata.get("relation",""),
             personality=fdata.get("personality",[]), preferences=fdata.get("preferences",[]),
-            habits=fdata.get("habits",[]), notes=fdata.get("notes",""),
+            habits=fdata.get("habits",[]), relations=fdata.get("relations",[]),
+            notes=fdata.get("notes",""),
         )
         add_profile(fp)
+
+    edata = db_load_elder()
+    if edata and edata.get("name"):
+        set_elder(ElderProfile(
+            name=edata["name"], personality=edata.get("personality",[]),
+            preferences=edata.get("preferences",[]), habits=edata.get("habits",[]),
+            health_notes=edata.get("health_notes",[]), speech_traits=edata.get("speech_traits",[]),
+            life_experiences=edata.get("life_experiences",[]),
+            important_memories=edata.get("important_memories",[]), notes=edata.get("notes",""),
+        ))
 
     # 确保表单字段有初始值
     for key, default in [
@@ -219,18 +232,30 @@ with st.sidebar:
                         "family_members": mem.family_members, "emotion_tags": mem.emotion_tags,
                         "topic_tags": mem.topic_tags, "intimacy_weight": mem.intimacy_weight,
                     })
+                # 导入老人画像
+                ed = parsed.get("elder_profile", {})
+                if ed.get("name"):
+                    ep = ElderProfile(name=ed["name"],
+                        personality=ed.get("personality",[]), preferences=ed.get("preferences",[]),
+                        habits=ed.get("habits",[]), health_notes=ed.get("health_notes",[]),
+                        speech_traits=ed.get("speech_traits",[]), life_experiences=ed.get("life_experiences",[]),
+                        important_memories=ed.get("important_memories",[]), notes=ed.get("notes",""))
+                    set_elder(ep)
+                    db_save_elder({"name":ep.name,"personality":ep.personality,"preferences":ep.preferences,"habits":ep.habits,"health_notes":ep.health_notes,"speech_traits":ep.speech_traits,"life_experiences":ep.life_experiences,"important_memories":ep.important_memories,"notes":ep.notes})
+
                 # 导入家人偏好档案
                 for fd in parsed.get("family_profiles", []):
                     if fd.get("name"):
                         fp = FamilyProfile(
                             name=fd["name"], relation=fd.get("relation",""),
                             personality=fd.get("personality",[]), preferences=fd.get("preferences",[]),
-                            habits=fd.get("habits",[]), notes=fd.get("notes",""),
+                            habits=fd.get("habits",[]), relations=fd.get("relations",[]), notes=fd.get("notes",""),
                         )
                         add_profile(fp)
-                        db_save_family({"name":fp.name,"relation":fp.relation,"personality":fp.personality,"preferences":fp.preferences,"habits":fp.habits,"notes":fp.notes})
+                        db_save_family({"name":fp.name,"relation":fp.relation,"personality":fp.personality,"preferences":fp.preferences,"habits":fp.habits,"relations":fp.relations,"notes":fp.notes})
 
-                st.success(f"已导入！画像+{len(parsed.get('memories', []))}条记忆+{len(parsed.get('family_profiles', []))}人档案")
+                elder_msg = "+老人画像" if parsed.get("elder_profile",{}).get("name") else ""
+                st.success(f"已导入！画像+{len(parsed.get('memories', []))}条记忆+{len(parsed.get('family_profiles', []))}人档案{elder_msg}")
                 st.session_state.parsed = {}
                 st.rerun()
             else:
@@ -312,6 +337,99 @@ with st.sidebar:
                 for idx in sorted(to_delete, reverse=True):
                     mems.pop(idx)
                     st.rerun()
+
+    st.divider()
+
+    # ===== 老人画像 =====
+    st.header("👴 老人画像")
+
+    elder = get_elder()
+    elder_has_data = bool(elder.name)
+    edit_elder_key = "edit_elder"
+
+    if elder_has_data:
+        if not st.session_state.get(edit_elder_key, False):
+            with st.container(border=True):
+                st.caption(f"**{elder.name}**")
+                if elder.personality: st.caption(f"性格：{'、'.join(elder.personality)}")
+                if elder.preferences: st.caption(f"喜好：{'、'.join(elder.preferences)}")
+                if elder.habits: st.caption(f"习惯：{'、'.join(elder.habits)}")
+                if elder.health_notes: st.caption(f"健康：{'、'.join(elder.health_notes)}")
+                if elder.speech_traits: st.caption(f"说话：{'、'.join(elder.speech_traits)}")
+                if elder.life_experiences: st.caption(f"经历：{'、'.join(elder.life_experiences[:2])}{'...' if len(elder.life_experiences)>2 else ''}")
+                c1, c2 = st.columns(2)
+                with c1:
+                    if st.button("✏️ 编辑", key="btn_edit_elder", use_container_width=True):
+                        st.session_state[edit_elder_key] = True
+                        for field, val in [
+                            ("e_name", elder.name), ("e_personality", "、".join(elder.personality)),
+                            ("e_preferences", "、".join(elder.preferences)), ("e_habits", "、".join(elder.habits)),
+                            ("e_health", "、".join(elder.health_notes)), ("e_speech", "、".join(elder.speech_traits)),
+                            ("e_life", "、".join(elder.life_experiences)), ("e_memories", "、".join(elder.important_memories)),
+                            ("e_notes", elder.notes),
+                        ]:
+                            st.session_state[field] = val
+                        st.rerun()
+                with c2:
+                    if st.button("🗑️ 删除", key="btn_del_elder", use_container_width=True):
+                        set_elder(ElderProfile())
+                        db_delete_elder()
+                        st.rerun()
+        else:
+            with st.expander("✏️ 编辑老人画像", expanded=True):
+                e_name = st.text_input("称呼", key="e_name")
+                e_pers = st.text_input("性格（、分隔）", key="e_personality")
+                e_prefs = st.text_input("喜好（、分隔）", key="e_preferences")
+                e_hab = st.text_input("习惯（、分隔）", key="e_habits")
+                e_health = st.text_input("健康注意（、分隔）", key="e_health")
+                e_speech = st.text_input("说话特点（、分隔）", key="e_speech")
+                e_life = st.text_input("人生经历（、分隔）", key="e_life")
+                e_mem = st.text_input("重要记忆（、分隔）", key="e_memories")
+                e_notes = st.text_input("备注", key="e_notes")
+                cs, cc = st.columns(2)
+                with cs:
+                    if st.button("💾 保存", key="btn_save_elder", use_container_width=True):
+                        ep = ElderProfile(name=e_name.strip(),
+                            personality=[x.strip() for x in e_pers.split("、") if x.strip()],
+                            preferences=[x.strip() for x in e_prefs.split("、") if x.strip()],
+                            habits=[x.strip() for x in e_hab.split("、") if x.strip()],
+                            health_notes=[x.strip() for x in e_health.split("、") if x.strip()],
+                            speech_traits=[x.strip() for x in e_speech.split("、") if x.strip()],
+                            life_experiences=[x.strip() for x in e_life.split("、") if x.strip()],
+                            important_memories=[x.strip() for x in e_mem.split("、") if x.strip()],
+                            notes=e_notes.strip())
+                        set_elder(ep)
+                        db_save_elder({"name":ep.name,"personality":ep.personality,"preferences":ep.preferences,"habits":ep.habits,"health_notes":ep.health_notes,"speech_traits":ep.speech_traits,"life_experiences":ep.life_experiences,"important_memories":ep.important_memories,"notes":ep.notes})
+                        st.session_state[edit_elder_key] = False
+                        st.rerun()
+                with cc:
+                    if st.button("取消", key="btn_cancel_elder", use_container_width=True):
+                        st.session_state[edit_elder_key] = False
+                        st.rerun()
+    else:
+        with st.expander("➕ 新增老人画像", expanded=True):
+            e_name = st.text_input("称呼", value="妈", key="e_name")
+            e_pers = st.text_input("性格（、分隔）", key="e_personality")
+            e_prefs = st.text_input("喜好（、分隔）", key="e_preferences")
+            e_hab = st.text_input("习惯（、分隔）", key="e_habits")
+            e_health = st.text_input("健康注意（、分隔）", key="e_health")
+            e_speech = st.text_input("说话特点（、分隔）", key="e_speech")
+            e_life = st.text_input("人生经历（、分隔）", key="e_life")
+            e_mem = st.text_input("重要记忆（、分隔）", key="e_memories")
+            e_notes = st.text_input("备注", key="e_notes")
+            if st.button("💾 保存", key="btn_new_elder"):
+                ep = ElderProfile(name=e_name.strip(),
+                    personality=[x.strip() for x in e_pers.split("、") if x.strip()],
+                    preferences=[x.strip() for x in e_prefs.split("、") if x.strip()],
+                    habits=[x.strip() for x in e_hab.split("、") if x.strip()],
+                    health_notes=[x.strip() for x in e_health.split("、") if x.strip()],
+                    speech_traits=[x.strip() for x in e_speech.split("、") if x.strip()],
+                    life_experiences=[x.strip() for x in e_life.split("、") if x.strip()],
+                    important_memories=[x.strip() for x in e_mem.split("、") if x.strip()],
+                    notes=e_notes.strip())
+                set_elder(ep)
+                db_save_elder({"name":ep.name,"personality":ep.personality,"preferences":ep.preferences,"habits":ep.habits,"health_notes":ep.health_notes,"speech_traits":ep.speech_traits,"life_experiences":ep.life_experiences,"important_memories":ep.important_memories,"notes":ep.notes})
+                st.rerun()
 
     st.divider()
 
@@ -485,7 +603,7 @@ with st.sidebar:
                         fp.habits = [x.strip() for x in new_habits.split("、") if x.strip()]
                         fp.notes = new_notes.strip()
                         add_profile(fp)
-                        db_save_family({"name":fp.name,"relation":fp.relation,"personality":fp.personality,"preferences":fp.preferences,"habits":fp.habits,"notes":fp.notes})
+                        db_save_family({"name":fp.name,"relation":fp.relation,"personality":fp.personality,"preferences":fp.preferences,"habits":fp.habits,"relations":fp.relations,"notes":fp.notes})
                         if fp.name != fname: remove_profile(fname); db_delete_family(fname)
                         st.session_state[edit_fp_key] = False
                         st.rerun()
@@ -511,7 +629,7 @@ with st.sidebar:
                     notes=nf_notes.strip(),
                 )
                 add_profile(fp)
-                db_save_family({"name":fp.name,"relation":fp.relation,"personality":fp.personality,"preferences":fp.preferences,"habits":fp.habits,"notes":fp.notes})
+                db_save_family({"name":fp.name,"relation":fp.relation,"personality":fp.personality,"preferences":fp.preferences,"habits":fp.habits,"relations":fp.relations,"notes":fp.notes})
                 for k in ["new_fp_name","new_fp_rel","new_fp_pers","new_fp_prefs","new_fp_hab","new_fp_notes"]:
                     st.session_state.pop(k, None)
                 st.rerun()
@@ -673,7 +791,19 @@ def run_pipeline(user_input: str) -> str:
         tp = all_personas[talk_to]
         mentioned_context += f"\n## 对话对象\n老人正在和{talk_to}说话。{talk_to}是{tp.relation}，性格{'、'.join(tp.personality) if tp.personality else '随和'}。\n"
 
-    # Step 6: 构建家人偏好上下文
+    # Step 6: 构建上下文（老人画像 + 家人偏好 + 关系表）
+    elder_context = ""
+    elder = get_elder()
+    if elder.name:
+        parts = [f"老人「{elder.name}」"]
+        if elder.personality: parts.append(f"性格{'、'.join(elder.personality)}")
+        if elder.preferences: parts.append(f"喜好{'、'.join(elder.preferences)}")
+        if elder.habits: parts.append(f"习惯{'、'.join(elder.habits)}")
+        if elder.health_notes: parts.append(f"健康注意{'、'.join(elder.health_notes)}")
+        if elder.speech_traits: parts.append(f"说话特点{'、'.join(elder.speech_traits)}")
+        if elder.life_experiences: parts.append(f"人生经历{'、'.join(elder.life_experiences)}")
+        elder_context = "## 老人画像\n" + "，".join(parts) + "。请根据老人的性格、健康状况和说话特点来调整你的回复风格。\n\n"
+
     family_context = ""
     all_families = get_all_profiles()
     for name in mentioned_names:
@@ -684,8 +814,14 @@ def run_pipeline(user_input: str) -> str:
             if fp.preferences: parts.append(f"喜好{'、'.join(fp.preferences)}")
             if fp.habits: parts.append(f"习惯{'、'.join(fp.habits)}")
             family_context += f"- {fp.name}（{'，'.join(parts)}）\n"
+            # 家人关系表
+            if fp.relations:
+                rel_parts = [f"{r['person']}的{r['relation']}" for r in fp.relations]
+                family_context += f"  关系：{fp.name}是{'，'.join(rel_parts)}\n"
     if family_context:
         family_context = "## 家人偏好档案\n" + family_context + "\n"
+
+    family_context = elder_context + family_context
 
     # Step 7: LLM 生成回复
     memory_context = build_memory_context(top_memories)

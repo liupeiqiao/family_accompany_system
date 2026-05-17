@@ -11,6 +11,7 @@ class FamilyProfile:
     personality: list[str] = field(default_factory=list)  # ["温和","爱吃"]
     preferences: list[str] = field(default_factory=list)  # ["吃辣","打篮球"]
     habits: list[str] = field(default_factory=list)       # ["每周回家"]
+    relations: list[dict] = field(default_factory=list)   # [{"person":"小红","relation":"妻子"}]
     notes: str = ""             # 补充描述
 
 
