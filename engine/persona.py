@@ -29,12 +29,54 @@ class PersonaProfile:
 
 # Session-level persona store
 _current_persona: PersonaProfile = PersonaProfile()
+_all_personas: dict[str, PersonaProfile] = {}
 
 
 def set_persona(p: PersonaProfile) -> None:
     global _current_persona
     _current_persona = p
+    if p.is_complete():
+        _all_personas[p.role_label] = p
 
 
 def get_persona() -> PersonaProfile:
     return _current_persona
+
+
+def get_all_personas() -> dict[str, PersonaProfile]:
+    return _all_personas
+
+
+def add_or_update_persona(p: PersonaProfile) -> None:
+    if p.is_complete():
+        _all_personas[p.role_label] = p
+
+
+def remove_persona(role_label: str) -> None:
+    global _current_persona
+    _all_personas.pop(role_label, None)
+    if _current_persona.role_label == role_label:
+        keys = list(_all_personas.keys())
+        _current_persona = _all_personas[keys[0]] if keys else PersonaProfile()
+
+
+def switch_persona(role_label: str) -> None:
+    global _current_persona
+    if role_label in _all_personas:
+        _current_persona = _all_personas[role_label]
+
+
+def merge_persona(existing: PersonaProfile, incoming: dict) -> PersonaProfile:
+    """智能合并：空字段填充，列表字段合并去重。"""
+    if not incoming.get("role_label"):
+        return existing
+    existing.role_label = incoming.get("role_label") or existing.role_label
+    existing.relation = incoming.get("relation") or existing.relation
+    existing.appellation = incoming.get("appellation") or existing.appellation
+    # 列表合并去重
+    for field in ["personality", "speech_style", "comfort_style"]:
+        existing_val = getattr(existing, field, [])
+        incoming_val = incoming.get(field, [])
+        merged = list(dict.fromkeys(list(existing_val) + list(incoming_val)))
+        setattr(existing, field, merged)
+    return existing

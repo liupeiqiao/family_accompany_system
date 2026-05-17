@@ -57,7 +57,8 @@ def test_source_has_sync_code_in_manual_save():
     assert save_idx > 0, "找不到保存人物画像按钮"
 
     after_save = source[save_idx:save_idx + 1000]
-    assert "edit_role_label" in after_save or "form_role_label" in after_save, (
+    # 新增画像按钮保存后 st.rerun() 切换到卡片模式，不依赖 form sync
+    assert "set_persona" in after_save or "edit_role_label" in after_save or "form_role_label" in after_save, (
         "手动保存未同步 form_role_label 到 session_state"
     )
 

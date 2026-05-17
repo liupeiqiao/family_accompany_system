@@ -14,11 +14,12 @@ from llm.prompts import (
 )
 from llm.parser import parse_user_text
 from engine.memory import MemoryUnit, add_memory, remove_memory, get_all_memories, clear_memories
-from engine.persona import PersonaProfile, set_persona, get_persona
+from engine.persona import PersonaProfile, set_persona, get_persona, get_all_personas
 from engine.scorer import score_memories, get_best_memory, DEFAULT_WEIGHTS
 from engine.strategy import select_strategy
 from engine.adaptation import check_elderly_adaptation, safety_check, build_retry_hint
 from engine.db import init_db, save_persona as db_save_persona, load_persona as db_load_persona
+from engine.db import load_all_personas as db_load_all_personas, delete_persona as db_delete_persona
 from engine.db import save_memory as db_save_memory, delete_memory as db_delete_memory, load_all_memories as db_load_memories
 
 st.set_page_config(page_title="亲情陪伴系统", page_icon="❤️", layout="wide")
@@ -37,27 +38,35 @@ if "db_loaded" not in st.session_state:
 
 # 首次加载：从 SQLite 恢复到内存
 if not st.session_state.db_loaded:
-    pdata = db_load_persona()
-    if pdata and pdata.get("role_label"):
-        persona = PersonaProfile(
-            role_label=pdata["role_label"],
-            relation=pdata["relation"],
-            appellation=pdata["appellation"],
-            personality=pdata.get("personality", []),
-            speech_style=pdata.get("speech_style", []),
-            comfort_style=pdata.get("comfort_style", []),
-            mood_preference=pdata.get("mood_preference", {}),
-            topic_affinity=pdata.get("topic_affinity", {}),
-            sensitivity_map=pdata.get("sensitivity_map", {}),
-        )
-        set_persona(persona)
+    all_pdata = db_load_all_personas()
+    if all_pdata:
+        for pdata in all_pdata:
+            persona = PersonaProfile(
+                role_label=pdata["role_label"],
+                relation=pdata["relation"],
+                appellation=pdata["appellation"],
+                personality=pdata.get("personality", []),
+                speech_style=pdata.get("speech_style", []),
+                comfort_style=pdata.get("comfort_style", []),
+                mood_preference=pdata.get("mood_preference", {}),
+                topic_affinity=pdata.get("topic_affinity", {}),
+                sensitivity_map=pdata.get("sensitivity_map", {}),
+            )
+            from engine.persona import add_or_update_persona
+            add_or_update_persona(persona)
+        first = all_pdata[0]
+        set_persona(PersonaProfile(
+            role_label=first["role_label"], relation=first["relation"],
+            appellation=first["appellation"], personality=first.get("personality",[]),
+            speech_style=first.get("speech_style",[]), comfort_style=first.get("comfort_style",[]),
+        ))
         st.session_state.update({
-            "form_role_label": persona.role_label,
-            "form_relation": persona.relation,
-            "form_appellation": persona.appellation,
-            "form_personality": persona.personality,
-            "form_speech_style": "\n".join(persona.speech_style),
-            "form_comfort_style": persona.comfort_style,
+            "form_role_label": first["role_label"],
+            "form_relation": first["relation"],
+            "form_appellation": first["appellation"],
+            "form_personality": first.get("personality", []),
+            "form_speech_style": "\n".join(first.get("speech_style", [])),
+            "form_comfort_style": first.get("comfort_style", []),
         })
 
     for mdata in db_load_memories():
@@ -157,6 +166,10 @@ with st.sidebar:
                         speech_style=persona_part.get("speech_style", []),
                         comfort_style=persona_part.get("comfort_style", []),
                     )
+                    from engine.persona import get_all_personas as gap, merge_persona
+                    existing = gap().get(p.role_label)
+                    if existing:
+                        p = merge_persona(existing, persona_part)
                     set_persona(p)
                     st.session_state.update({
                         "form_role_label": p.role_label,
@@ -476,6 +489,19 @@ def run_pipeline(user_input: str) -> str:
     strategy = select_strategy(intent, emotion, persona)
     memory_context = build_memory_context(selected_memory)
 
+    # 检测是否提及其他已存储角色
+    mentioned_context = ""
+    all_personas = get_all_personas()
+    for name, other_p in all_personas.items():
+        if name != persona.role_label and name in user_input:
+            parts = [f"{name}是{other_p.relation}"]
+            if other_p.personality:
+                parts.append(f"性格{'、'.join(other_p.personality)}")
+            if other_p.speech_style:
+                parts.append(f"说话风格{'；'.join(other_p.speech_style)}")
+            mentioned_context = "\n## 老人提到的人\n老人提到了" + name + "。" + "，".join(parts) + "。你可以用你对" + name + "的了解来自然地聊到ta。\n"
+            break
+
     system_prompt = build_response_system(
         role_label=persona.role_label or "家人",
         appellation=persona.appellation or "您",
@@ -484,6 +510,7 @@ def run_pipeline(user_input: str) -> str:
         comfort_style=persona.comfort_style,
         strategy=strategy,
         memory_context=memory_context,
+        mentioned_persona_context=mentioned_context,
     )
 
     max_retries = 2
@@ -512,6 +539,7 @@ def run_pipeline(user_input: str) -> str:
                 strategy=strategy,
                 memory_context=memory_context,
                 retry_hint=hint,
+                mentioned_persona_context=mentioned_context,
             )
 
     if selected_memory:

@@ -44,6 +44,7 @@ RESPONSE_SYSTEM = """你是一个老年人的{role_label}。你不是AI助手，
 
 {memory_context}
 
+{mentioned_persona_context}
 ## 对话要求
 1. 先回应当前话语，再自然地引入记忆
 2. 必须使用"{appellation}"称呼老人（至少1次）
@@ -88,6 +89,7 @@ def build_response_system(
     strategy: str,
     memory_context: str,
     retry_hint: str | None = None,
+    mentioned_persona_context: str = "",
 ) -> str:
     personality_text = "、".join(personality) if personality else "温和、体贴"
     speech_style_text = "\n".join(f"- {s}" for s in speech_style) if speech_style else "- 自然随和的日常说话方式"
@@ -104,4 +106,5 @@ def build_response_system(
         strategy_description=strategy_desc,
         memory_context=memory_context or "暂无可用记忆，用你自己的话自然关心老人。",
         retry_hint=retry_hint or "",
+        mentioned_persona_context=mentioned_persona_context,
     )

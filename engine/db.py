@@ -14,12 +14,17 @@ def _connect() -> sqlite3.Connection:
 
 
 def init_db() -> None:
-    """Create tables if not exist."""
+    """Create tables if not exist. Migrate old schema if needed."""
     conn = _connect()
+    # Check for old schema (id-based persona table)
+    cursor = conn.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='persona'")
+    old_schema = cursor.fetchone()
+    if old_schema and "id INTEGER PRIMARY KEY CHECK" in (old_schema[0] or ""):
+        # Migrate: drop old table, recreate with role_label as PK
+        conn.execute("DROP TABLE persona")
     conn.execute("""
         CREATE TABLE IF NOT EXISTS persona (
-            id INTEGER PRIMARY KEY CHECK (id = 1),
-            role_label TEXT DEFAULT '',
+            role_label TEXT PRIMARY KEY,
             relation TEXT DEFAULT '',
             appellation TEXT DEFAULT '',
             personality TEXT DEFAULT '[]',
@@ -42,8 +47,6 @@ def init_db() -> None:
             created_at TEXT DEFAULT ''
         )
     """)
-    # Ensure single persona row exists
-    conn.execute("INSERT OR IGNORE INTO persona (id) VALUES (1)")
     conn.commit()
     conn.close()
 
@@ -53,11 +56,10 @@ def init_db() -> None:
 def save_persona(persona_dict: dict) -> None:
     conn = _connect()
     conn.execute("""
-        UPDATE persona SET
-            role_label = ?, relation = ?, appellation = ?,
-            personality = ?, speech_style = ?, comfort_style = ?,
-            mood_preference = ?, topic_affinity = ?, sensitivity_map = ?
-        WHERE id = 1
+        INSERT OR REPLACE INTO persona
+            (role_label, relation, appellation, personality, speech_style, comfort_style,
+             mood_preference, topic_affinity, sensitivity_map)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         persona_dict.get("role_label", ""),
         persona_dict.get("relation", ""),
@@ -75,10 +77,28 @@ def save_persona(persona_dict: dict) -> None:
 
 def load_persona() -> dict | None:
     conn = _connect()
-    row = conn.execute("SELECT * FROM persona WHERE id = 1").fetchone()
+    row = conn.execute("SELECT * FROM persona ORDER BY role_label LIMIT 1").fetchone()
     conn.close()
     if row is None:
         return None
+    return _row_to_persona_dict(row)
+
+
+def load_all_personas() -> list[dict]:
+    conn = _connect()
+    rows = conn.execute("SELECT * FROM persona ORDER BY role_label").fetchall()
+    conn.close()
+    return [_row_to_persona_dict(r) for r in rows]
+
+
+def delete_persona(role_label: str) -> None:
+    conn = _connect()
+    conn.execute("DELETE FROM persona WHERE role_label = ?", (role_label,))
+    conn.commit()
+    conn.close()
+
+
+def _row_to_persona_dict(row) -> dict:
     return {
         "role_label": row["role_label"],
         "relation": row["relation"],
