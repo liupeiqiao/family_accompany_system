@@ -64,11 +64,14 @@ def init_db() -> None:
         conn.execute("ALTER TABLE family_profiles ADD COLUMN relations TEXT DEFAULT '[]'")
     except Exception:
         pass
-    # Migration: if elder_profile has old schema (name instead of full_name), drop it
+    # Migration: if elder_profile has old schema (name instead of full_name), rename column
     cursor = conn.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='elder_profile'")
     old_elder = cursor.fetchone()
     if old_elder and "name TEXT PRIMARY KEY" in (old_elder[0] or ""):
-        conn.execute("DROP TABLE elder_profile")
+        try:
+            conn.execute("ALTER TABLE elder_profile RENAME COLUMN name TO full_name")
+        except Exception:
+            pass  # Already migrated or missing
     conn.execute("""
         CREATE TABLE IF NOT EXISTS elder_profile (
             full_name TEXT PRIMARY KEY,
