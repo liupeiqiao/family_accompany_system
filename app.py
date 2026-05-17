@@ -522,7 +522,16 @@ with st.sidebar:
     st.header("📝 家庭记忆")
 
     memories = get_all_memories()
-    st.caption(f"共 {len(memories)} 条记忆")
+    c_count, c_clear = st.columns([3, 1])
+    with c_count:
+        st.caption(f"共 {len(memories)} 条记忆")
+    with c_clear:
+        if memories and st.button("🗑️ 全部删除", key="btn_clear_all_mem", use_container_width=True):
+            from engine.memory import _memory_store
+            for m in list(_memory_store):
+                db_delete_memory(m.id)
+            clear_memories()
+            st.rerun()
 
     for i, mem in enumerate(memories):
         edit_key = f"edit_mem_{mem.id}"
