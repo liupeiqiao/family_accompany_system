@@ -27,8 +27,99 @@ from engine.db import save_family_profile as db_save_family, delete_family_profi
 from engine.db import save_elder as db_save_elder, load_elder as db_load_elder, delete_elder as db_delete_elder
 
 st.set_page_config(page_title="亲情陪伴系统", page_icon="❤️", layout="wide")
-st.title("❤️ 亲情陪伴系统")
-st.caption("基于家庭记忆的适老共情对话原型")
+
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&family=ZCOOL+XiaoWei&display=swap');
+
+* { font-family: 'Noto Sans SC', -apple-system, sans-serif !important; }
+h1, h2, h3 { font-family: 'ZCOOL XiaoWei', 'Noto Serif SC', serif !important; }
+
+/* 主背景 */
+.stApp { background: #faf8f5; }
+
+/* 标题 */
+h1 { color: #4a2c17 !important; font-weight: 700 !important; font-size: 2rem !important; letter-spacing: 0.04em; }
+h2 { color: #5c3822 !important; font-weight: 600 !important; font-size: 1.2rem !important; }
+h3 { color: #6b4228 !important; font-size: 1rem !important; }
+
+/* 侧边栏 */
+[data-testid="stSidebar"] { background: #2a1f18 !important; }
+[data-testid="stSidebar"] * { color: #d4c4b0 !important; }
+[data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 { color: #e8b88a !important; font-family: 'ZCOOL XiaoWei', serif !important; }
+[data-testid="stSidebar"] .stTextInput > div > div > input,
+[data-testid="stSidebar"] .stTextArea > div > div > textarea {
+    background: #35281e !important; border: 1px solid #5a4638 !important; color: #d4c4b0 !important; border-radius: 6px !important;
+}
+[data-testid="stSidebar"] [data-baseweb="select"] > div {
+    background: #35281e !important; border-color: #5a4638 !important;
+}
+
+/* 按钮 */
+.stButton > button {
+    background: #c67a4a !important; color: #fff !important; border: none !important;
+    border-radius: 6px !important; font-weight: 500 !important; font-size: 0.88rem !important;
+    letter-spacing: 0.02em; transition: all 0.15s ease; padding: 6px 16px !important;
+}
+.stButton > button:hover { background: #b06638 !important; }
+[data-testid="stSidebar"] .stButton > button {
+    background: #5a3d2e !important; border: 1px solid #7a5c4a !important;
+}
+[data-testid="stSidebar"] .stButton > button:hover { background: #6b4a38 !important; }
+
+/* 聊天消息 */
+[data-testid="stChatMessage"] { background: transparent !important; border: none !important; }
+[data-testid="stChatMessage"] > div { border-radius: 14px !important; padding: 12px 18px !important; }
+.stChatMessage [data-testid="stChatMessageContent"] { font-size: 1rem !important; line-height: 1.85 !important; }
+
+/* 卡片 */
+[data-testid="stExpander"] {
+    background: #fff !important; border: 1px solid #e8ddd0 !important; border-radius: 10px !important;
+    box-shadow: 0 1px 4px rgba(74,44,23,0.04);
+}
+
+/* 容器卡片 */
+div[data-testid="stVerticalBlock"] > div > div > div > div[style*="border"] {
+    border: 1px solid #e8ddd0 !important; border-radius: 10px !important;
+    background: #fff !important; padding: 14px !important;
+    box-shadow: 0 1px 3px rgba(74,44,23,0.04);
+}
+
+/* Radio */
+[data-testid="stRadio"] label { font-weight: 500 !important; }
+
+/* 提示 */
+.stSuccess { background: #edf5e8 !important; border-left: 3px solid #8aaa6e !important; border-radius: 4px !important; }
+.stWarning { background: #faf3e6 !important; border-left: 3px solid #c9a35a !important; border-radius: 4px !important; }
+.stInfo { background: #edf0f5 !important; border-left: 3px solid #7a9ab8 !important; border-radius: 4px !important; }
+
+/* 聊天气泡 */
+.stChatMessage [data-testid="stChatMessageContent"] {
+    background: #fff !important; border-radius: 14px !important; padding: 10px 16px !important;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+
+/* 输入框 */
+[data-testid="stChatInput"] textarea {
+    border: 1.5px solid #e0d0be !important; border-radius: 12px !important; background: #fff !important;
+}
+[data-testid="stChatInput"] textarea:focus {
+    border-color: #c67a4a !important; box-shadow: 0 0 0 2px rgba(198,122,74,0.12) !important;
+}
+
+/* 分隔线 */
+hr { border-color: #e8ddd0 !important; }
+
+/* Metric */
+[data-testid="stMetric"] { background: #fff !important; border-radius: 8px; padding: 6px 12px !important;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+[data-testid="stMetric"] label { color: #9a7a60 !important; }
+[data-testid="stMetricValue"] { color: #4a2c17 !important; }
+</style>
+""", unsafe_allow_html=True)
+
+st.title("🏠 亲情陪伴系统")
+st.caption("用记忆编织温暖，让陪伴跨越距离")
 
 # ===== 初始化 DB + session_state =====
 init_db()
