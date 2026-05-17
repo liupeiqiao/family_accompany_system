@@ -96,9 +96,10 @@ if not st.session_state.db_loaded:
         add_profile(fp)
 
     edata = db_load_elder()
-    if edata and edata.get("name"):
+    if edata and edata.get("full_name"):
         set_elder(ElderProfile(
-            name=edata["name"], personality=edata.get("personality",[]),
+            full_name=edata["full_name"], gender=edata.get("gender",""),
+            personality=edata.get("personality",[]),
             preferences=edata.get("preferences",[]), habits=edata.get("habits",[]),
             health_notes=edata.get("health_notes",[]), speech_traits=edata.get("speech_traits",[]),
             life_experiences=edata.get("life_experiences",[]),
@@ -199,7 +200,7 @@ with st.sidebar:
                     st.session_state.dedup = dedup
                     p_count = 1 if parsed.get("persona",{}).get("role_label") else 0
                     m_count = len(parsed.get("memories", []))
-                    e_count = 1 if parsed.get("elder_profile",{}).get("name") else 0
+                    e_count = 1 if parsed.get("elder_profile",{}).get("full_name") else 0
                     f_count = len(parsed.get("family_profiles", []))
                     d_count = sum(1 for a in dedup.get("family_actions",[]) if a.get("action")=="merge_into")
                     parts = []
@@ -284,14 +285,14 @@ with st.sidebar:
                     })
                 # 导入老人画像
                 ed = parsed.get("elder_profile", {})
-                if ed.get("name"):
-                    ep = ElderProfile(name=ed["name"],
+                if ed.get("full_name"):
+                    ep = ElderProfile(full_name=ed["full_name"], gender=ed.get("gender",""),
                         personality=ed.get("personality",[]), preferences=ed.get("preferences",[]),
                         habits=ed.get("habits",[]), health_notes=ed.get("health_notes",[]),
                         speech_traits=ed.get("speech_traits",[]), life_experiences=ed.get("life_experiences",[]),
                         important_memories=ed.get("important_memories",[]), notes=ed.get("notes",""))
                     set_elder(ep)
-                    db_save_elder({"name":ep.name,"personality":ep.personality,"preferences":ep.preferences,"habits":ep.habits,"health_notes":ep.health_notes,"speech_traits":ep.speech_traits,"life_experiences":ep.life_experiences,"important_memories":ep.important_memories,"notes":ep.notes})
+                    db_save_elder({"full_name":ep.full_name,"gender":ep.gender,"personality":ep.personality,"preferences":ep.preferences,"habits":ep.habits,"health_notes":ep.health_notes,"speech_traits":ep.speech_traits,"life_experiences":ep.life_experiences,"important_memories":ep.important_memories,"notes":ep.notes})
 
                 # 导入家人偏好档案（处理去重合并）
                 family_actions = {a["new_name"]: a for a in dedup_result.get("family_actions", [])}
@@ -334,7 +335,7 @@ with st.sidebar:
                         add_profile(fp)
                         db_save_family({"name":fp.name,"relation":fp.relation,"personality":fp.personality,"preferences":fp.preferences,"habits":fp.habits,"relations":fp.relations,"notes":fp.notes})
 
-                elder_msg = "+老人画像" if parsed.get("elder_profile",{}).get("name") else ""
+                elder_msg = "+老人画像" if parsed.get("elder_profile",{}).get("full_name") else ""
                 st.success(f"已导入！画像+{len(parsed.get('memories', []))}条记忆+{len(parsed.get('family_profiles', []))}人档案{elder_msg}")
                 st.session_state.parsed = {}
                 st.rerun()
@@ -347,7 +348,7 @@ with st.sidebar:
         # 检查是否有任何有效数据
         has_persona = bool(parsed_preview.get("persona", {}).get("role_label"))
         has_memories = bool(parsed_preview.get("memories", []))
-        has_elder = bool(parsed_preview.get("elder_profile", {}).get("name"))
+        has_elder = bool(parsed_preview.get("elder_profile", {}).get("full_name"))
         has_family = bool(parsed_preview.get("family_profiles", []))
         has_content = has_persona or has_memories or has_elder or has_family
         if not has_content:
@@ -375,10 +376,13 @@ with st.sidebar:
 
             # 老人画像预览
             ep = parsed_preview.get("elder_profile", {})
-            if ep and ep.get("name"):
+            if ep and ep.get("full_name"):
                 st.write("**👴 老人画像**")
-                ep["name"] = st.text_input("称呼", value=ep.get("name",""), key="prev_elder_name")
-                ep_name = ep.get("name","")
+                ep["full_name"] = st.text_input("姓名", value=ep.get("full_name",""), key="prev_elder_name")
+                ep_gender_cur = ep.get("gender","女")
+                ep["gender"] = st.selectbox("性别", ["女","男"],
+                    index=0 if ep_gender_cur=="女" else 1, key="prev_elder_gender")
+                ep_name = ep.get("full_name","")
                 ep_pers = st.text_input("性格（、分隔）", value="、".join(ep.get("personality",[])), key="prev_elder_pers")
                 ep["personality"] = [x.strip() for x in ep_pers.split("、") if x.strip()]
                 ep_prefs = st.text_input("喜好（、分隔）", value="、".join(ep.get("preferences",[])), key="prev_elder_prefs")
@@ -467,13 +471,14 @@ with st.sidebar:
     st.header("👴 老人画像")
 
     elder = get_elder()
-    elder_has_data = bool(elder.name)
+    elder_has_data = bool(elder.full_name)
     edit_elder_key = "edit_elder"
 
     if elder_has_data:
         if not st.session_state.get(edit_elder_key, False):
             with st.container(border=True):
-                st.caption(f"**{elder.name}**")
+                gender_label = {"男":"👴","女":"👵"}.get(elder.gender,"")
+                st.caption(f"{gender_label} **{elder.full_name}** · {elder.gender}")
                 if elder.personality: st.caption(f"性格：{'、'.join(elder.personality)}")
                 if elder.preferences: st.caption(f"喜好：{'、'.join(elder.preferences)}")
                 if elder.habits: st.caption(f"习惯：{'、'.join(elder.habits)}")
@@ -485,7 +490,8 @@ with st.sidebar:
                     if st.button("✏️ 编辑", key="btn_edit_elder", use_container_width=True):
                         st.session_state[edit_elder_key] = True
                         for field, val in [
-                            ("e_name", elder.name), ("e_personality", "、".join(elder.personality)),
+                            ("e_full_name", elder.full_name), ("e_gender", elder.gender),
+                            ("e_personality", "、".join(elder.personality)),
                             ("e_preferences", "、".join(elder.preferences)), ("e_habits", "、".join(elder.habits)),
                             ("e_health", "、".join(elder.health_notes)), ("e_speech", "、".join(elder.speech_traits)),
                             ("e_life", "、".join(elder.life_experiences)), ("e_memories", "、".join(elder.important_memories)),
@@ -498,11 +504,12 @@ with st.sidebar:
                         set_elder(ElderProfile())
                         db_delete_elder()
                         for k in list(st.session_state.keys()):
-                            if k.startswith("e_"): st.session_state.pop(k, None)
+                            if k.startswith("e_") or k.startswith("prev_elder"): st.session_state.pop(k, None)
                         st.rerun()
         else:
             with st.expander("✏️ 编辑老人画像", expanded=True):
-                e_name = st.text_input("称呼", key="e_name")
+                e_full_name = st.text_input("姓名", key="e_full_name")
+                e_gender = st.selectbox("性别", ["女","男"], index=0 if elder.gender=="女" else 1, key="e_gender")
                 e_pers = st.text_input("性格（、分隔）", key="e_personality")
                 e_prefs = st.text_input("喜好（、分隔）", key="e_preferences")
                 e_hab = st.text_input("习惯（、分隔）", key="e_habits")
@@ -514,7 +521,7 @@ with st.sidebar:
                 cs, cc = st.columns(2)
                 with cs:
                     if st.button("💾 保存", key="btn_save_elder", use_container_width=True):
-                        ep = ElderProfile(name=e_name.strip(),
+                        ep = ElderProfile(full_name=e_full_name.strip(), gender=e_gender,
                             personality=[x.strip() for x in e_pers.split("、") if x.strip()],
                             preferences=[x.strip() for x in e_prefs.split("、") if x.strip()],
                             habits=[x.strip() for x in e_hab.split("、") if x.strip()],
@@ -524,7 +531,7 @@ with st.sidebar:
                             important_memories=[x.strip() for x in e_mem.split("、") if x.strip()],
                             notes=e_notes.strip())
                         set_elder(ep)
-                        db_save_elder({"name":ep.name,"personality":ep.personality,"preferences":ep.preferences,"habits":ep.habits,"health_notes":ep.health_notes,"speech_traits":ep.speech_traits,"life_experiences":ep.life_experiences,"important_memories":ep.important_memories,"notes":ep.notes})
+                        db_save_elder({"full_name":ep.full_name,"gender":ep.gender,"personality":ep.personality,"preferences":ep.preferences,"habits":ep.habits,"health_notes":ep.health_notes,"speech_traits":ep.speech_traits,"life_experiences":ep.life_experiences,"important_memories":ep.important_memories,"notes":ep.notes})
                         st.session_state[edit_elder_key] = False
                         st.rerun()
                 with cc:
@@ -533,7 +540,8 @@ with st.sidebar:
                         st.rerun()
     else:
         with st.expander("➕ 新增老人画像", expanded=True):
-            e_name = st.text_input("称呼", value="妈", key="e_name")
+            e_full_name = st.text_input("姓名", key="e_full_name")
+            e_gender = st.selectbox("性别", ["女","男"], key="e_gender")
             e_pers = st.text_input("性格（、分隔）", key="e_personality")
             e_prefs = st.text_input("喜好（、分隔）", key="e_preferences")
             e_hab = st.text_input("习惯（、分隔）", key="e_habits")
@@ -543,7 +551,7 @@ with st.sidebar:
             e_mem = st.text_input("重要记忆（、分隔）", key="e_memories")
             e_notes = st.text_input("备注", key="e_notes")
             if st.button("💾 保存", key="btn_new_elder"):
-                ep = ElderProfile(name=e_name.strip(),
+                ep = ElderProfile(full_name=e_full_name.strip(), gender=e_gender,
                     personality=[x.strip() for x in e_pers.split("、") if x.strip()],
                     preferences=[x.strip() for x in e_prefs.split("、") if x.strip()],
                     habits=[x.strip() for x in e_hab.split("、") if x.strip()],
@@ -553,7 +561,7 @@ with st.sidebar:
                     important_memories=[x.strip() for x in e_mem.split("、") if x.strip()],
                     notes=e_notes.strip())
                 set_elder(ep)
-                db_save_elder({"name":ep.name,"personality":ep.personality,"preferences":ep.preferences,"habits":ep.habits,"health_notes":ep.health_notes,"speech_traits":ep.speech_traits,"life_experiences":ep.life_experiences,"important_memories":ep.important_memories,"notes":ep.notes})
+                db_save_elder({"full_name":ep.full_name,"gender":ep.gender,"personality":ep.personality,"preferences":ep.preferences,"habits":ep.habits,"health_notes":ep.health_notes,"speech_traits":ep.speech_traits,"life_experiences":ep.life_experiences,"important_memories":ep.important_memories,"notes":ep.notes})
                 st.rerun()
 
     st.divider()
@@ -928,8 +936,9 @@ def run_pipeline(user_input: str) -> str:
     # Step 6: 构建上下文（老人画像 + 家人偏好 + 关系表）
     elder_context = ""
     elder = get_elder()
-    if elder.name:
-        parts = [f"老人「{elder.name}」"]
+    if elder.full_name:
+        gender_text = {"男":"老爷爷","女":"老奶奶"}.get(elder.gender,"老人")
+        parts = [f"{gender_text}「{elder.full_name}」"]
         if elder.personality: parts.append(f"性格{'、'.join(elder.personality)}")
         if elder.preferences: parts.append(f"喜好{'、'.join(elder.preferences)}")
         if elder.habits: parts.append(f"习惯{'、'.join(elder.habits)}")

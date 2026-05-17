@@ -64,9 +64,15 @@ def init_db() -> None:
         conn.execute("ALTER TABLE family_profiles ADD COLUMN relations TEXT DEFAULT '[]'")
     except Exception:
         pass
+    # Migration: if elder_profile has old schema (name instead of full_name), drop it
+    cursor = conn.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='elder_profile'")
+    old_elder = cursor.fetchone()
+    if old_elder and "name TEXT PRIMARY KEY" in (old_elder[0] or ""):
+        conn.execute("DROP TABLE elder_profile")
     conn.execute("""
         CREATE TABLE IF NOT EXISTS elder_profile (
-            name TEXT PRIMARY KEY,
+            full_name TEXT PRIMARY KEY,
+            gender TEXT DEFAULT '',
             personality TEXT DEFAULT '[]',
             preferences TEXT DEFAULT '[]',
             habits TEXT DEFAULT '[]',
@@ -77,6 +83,11 @@ def init_db() -> None:
             notes TEXT DEFAULT ''
         )
     """)
+    # Migration: elder_profile add gender column
+    try:
+        conn.execute("ALTER TABLE elder_profile ADD COLUMN gender TEXT DEFAULT ''")
+    except Exception:
+        pass
     # Migration: add subject column if not exists
     try:
         conn.execute("ALTER TABLE memories ADD COLUMN subject TEXT DEFAULT ''")
@@ -247,10 +258,11 @@ def save_elder(profile_dict: dict) -> None:
     conn = _connect()
     conn.execute("""
         INSERT OR REPLACE INTO elder_profile
-            (name, personality, preferences, habits, health_notes, speech_traits, life_experiences, important_memories, notes)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (full_name, gender, personality, preferences, habits, health_notes, speech_traits, life_experiences, important_memories, notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
-        profile_dict.get("name", ""),
+        profile_dict.get("full_name", ""),
+        profile_dict.get("gender", ""),
         json.dumps(profile_dict.get("personality", []), ensure_ascii=False),
         json.dumps(profile_dict.get("preferences", []), ensure_ascii=False),
         json.dumps(profile_dict.get("habits", []), ensure_ascii=False),
@@ -271,7 +283,8 @@ def load_elder() -> dict | None:
     if row is None:
         return None
     return {
-        "name": row["name"],
+        "full_name": row["full_name"],
+        "gender": row["gender"] if "gender" in row.keys() else "",
         "personality": json.loads(row["personality"]),
         "preferences": json.loads(row["preferences"]),
         "habits": json.loads(row["habits"]),

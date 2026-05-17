@@ -50,7 +50,8 @@ PARSER_USER_ELDER = """从以下「老人回忆」视角的描述中提取信息
 "{user_text}"
 
 ## 老人画像 (elder_profile)
-- name: 老人称呼，如"妈""奶奶"
+- full_name: 老人姓名，如"宋桂兰"
+- gender: "男" 或 "女"（从自称"奶奶""母亲"等推断）
 - personality: 温和 | 幽默 | 细心 | 沉稳 | 话多 | 乐观 | 感性 | 活泼 | 内向 | 开朗 | 随和 | 大条
 - preferences: ["听戏曲","养花"]
 - habits: ["早起","饭后散步"]
@@ -66,7 +67,7 @@ PARSER_USER_ELDER = """从以下「老人回忆」视角的描述中提取信息
 
 ## 输出JSON
 {{
-  "elder_profile": {{ "name":"...","personality":[...],"preferences":[...],"habits":[...],"health_notes":[...],"speech_traits":[...],"life_experiences":[...],"important_memories":[...],"notes":"" }},
+  "elder_profile": {{ "full_name":"...","gender":"男或女","personality":[...],"preferences":[...],"habits":[...],"health_notes":[...],"speech_traits":[...],"life_experiences":[...],"important_memories":[...],"notes":"" }},
   "memories": [ {{ "content":"...","subject":"老人","memory_type":"...","family_members":[...],"emotion_tags":[...],"topic_tags":[...] }} ]
 }}
 
