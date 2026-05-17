@@ -312,7 +312,7 @@ with st.sidebar:
                     pp["role_label"] = st.text_input("角色标签", value=pp.get("role_label", ""), key="prev_role")
                     pp["appellation"] = st.text_input("称呼", value=pp.get("appellation", ""), key="prev_app")
                 with col_p2:
-                    relation_opts = ["子女", "配偶", "孙辈", "朋友", "护工"]
+                    relation_opts = ["子女", "儿媳", "女婿", "配偶", "孙辈", "朋友", "护工"]
                     cur_rel = pp.get("relation", "子女")
                     rel_idx = relation_opts.index(cur_rel) if cur_rel in relation_opts else 0
                     pp["relation"] = st.selectbox("关系", relation_opts, index=rel_idx, key="prev_rel")
