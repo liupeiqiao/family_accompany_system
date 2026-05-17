@@ -1,50 +1,39 @@
 """RED → GREEN: Verify persona import syncs sidebar form session_state keys."""
 
 
-def test_import_updates_form_session_state():
-    """一键导入后 form_* keys 必须更新为导入的角色数据。"""
-    # 模拟导入的角色数据
-    imported = {
-        "role_label": "女儿小红",
-        "relation": "子女",
-        "appellation": "妈",
-        "personality": ["温和", "幽默"],
-        "speech_style": ["喜欢撒娇", "爱叫妈"],
-        "comfort_style": ["撒娇", "唠家常"],
-    }
+def test_import_adds_to_multi_persona_list():
+    """导入不同角色应添加到多角色列表，不覆盖现有角色。"""
+    from engine.persona import PersonaProfile, add_or_update_persona, get_all_personas
 
-    # 模拟 sync 逻辑
-    expected_state = {
-        "form_role_label": imported["role_label"],
-        "form_relation": imported["relation"],
-        "form_appellation": imported["appellation"],
-        "form_personality": imported["personality"],
-        "form_speech_style": "\n".join(imported["speech_style"]),
-        "form_comfort_style": imported["comfort_style"],
-    }
+    _all = get_all_personas()
+    _all.clear()
 
-    assert expected_state["form_role_label"] == "女儿小红"
-    assert expected_state["form_appellation"] == "妈"
-    assert expected_state["form_speech_style"] == "喜欢撒娇\n爱叫妈"
+    p1 = PersonaProfile(role_label="儿子小明", relation="子女", appellation="妈",
+                        personality=["温和"], speech_style=[], comfort_style=[])
+    p2 = PersonaProfile(role_label="母亲李芳", relation="配偶", appellation="老伴",
+                        personality=["细心"], speech_style=[], comfort_style=[])
+    add_or_update_persona(p1)
+    add_or_update_persona(p2)
+
+    all_p = get_all_personas()
+    assert "儿子小明" in all_p
+    assert "母亲李芳" in all_p
+    assert len(all_p) == 2
 
 
 def test_source_has_sync_code_in_import():
-    """验证 app.py 中一键导入按钮包含 st.session_state.update。"""
+    """导入应使用 add_or_update_persona 添加到多角色列表，不自动切换当前角色。"""
     with open("app.py", encoding="utf-8") as f:
         source = f.read()
 
-    # 找到一键导入按钮后的代码
     import_idx = source.find("一键导入")
     assert import_idx > 0, "找不到一键导入按钮"
 
     after_import = source[import_idx:import_idx + 2000]
 
-    # 必须有 st.session_state.update 来同步表单字段
-    assert "form_role_label" in after_import, (
-        "一键导入未同步 form_role_label 到 session_state"
-    )
-    assert "form_appellation" in after_import, (
-        "一键导入未同步 form_appellation 到 session_state"
+    # 导入应调用 add_p (add_or_update_persona) 而非直接 set_persona + form sync
+    assert "add_p(" in after_import or "add_or_update_persona" in after_import, (
+        "导入应使用 add_or_update_persona，不自动切换角色"
     )
 
 

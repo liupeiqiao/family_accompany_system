@@ -14,7 +14,7 @@ from llm.prompts import (
 )
 from llm.parser import parse_user_text
 from engine.memory import MemoryUnit, add_memory, remove_memory, get_all_memories, clear_memories
-from engine.persona import PersonaProfile, set_persona, get_persona, get_all_personas
+from engine.persona import PersonaProfile, set_persona, get_persona, get_all_personas, remove_persona, switch_persona
 from engine.scorer import score_memories, get_best_memory, DEFAULT_WEIGHTS
 from engine.strategy import select_strategy
 from engine.adaptation import check_elderly_adaptation, safety_check, build_retry_hint
@@ -166,19 +166,14 @@ with st.sidebar:
                         speech_style=persona_part.get("speech_style", []),
                         comfort_style=persona_part.get("comfort_style", []),
                     )
-                    from engine.persona import get_all_personas as gap, merge_persona
+                    from engine.persona import get_all_personas as gap, merge_persona, add_or_update_persona as add_p
                     existing = gap().get(p.role_label)
                     if existing:
                         p = merge_persona(existing, persona_part)
-                    set_persona(p)
-                    st.session_state.update({
-                        "form_role_label": p.role_label,
-                        "form_relation": p.relation,
-                        "form_appellation": p.appellation,
-                        "form_personality": p.personality,
-                        "form_speech_style": "\n".join(p.speech_style),
-                        "form_comfort_style": p.comfort_style,
-                    })
+                    add_p(p)
+                    # 如果没有当前画像，自动切换到刚导入的角色
+                    if not get_persona().is_complete():
+                        set_persona(p)
                     db_save_persona({
                         "role_label": p.role_label,
                         "relation": p.relation,
@@ -297,7 +292,21 @@ with st.sidebar:
     # ===== 人物画像 =====
     st.header("👤 人物画像")
 
+    all_personas_dict = get_all_personas()
+    persona_labels = list(all_personas_dict.keys())
     current_persona = get_persona()
+
+    # 角色切换下拉框
+    if persona_labels:
+        current_label = current_persona.role_label if current_persona.is_complete() and current_persona.role_label in persona_labels else persona_labels[0]
+        selected_label = st.selectbox("当前角色", persona_labels,
+            index=persona_labels.index(current_label) if current_label in persona_labels else 0,
+            key="persona_selector")
+        if selected_label != current_persona.role_label:
+            switch_persona(selected_label)
+            st.rerun()
+        current_persona = get_persona()
+
     persona_has_data = current_persona.is_complete()
 
     if persona_has_data:
