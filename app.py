@@ -248,12 +248,18 @@ with st.sidebar:
                     if paction == "merge" and pmatch:
                         existing = _find_persona(pmatch)
                         if existing:
+                            old_label = existing.role_label
                             p = merge_persona(existing, persona_part)
+                            if p.role_label != old_label:
+                                db_delete_persona(old_label)
                             merged = True
                     if not merged:
                         existing = _find_persona(p.role_label)
                         if existing:
+                            old_label = existing.role_label
                             p = merge_persona(existing, persona_part)
+                            if p.role_label != old_label:
+                                db_delete_persona(old_label)  # 改名后删旧 DB 行
                     add_p(p)
                     if not get_persona().is_complete():
                         set_persona(p)
