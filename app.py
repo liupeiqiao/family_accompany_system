@@ -27,7 +27,10 @@ from engine.db import save_memory as db_save_memory, delete_memory as db_delete_
 from engine.db import save_family_profile as db_save_family, delete_family_profile as db_delete_family, load_all_family_profiles as db_load_families
 from engine.db import save_elder as db_save_elder, load_elder as db_load_elder, delete_elder as db_delete_elder
 
-st.set_page_config(page_title="亲情陪伴系统", page_icon="❤️", layout="wide")
+try:
+    st.set_page_config(page_title="亲情陪伴系统", page_icon="❤️", layout="wide")
+except Exception:
+    pass  # 热重载时可能已设置
 
 st.markdown("""
 <style>
@@ -58,8 +61,12 @@ h3 { color: #6b4228 !important; font-size: 1rem !important; }
 [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 { color: #f5c898 !important; font-family: 'ZCOOL XiaoWei', serif !important; }
 [data-testid="stSidebar"] .stTextInput > div > div > input,
 [data-testid="stSidebar"] .stTextArea > div > div > textarea {
-    background: rgba(255,255,255,0.1) !important; border: 1px solid rgba(255,255,255,0.18) !important;
-    color: #f5ede0 !important; border-radius: 8px !important;
+    background: rgba(255,255,255,0.15) !important; border: 1px solid rgba(255,255,255,0.25) !important;
+    color: #fffef8 !important; border-radius: 8px !important; font-size: 0.92rem !important;
+}
+[data-testid="stSidebar"] .stTextInput > div > div > input::placeholder,
+[data-testid="stSidebar"] .stTextArea > div > div > textarea::placeholder {
+    color: #c8b898 !important; opacity: 1 !important;
 }
 [data-testid="stSidebar"] [data-baseweb="select"] > div {
     background: rgba(255,255,255,0.1) !important; border-color: rgba(255,255,255,0.18) !important;
@@ -87,10 +94,6 @@ h3 { color: #6b4228 !important; font-size: 1rem !important; }
     background: rgba(160,120,85,0.6) !important; color: #5c3220 !important;
 }
 
-/* 输入框占位符 — 米色可见 */
-[data-testid="stSidebar"] input::placeholder,
-[data-testid="stSidebar"] textarea::placeholder { color: #c4b098 !important; }
-input::placeholder, textarea::placeholder { color: #b8a088 !important; }
 
 /* 多选标签 — 玻璃感 */
 [data-testid="stSidebar"] [data-baseweb="tag"] {
