@@ -1,3 +1,4 @@
+from __future__ import annotations
 """Prompt templates for the elderly companion system."""
 
 # ===== Prompt A: 意图+情绪联合识别 =====

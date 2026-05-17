@@ -30,12 +30,7 @@ if errorlevel 1 (
     )
 )
 
-if "%DEEPSEEK_API_KEY%"=="" (
-    echo.
-    echo WARNING: DEEPSEEK_API_KEY not set
-    set /p DEEPSEEK_API_KEY="Enter your DeepSeek API Key (or press Enter to skip): "
-    echo.
-)
+set DEEPSEEK_API_KEY=sk-032e2e8065ae4e66a64a95d8fea81dd7
 
 echo.
 echo Starting... Open http://localhost:8501

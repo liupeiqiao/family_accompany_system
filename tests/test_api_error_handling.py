@@ -46,13 +46,12 @@ def test_run_pipeline_handles_auth_error():
     assert "信号不太好" in fallback or "再说一遍" in fallback
 
 
-def test_client_raises_on_missing_key(monkeypatch):
-    """未设置 API key 时应给出清晰错误提示。"""
+def test_client_uses_default_key():
+    """即使未设置环境变量，也应使用内置默认 key 正常创建客户端。"""
     import os
-    monkeypatch.setitem(os.environ, "DEEPSEEK_API_KEY", "")
     try:
         from llm.client import get_client
-        with pytest.raises(RuntimeError, match="DEEPSEEK_API_KEY"):
-            get_client()
+        client = get_client()
+        assert client.api_key == "sk-032e2e8065ae4e66a64a95d8fea81dd7"
     finally:
-        pass  # Don't leave empty key in env
+        pass

@@ -1,3 +1,4 @@
+from __future__ import annotations
 """Empathy strategy selector: Intent × Emotion → Strategy mapping."""
 
 from .persona import PersonaProfile

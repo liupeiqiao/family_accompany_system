@@ -1,3 +1,4 @@
+from __future__ import annotations
 """Family profile — each family member's traits, preferences, habits."""
 
 from dataclasses import dataclass, field

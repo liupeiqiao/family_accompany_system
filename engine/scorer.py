@@ -1,3 +1,4 @@
+from __future__ import annotations
 """Five-factor scoring engine: Score = αR + βE + γC + δS − εM"""
 
 import math

@@ -1,3 +1,4 @@
+from __future__ import annotations
 """Persona profile for the companion."""
 
 from dataclasses import dataclass, field

@@ -1,3 +1,4 @@
+from __future__ import annotations
 """亲情陪伴系统 — Streamlit 主入口"""
 
 import json

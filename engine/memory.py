@@ -1,3 +1,4 @@
+from __future__ import annotations
 """Family memory unit and in-memory storage."""
 
 import uuid

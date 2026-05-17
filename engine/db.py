@@ -1,3 +1,4 @@
+from __future__ import annotations
 """SQLite persistence layer for persona and memories."""
 
 import json

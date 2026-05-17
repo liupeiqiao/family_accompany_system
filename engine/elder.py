@@ -1,3 +1,4 @@
+from __future__ import annotations
 """Elder profile — the elderly person's traits, habits, background."""
 
 from dataclasses import dataclass, field

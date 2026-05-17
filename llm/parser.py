@@ -1,3 +1,4 @@
+from __future__ import annotations
 """LLM-based smart parser: natural language -> structured persona + memories + profiles."""
 
 import json

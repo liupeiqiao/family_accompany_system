@@ -1,3 +1,4 @@
+from __future__ import annotations
 """Elderly adaptation rule checks — 6 hard constraints."""
 
 import re
