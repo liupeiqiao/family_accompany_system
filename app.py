@@ -241,9 +241,10 @@ with st.sidebar:
                                 return v
                         return None
                     # 优先通过 dedup 合并，兜底用模糊名匹配
+                    paction = dedup_result.get("persona_action", "")
                     pmatch = dedup_result.get("persona_match", "")
                     merged = False
-                    if pmatch:
+                    if paction == "merge" and pmatch:
                         existing = _find_persona(pmatch)
                         if existing:
                             p = merge_persona(existing, persona_part)
@@ -992,7 +993,7 @@ def run_pipeline(user_input: str) -> str:
     memory_context = build_memory_context(top_memories)
     system_prompt = build_response_system(
         role_label=persona.role_label or "家人",
-        appellation=persona.appellation or "您",
+        appellation=persona.appellation or get_elder().get_appellation() or "您",
         personality=persona.personality,
         speech_style=persona.speech_style,
         comfort_style=persona.comfort_style,
@@ -1021,7 +1022,7 @@ def run_pipeline(user_input: str) -> str:
             hint = build_retry_hint(adapt_result["issues"], safety_issues)
             system_prompt = build_response_system(
                 role_label=persona.role_label or "家人",
-                appellation=persona.appellation or "您",
+                appellation=persona.appellation or get_elder().get_appellation() or "您",
                 personality=persona.personality,
                 speech_style=persona.speech_style,
                 comfort_style=persona.comfort_style,
