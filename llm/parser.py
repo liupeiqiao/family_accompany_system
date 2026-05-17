@@ -1,0 +1,75 @@
+"""LLM-based smart parser: natural language → structured persona + memories."""
+
+import json
+import re
+
+from .client import chat
+
+PARSER_SYSTEM = """你是一个信息提取助手。用户会用自然语言描述一个家庭角色和相关记忆。你需要提取出结构化信息。
+
+只返回 JSON，不要任何解释或额外文字。"""
+
+PARSER_USER = """请从以下描述中提取人物画像和家庭记忆：
+
+"{user_text}"
+
+## 人物画像字段
+- role_label: AI 模仿的角色称呼，如"儿子小明"
+- relation: 与老人的关系，必须是以下之一：子女 | 配偶 | 孙辈 | 朋友 | 护工
+- appellation: 角色对老人的称呼，如"妈""奶奶""王阿姨"
+- personality: 性格标签列表，从以下选择：温和 | 幽默 | 细心 | 沉稳 | 话多 | 乐观 | 感性
+- speech_style: 说话风格列表（每条一句），如["喜欢用叠词","开头爱问吃了没"]
+- comfort_style: 陪伴方式列表，从以下选择：唠家常 | 撒娇 | 讲趣事 | 一起回忆 | 逗开心 | 讲道理 | 转移话题 | 鼓励 | 附和倾听 | 默默陪伴
+
+## 家庭记忆列表
+每条记忆需包含：
+- content: 记忆正文（一句话描述）
+- memory_type: 事件 | 习惯 | 偏好 | 重要日期 | 趣事
+- family_members: 涉及家人列表，如["小明(儿子)","小红(孙女)"]
+- emotion_tags: 情感标签列表，从以下选择：温馨 | 快乐 | 感动 | 搞笑 | 难忘 | 遗憾 | 伤感 | 兴奋
+- topic_tags: 话题标签列表，从以下选择：饮食 | 旅行 | 节日 | 成长 | 健康 | 宠物 | 工作 | 日常
+
+## 输出格式（严格JSON）
+{{
+  "persona": {{
+    "role_label": "...",
+    "relation": "...",
+    "appellation": "...",
+    "personality": [...],
+    "speech_style": [...],
+    "comfort_style": [...]
+  }},
+  "memories": [
+    {{
+      "content": "...",
+      "memory_type": "...",
+      "family_members": [...],
+      "emotion_tags": [...],
+      "topic_tags": [...]
+    }}
+  ]
+}}
+
+如果描述中缺少某个字段，使用合理默认值。如果完全没有记忆描述，memories 返回空数组。"""
+
+
+def parse_user_text(user_text: str) -> dict:
+    """解析用户的自然语言描述，返回 {persona: dict, memories: list[dict]}"""
+    raw = chat(PARSER_SYSTEM, PARSER_USER.format(user_text=user_text), temperature=0.3)
+
+    # JSON 解析容错
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        pass
+
+    # 正则提取
+    match = re.search(r"\{[\s\S]*\}", raw)
+    if match:
+        try:
+            return json.loads(match.group())
+        except json.JSONDecodeError:
+            pass
+
+    # Fallback
+    return {"persona": {}, "memories": []}

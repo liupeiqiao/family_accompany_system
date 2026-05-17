@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Virtual env
+venv/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+
+# Sensitive / local
+companion.db
+.claude/
+
+# Superpowers
+.superpowers/
+
+# Streamlit
+.streamlit/
+
+# Large binary files
+*.docx
