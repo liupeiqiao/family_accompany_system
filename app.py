@@ -70,9 +70,22 @@ h3 { color: #6b4228 !important; font-size: 1rem !important; }
 }
 .stButton > button:hover { background: #b06638 !important; }
 [data-testid="stSidebar"] .stButton > button {
-    background: #5a3d2e !important; border: 1px solid #7a5c4a !important;
+    background: #5a3d2e !important; border: 1px solid #7a5c4a !important; color: #f0e0d0 !important;
 }
-[data-testid="stSidebar"] .stButton > button:hover { background: #6b4a38 !important; }
+[data-testid="stSidebar"] .stButton > button:hover { background: #6b4a38 !important; color: #fff !important; }
+
+/* 输入框占位符 */
+[data-testid="stSidebar"] input::placeholder,
+[data-testid="stSidebar"] textarea::placeholder { color: #8a7a68 !important; }
+
+/* 多选标签 */
+[data-testid="stSidebar"] [data-baseweb="tag"] {
+    background: #5a3d2e !important; color: #f0e0d0 !important;
+}
+[data-testid="stSidebar"] [data-baseweb="tag"] span { color: #f0e0d0 !important; }
+
+/* 滑块 */
+[data-testid="stSidebar"] .stSlider label { color: #e8ddd0 !important; }
 
 /* 聊天消息 */
 [data-testid="stChatMessage"] { background: transparent !important; border: none !important; }
