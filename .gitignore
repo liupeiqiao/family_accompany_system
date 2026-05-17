@@ -28,4 +28,6 @@ companion.db
 # Local Python packages (accidental pip install in project dir)
 Lib/
 Scripts/
+etc/
+share/
 pyvenv.cfg
