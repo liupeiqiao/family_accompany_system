@@ -311,11 +311,10 @@ with st.sidebar:
                     st.caption(f"说话：{'；'.join(current_persona.speech_style[:3])}{'...' if len(current_persona.speech_style)>3 else ''}")
                 if current_persona.comfort_style:
                     st.caption(f"陪伴：{'、'.join(current_persona.comfort_style)}")
-                c1, c2 = st.columns(2)
+                c1, c2, c3 = st.columns(3)
                 with c1:
                     if st.button("✏️ 编辑", key="btn_edit_persona", use_container_width=True):
                         st.session_state.edit_persona = True
-                        # 预填编辑表单
                         st.session_state.update({
                             "edit_role_label": current_persona.role_label,
                             "edit_relation": current_persona.relation,
@@ -327,10 +326,15 @@ with st.sidebar:
                         st.rerun()
                 with c2:
                     if st.button("🗑️ 删除", key="btn_del_persona", use_container_width=True):
-                        empty_p = PersonaProfile()
-                        set_persona(empty_p)
-                        db_save_persona({"role_label":"","relation":"","appellation":"","personality":[],"speech_style":[],"comfort_style":[],"mood_preference":{},"topic_affinity":{},"sensitivity_map":{}})
-                        st.session_state.update({"form_role_label":"儿子小明","form_relation":"子女","form_appellation":"妈","form_personality":["温和","细心"],"form_speech_style":"喜欢用叠词\n开头爱问吃了没","form_comfort_style":["唠家常","讲趣事","一起回忆"]})
+                        db_delete_persona(current_persona.role_label)
+                        remove_persona(current_persona.role_label)
+                        st.session_state.edit_persona = False
+                        st.rerun()
+                with c3:
+                    if st.button("➕ 新增", key="btn_add_new_persona", use_container_width=True, help="添加一个全新角色"):
+                        st.session_state.edit_persona = False
+                        st.session_state.show_new_persona_form = True
+                        st.rerun()
                         st.session_state.edit_persona = False
                         st.rerun()
 
@@ -356,6 +360,32 @@ with st.sidebar:
                 with c_cancel:
                     if st.button("取消", key="btn_cancel_persona", use_container_width=True):
                         st.session_state.edit_persona = False
+                        st.rerun()
+
+        # 手动新增角色表单（独立于编辑/已有画像）
+        if st.session_state.get("show_new_persona_form", False):
+            with st.expander("➕ 新增角色", expanded=True):
+                _nrole = st.text_input("角色标签", key="new_persona_role", placeholder="如：女儿小红")
+                _nrel = st.selectbox("与老人的关系", ["子女","配偶","孙辈","朋友","护工"], key="new_persona_rel")
+                _napp = st.text_input("对老人的称呼", key="new_persona_app", placeholder="如：妈")
+                _npers = st.multiselect("性格标签", ["温和","幽默","细心","沉稳","话多","乐观","感性"], key="new_persona_pers")
+                _nsp = st.text_area("说话风格（一行一条）", key="new_persona_speech", placeholder="喜欢用叠词")
+                _nsp_list = [s.strip() for s in _nsp.split("\n") if s.strip()]
+                _ncomf = st.multiselect("陪伴行为方式", ["唠家常","撒娇","讲趣事","一起回忆","逗开心","讲道理","转移话题","鼓励","附和倾听","默默陪伴"], key="new_persona_comf")
+                ns, nc = st.columns(2)
+                with ns:
+                    if st.button("💾 保存新角色", key="btn_save_new_persona", use_container_width=True):
+                        if _nrole.strip():
+                            new_p = PersonaProfile(role_label=_nrole.strip(), relation=_nrel, appellation=_napp, personality=_npers, speech_style=_nsp_list, comfort_style=_ncomf)
+                            set_persona(new_p)
+                            from engine.persona import add_or_update_persona
+                            add_or_update_persona(new_p)
+                            db_save_persona({"role_label":new_p.role_label,"relation":new_p.relation,"appellation":new_p.appellation,"personality":new_p.personality,"speech_style":new_p.speech_style,"comfort_style":new_p.comfort_style,"mood_preference":new_p.mood_preference,"topic_affinity":new_p.topic_affinity,"sensitivity_map":new_p.sensitivity_map})
+                            st.session_state.show_new_persona_form = False
+                            st.rerun()
+                with nc:
+                    if st.button("取消", key="btn_cancel_new_persona", use_container_width=True):
+                        st.session_state.show_new_persona_form = False
                         st.rerun()
     else:
         # 无画像时显示新增表单
