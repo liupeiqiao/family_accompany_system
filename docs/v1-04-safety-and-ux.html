@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#0d1117; color:#c9d1d9; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; padding:24px; max-width:1000px; margin:0 auto; }
+  h2 { color:#f0f6fc; margin-bottom:4px; }
+  .subtitle { color:#8b949e; font-size:13px; margin-bottom:24px; }
+  h3 { color:#e6edf3; margin:28px 0 12px; font-size:16px; }
+  hr { border:none; border-top:2px solid #30363d; margin:32px 0; }
+  .card { background:#161b22; border-radius:10px; padding:20px; margin-bottom:16px; }
+  .card h4 { color:#f0883e; margin:0 0 10px; font-size:14px; }
+  .card.danger { border-left:3px solid #f85149; }
+  .card.warning { border-left:3px solid #d29922; }
+  .card.success { border-left:3px solid #3fb950; }
+  .grid2 { display:flex; gap:16px; flex-wrap:wrap; }
+  .grid2>div { flex:1; min-width:280px; }
+  .grid3 { display:flex; gap:16px; flex-wrap:wrap; }
+  .grid3>div { flex:1; min-width:180px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th { text-align:left; padding:8px; border-bottom:2px solid #30363d; color:#8b949e; font-size:12px; }
+  td { padding:8px 10px; border-bottom:1px solid #21262d; }
+  .tag { display:inline-block; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:bold; margin:1px; }
+  .tag-green { background:#3fb95022; color:#3fb950; }
+  .tag-orange { background:#f0883e22; color:#f0883e; }
+  .tag-red { background:#f8514922; color:#f85149; }
+  .step-num { display:inline-block; width:24px; height:24px; line-height:24px; border-radius:12px; text-align:center; font-weight:bold; font-size:12px; background:#f0883e; color:#0d1117; margin-right:8px; }
+  .code-block { background:#161b22; border-radius:8px; padding:18px; font-family:monospace; font-size:12px; line-height:1.8; overflow-x:auto; }
+</style>
+</head>
+<body>
+
+<h2>04 — 安全校验 & 用户体验</h2>
+<p class="subtitle">5层安全 · 老年适配 · 毛玻璃 UI · 对话增强</p>
+
+<!-- Safety -->
+<h3>1. 五层安全校验</h3>
+<div class="grid3">
+  <div class="card danger"><h4><span class="step-num">1</span>医学边界</h4>
+    <ul style="font-size:12px;color:#8b949e;line-height:1.8;padding-left:16px;">
+      <li>禁止药物名称/剂量</li><li>禁止诊断建议</li><li>禁止病情评价</li>
+    </ul>
+  </div>
+  <div class="card danger"><h4><span class="step-num">2</span>虚假承诺</h4>
+    <ul style="font-size:12px;color:#8b949e;line-height:1.8;padding-left:16px;">
+      <li>"明天就回来看你"</li><li>"以后再也不走了"</li><li>不代真人做承诺</li>
+    </ul>
+  </div>
+  <div class="card warning"><h4><span class="step-num">3</span>敏感话题</h4>
+    <ul style="font-size:12px;color:#8b949e;line-height:1.8;padding-left:16px;">
+      <li>死亡、遗产、重病</li><li>切换为转移注意力策略</li><li>夜间遗憾标签保护</li>
+    </ul>
+  </div>
+  <div class="card warning"><h4><span class="step-num">4</span>老年适配</h4>
+    <ul style="font-size:12px;color:#8b949e;line-height:1.8;padding-left:16px;">
+      <li>句长≤60字</li><li>必须含称呼</li><li>无网络用语/英文</li>
+    </ul>
+  </div>
+  <div class="card success"><h4><span class="step-num">5</span>LLM 自检</h4>
+    <ul style="font-size:12px;color:#8b949e;line-height:1.8;padding-left:16px;">
+      <li>生成 Prompt 内嵌安全规则</li><li>失败→带修正提示重试</li>
+    </ul>
+  </div>
+</div>
+
+<hr>
+
+<!-- Adaptation Rules -->
+<h3>2. 老年适配规则</h3>
+<div class="grid2">
+  <div class="card"><h4>✅ 必须满足</h4>
+    <table>
+      <tr><td>句子长度</td><td>≤ 60 字</td></tr>
+      <tr><td>称呼使用</td><td>每段回复 ≥1 次</td></tr>
+      <tr><td>禁忌词汇</td><td>禁用死/癌症/遗产等</td></tr>
+      <tr><td>网络用语</td><td>禁英文缩写/网络梗</td></tr>
+      <tr><td>肯定表达</td><td>多用"是啊""对的"</td></tr>
+      <tr><td>回复长度</td><td>2-4 句，不过于简短</td></tr>
+    </table>
+  </div>
+  <div class="card"><h4>🔧 违规处理</h4>
+    <div class="code-block">
+      <span style="color:#d2a8ff;">check_elderly_adaptation</span>(response, appellation)
+      → {pass: bool, issues: list}
+      <br><span style="color:#8b949e;">失败 → 注入修正提示 → LLM 重新生成</span>
+    </div>
+  </div>
+</div>
+
+<hr>
+
+<!-- Dialog Enhancements -->
+<h3>3. 对话增强</h3>
+<div class="grid2">
+  <div class="card success"><h4>🎯 角色自动切换</h4>
+    <p style="font-size:13px;color:#8b949e;line-height:1.8;">
+      老人说"承文啊…" → LLM 提取 talk_to="刘承文" → 模糊匹配 persona → 自动切换 → 用儿子口吻回复。
+      未指定对象 → 通用模式（老人画像 + 策略）。
+    </p>
+  </div>
+  <div class="card success"><h4>💬 话题联想展开</h4>
+    <p style="font-size:13px;color:#8b949e;line-height:1.8;">
+      回复后可自然延伸话题——
+      "对了妈，说到槐花，上次您做的那个卜拉，承文到现在还念叨呢…"
+      根据记忆和老人画像联想相关内容，让对话更生动自然。
+    </p>
+  </div>
+  <div class="card success"><h4>👥 多角色感知</h4>
+    <p style="font-size:13px;color:#8b949e;line-height:1.8;">
+      检测提及人物 → 注入该人物画像 + 偏好档案 + 关系表 + Top-5 记忆。
+      如提到"小红"→ AI 知道小红是孙女、性格活泼、爱看电视剧。
+    </p>
+  </div>
+  <div class="card success"><h4>🛡️ API 健壮性</h4>
+    <p style="font-size:13px;color:#8b949e;line-height:1.8;">
+      10s 超时 + 自动重试 2 次 + JSON 解析容错（正则 fallback）。
+      异常时返回预设安慰话术，不暴露技术错误。
+    </p>
+  </div>
+</div>
+
+<hr>
+
+<!-- UI Features -->
+<h3>4. UI 特性</h3>
+<div class="grid2">
+  <div class="card"><h4>🎨 视觉风格</h4>
+    <table>
+      <tr><td style="color:#8b949e;">主题</td><td>现代简约 · 暖木色调 · 毛玻璃</td></tr>
+      <tr><td style="color:#8b949e;">标题</td><td>ZCOOL XiaoWei（手写感）</td></tr>
+      <tr><td style="color:#8b949e;">正文</td><td>Noto Sans SC</td></tr>
+      <tr><td style="color:#8b949e;">背景</td><td>柔光暖白渐变 #fefaf5</td></tr>
+      <tr><td style="color:#8b949e;">侧边栏</td><td>半透明深木 + 毛玻璃 blur</td></tr>
+      <tr><td style="color:#8b949e;">卡片/气泡</td><td>白底半透 + backdrop-filter</td></tr>
+    </table>
+  </div>
+  <div class="card"><h4>🔧 交互设计</h4>
+    <table>
+      <tr><td style="color:#8b949e;">导入</td><td>双视角选择 + 预览编辑 + 一键导入</td></tr>
+      <tr><td style="color:#8b949e;">画像</td><td>卡片展示 + 内联编辑 + 模糊合并</td></tr>
+      <tr><td style="color:#8b949e;">档案</td><td>独立编辑 + 关系网络 + 去重</td></tr>
+      <tr><td style="color:#8b949e;">记忆</td><td>卡片列表 + 全部删除 + 新增</td></tr>
+      <tr><td style="color:#8b949e;">调试</td><td>意图·情绪·对象·评分面板</td></tr>
+      <tr><td style="color:#8b949e;">权重</td><td>5条滑块实时调整 αβγδε</td></tr>
+    </table>
+  </div>
+</div>
+
+<hr>
+
+<!-- Tech Stack -->
+<h3>5. 技术栈 & 指标</h3>
+<div class="grid3">
+  <div class="card" style="text-align:center;"><div style="font-size:24px;color:#f0883e;">Python 3.8+</div><div style="color:#8b949e;font-size:11px;">Streamlit 1.28+</div></div>
+  <div class="card" style="text-align:center;"><div style="font-size:24px;color:#a78bfa;">DeepSeek V4</div><div style="color:#8b949e;font-size:11px;">OpenAI 兼容 API</div></div>
+  <div class="card" style="text-align:center;"><div style="font-size:24px;color:#3fb950;">SQLite</div><div style="color:#8b949e;font-size:11px;">4 表持久化</div></div>
+  <div class="card" style="text-align:center;"><div style="font-size:24px;color:#f0883e;">2次/轮</div><div style="color:#8b949e;font-size:11px;">API调用</div></div>
+  <div class="card" style="text-align:center;"><div style="font-size:24px;color:#3fb950;">10s</div><div style="color:#8b949e;font-size:11px;">超时+重试</div></div>
+  <div class="card" style="text-align:center;"><div style="font-size:24px;color:#58a6ff;">29个</div><div style="color:#8b949e;font-size:11px;">单元测试</div></div>
+</div>
+
+</body>
+</html>

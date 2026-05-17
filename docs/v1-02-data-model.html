@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#0d1117; color:#c9d1d9; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; padding:24px; max-width:1000px; margin:0 auto; }
+  h2 { color:#f0f6fc; margin-bottom:4px; }
+  .subtitle { color:#8b949e; font-size:13px; margin-bottom:24px; }
+  h3 { color:#e6edf3; margin:28px 0 12px; font-size:16px; }
+  code { background:#21262d; padding:2px 6px; border-radius:4px; font-size:12px; color:#ff7b72; }
+  .code-block { background:#161b22; border-radius:8px; padding:18px; font-family:Cascadia Code,monospace; font-size:12px; line-height:1.8; overflow-x:auto; }
+  .comment { color:#6e7681; } .keyword { color:#ff7b72; } .type { color:#ffa657; }
+  .field { color:#79c0ff; } .func { color:#d2a8ff; }
+  hr { border:none; border-top:2px solid #30363d; margin:32px 0; }
+  .card { background:#161b22; border-radius:10px; padding:20px; margin-bottom:16px; }
+  .card h4 { color:#f0883e; margin:0 0 10px; font-size:14px; }
+  .grid2 { display:flex; gap:16px; flex-wrap:wrap; }
+  .grid2>div { flex:1; min-width:300px; }
+  .grid3 { display:flex; gap:16px; flex-wrap:wrap; }
+  .grid3>div { flex:1; min-width:200px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th { text-align:left; padding:8px; border-bottom:2px solid #30363d; color:#8b949e; font-size:12px; }
+  td { padding:8px 10px; border-bottom:1px solid #21262d; }
+</style>
+</head>
+<body>
+
+<h2>02 — 数据模型设计</h2>
+<p class="subtitle">四层画像体系：老人 · AI角色 · 家人 · 记忆</p>
+
+<!-- ElderProfile -->
+<h3>1. 老人画像 <code>ElderProfile</code></h3>
+<p style="color:#8b949e;font-size:13px;margin-bottom:12px;">单例存储，性别自动推导称呼（女→"妈"，男→"爸"），每轮对话注入回复上下文。</p>
+<div class="code-block">
+<span class="keyword">@dataclass</span>
+<span class="keyword">class</span> <span class="func">ElderProfile</span>:
+    <span class="field">full_name</span>:          <span class="type">str</span>         <span class="comment"># "宋桂兰"</span>
+    <span class="field">gender</span>:             <span class="type">str</span>         <span class="comment"># "男" | "女"</span>
+    <span class="field">personality</span>:        <span class="type">list[str]</span>   <span class="comment"># ["内向","爱操心"]</span>
+    <span class="field">preferences</span>:        <span class="type">list[str]</span>   <span class="comment"># ["做面食","养花"]</span>
+    <span class="field">habits</span>:             <span class="type">list[str]</span>   <span class="comment"># ["早起","饭后散步"]</span>
+    <span class="field">health_notes</span>:       <span class="type">list[str]</span>   <span class="comment"># ["高血压","忌油腻"]</span>
+    <span class="field">speech_traits</span>:      <span class="type">list[str]</span>   <span class="comment"># ["语速慢","话不多"]</span>
+    <span class="field">life_experiences</span>:   <span class="type">list[str]</span>   <span class="comment"># ["退休工人","带大两个孙子"]</span>
+    <span class="field">important_memories</span>: <span class="type">list[str]</span>   <span class="comment"># ["儿子考上大学摆了三天酒"]</span>
+    <span class="field">notes</span>:              <span class="type">str</span>         <span class="comment"># 补充</span>
+</div>
+
+<!-- PersonaProfile -->
+<h3>2. AI 扮演角色 <code>PersonaProfile</code></h3>
+<p style="color:#8b949e;font-size:13px;margin-bottom:12px;">多角色支持，role_label 主键。模糊名匹配合并，对话时自动切换。</p>
+<div class="code-block">
+<span class="field">role_label</span>:    <span class="type">str</span>         <span class="comment"># "儿子刘承文"（主键）</span>
+<span class="field">relation</span>:      <span class="type">str</span>         <span class="comment"># 子女/儿媳/女婿/配偶/孙辈/朋友/护工</span>
+<span class="field">appellation</span>:   <span class="type">str</span>         <span class="comment"># "妈"（老人性别推导默认值）</span>
+<span class="field">personality</span>:   <span class="type">list[str]</span>   <span class="comment"># 12项可选标签</span>
+<span class="field">speech_style</span>:  <span class="type">list[str]</span>   <span class="comment"># ["喜欢叫妈","爱问吃了没"]</span>
+<span class="field">comfort_style</span>: <span class="type">list[str]</span>   <span class="comment"># 10项陪伴方式</span>
+</div>
+
+<!-- FamilyProfile -->
+<h3>3. 家人档案 <code>FamilyProfile</code></h3>
+<p style="color:#8b949e;font-size:13px;margin-bottom:12px;">每个家人独立档案，含与其他家人的关系网。</p>
+<div class="code-block">
+<span class="field">name</span>:         <span class="type">str</span>         <span class="comment"># "刘承文"（主键）</span>
+<span class="field">relation</span>:     <span class="type">str</span>         <span class="comment"># 与老人关系</span>
+<span class="field">personality</span>:  <span class="type">list[str]</span>   <span class="comment"># 性格</span>
+<span class="field">preferences</span>:  <span class="type">list[str]</span>   <span class="comment"># 喜好</span>
+<span class="field">habits</span>:       <span class="type">list[str]</span>   <span class="comment"># 习惯</span>
+<span class="field">relations</span>:    <span class="type">list[dict]</span> <span class="comment"># [{"person":"张怀粉","relation":"妻子"}]</span>
+<span class="field">notes</span>:        <span class="type">str</span>         <span class="comment"># 备注</span>
+</div>
+
+<!-- MemoryUnit -->
+<h3>4. 家庭记忆 <code>MemoryUnit</code></h3>
+<p style="color:#8b949e;font-size:13px;margin-bottom:12px;">主语标注，按人物检索。</p>
+<div class="code-block">
+<span class="field">content</span>:         <span class="type">str</span>         <span class="comment"># 记忆正文</span>
+<span class="field">subject</span>:         <span class="type">str</span>         <span class="comment"># "刘承文"——这条记忆是关于谁的</span>
+<span class="field">memory_type</span>:     <span class="type">str</span>         <span class="comment"># 事件/习惯/偏好/重要日期/趣事</span>
+<span class="field">family_members</span>:  <span class="type">list[str]</span>   <span class="comment"># ["刘承文(子女)","张怀粉(儿媳)"]</span>
+<span class="field">emotion_tags</span>:    <span class="type">list[str]</span>   <span class="comment"># 8种情感</span>
+<span class="field">topic_tags</span>:      <span class="type">list[str]</span>   <span class="comment"># 8种话题</span>
+<span class="field">intimacy_weight</span>: <span class="type">float</span>       <span class="comment"># 0~1</span>
+<span class="field">access_count</span>:    <span class="type">int</span>         <span class="comment"># 调用计数</span>
+</div>
+
+<hr>
+
+<!-- DB Schema -->
+<h3>5. SQLite 表结构</h3>
+<div class="grid2">
+  <div class="card"><h4>persona 表</h4>
+    <table>
+      <tr><td style="color:#8b949e;">role_label</td><td>TEXT PK</td></tr>
+      <tr><td style="color:#8b949e;">relation</td><td>TEXT</td></tr>
+      <tr><td style="color:#8b949e;">appellation</td><td>TEXT</td></tr>
+      <tr><td style="color:#8b949e;">personality</td><td>TEXT (JSON)</td></tr>
+      <tr><td style="color:#8b949e;">speech_style</td><td>TEXT (JSON)</td></tr>
+      <tr><td style="color:#8b949e;">comfort_style</td><td>TEXT (JSON)</td></tr>
+    </table>
+  </div>
+  <div class="card"><h4>elder_profile 表</h4>
+    <table>
+      <tr><td style="color:#8b949e;">full_name</td><td>TEXT PK</td></tr>
+      <tr><td style="color:#8b949e;">gender</td><td>TEXT</td></tr>
+      <tr><td style="color:#8b949e;">personality</td><td>TEXT (JSON)</td></tr>
+      <tr><td style="color:#8b949e;">preferences</td><td>TEXT (JSON)</td></tr>
+      <tr><td style="color:#8b949e;">habits</td><td>TEXT (JSON)</td></tr>
+      <tr><td style="color:#8b949e;">health_notes</td><td>TEXT (JSON)</td></tr>
+      <tr><td style="color:#8b949e;">speech_traits</td><td>TEXT (JSON)</td></tr>
+      <tr><td style="color:#8b949e;">life_experiences</td><td>TEXT (JSON)</td></tr>
+      <tr><td style="color:#8b949e;">important_memories</td><td>TEXT (JSON)</td></tr>
+      <tr><td style="color:#8b949e;">notes</td><td>TEXT</td></tr>
+    </table>
+  </div>
+  <div class="card"><h4>family_profiles 表</h4>
+    <table>
+      <tr><td style="color:#8b949e;">name</td><td>TEXT PK</td></tr>
+      <tr><td style="color:#8b949e;">relation</td><td>TEXT</td></tr>
+      <tr><td style="color:#8b949e;">personality</td><td>TEXT (JSON)</td></tr>
+      <tr><td style="color:#8b949e;">preferences</td><td>TEXT (JSON)</td></tr>
+      <tr><td style="color:#8b949e;">habits</td><td>TEXT (JSON)</td></tr>
+      <tr><td style="color:#8b949e;">relations</td><td>TEXT (JSON)</td></tr>
+      <tr><td style="color:#8b949e;">notes</td><td>TEXT</td></tr>
+    </table>
+  </div>
+  <div class="card"><h4>memories 表</h4>
+    <table>
+      <tr><td style="color:#8b949e;">id</td><td>TEXT PK</td></tr>
+      <tr><td style="color:#8b949e;">content</td><td>TEXT</td></tr>
+      <tr><td style="color:#8b949e;">subject</td><td>TEXT</td></tr>
+      <tr><td style="color:#8b949e;">memory_type</td><td>TEXT</td></tr>
+      <tr><td style="color:#8b949e;">family_members</td><td>TEXT (JSON)</td></tr>
+      <tr><td style="color:#8b949e;">emotion_tags</td><td>TEXT (JSON)</td></tr>
+      <tr><td style="color:#8b949e;">topic_tags</td><td>TEXT (JSON)</td></tr>
+      <tr><td style="color:#8b949e;">intimacy_weight</td><td>REAL</td></tr>
+    </table>
+  </div>
+</div>
+
+</body>
+</html>

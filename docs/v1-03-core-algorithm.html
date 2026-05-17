@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#0d1117; color:#c9d1d9; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; padding:24px; max-width:1000px; margin:0 auto; }
+  h2 { color:#f0f6fc; margin-bottom:4px; }
+  .subtitle { color:#8b949e; font-size:13px; margin-bottom:24px; }
+  h3 { color:#e6edf3; margin:28px 0 12px; font-size:16px; }
+  hr { border:none; border-top:2px solid #30363d; margin:32px 0; }
+  .card { background:#161b22; border-radius:10px; padding:20px; margin-bottom:16px; }
+  .card h4 { color:#f0883e; margin:0 0 10px; font-size:14px; }
+  .card.danger { border-left:3px solid #f85149; }
+  .card.warning { border-left:3px solid #d29922; }
+  .card.info { border-left:3px solid #58a6ff; }
+  .grid2 { display:flex; gap:16px; flex-wrap:wrap; }
+  .grid2>div { flex:1; min-width:300px; }
+  .grid3 { display:flex; gap:16px; flex-wrap:wrap; }
+  .grid3>div { flex:1; min-width:200px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th { text-align:left; padding:8px; border-bottom:2px solid #30363d; color:#8b949e; font-size:12px; }
+  td { padding:8px 10px; border-bottom:1px solid #21262d; }
+  .tag { display:inline-block; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:bold; margin:1px; }
+  .tag-red { background:#f8514922; color:#f85149; }
+  .tag-green { background:#3fb95022; color:#3fb950; }
+  .tag-orange { background:#f0883e22; color:#f0883e; }
+  .tag-purple { background:#a78bfa22; color:#a78bfa; }
+  .tag-blue { background:#58a6ff22; color:#58a6ff; }
+  .formula { background:#0d1117; border:1px solid #f0883e; border-radius:8px; padding:14px 20px; text-align:center; font-size:18px; font-weight:bold; color:#f0883e; letter-spacing:2px; margin:12px 0; }
+</style>
+</head>
+<body>
+
+<h2>03 — 核心算法设计</h2>
+<p class="subtitle">评分引擎 · 情感冲突矩阵 · 策略选择 · 智能去重</p>
+
+<!-- Scoring -->
+<h3>1. 评分引擎 <code>engine/scorer.py</code></h3>
+<div class="formula">Score = α·R + β·E + γ·C + δ·S − ε·M</div>
+<p style="color:#8b949e;font-size:12px;text-align:center;margin-bottom:16px;">默认权重 α=0.30 β=0.25 γ=0.20 δ=0.15 ε=0.10（侧边栏可调）</p>
+
+<div class="grid2">
+  <div class="card"><h4>R — 相关性</h4>
+    <table>
+      <tr><td style="color:#8b949e;">话题匹配 40%</td><td>Jaccard 系数</td></tr>
+      <tr><td style="color:#8b949e;">家人匹配 25%</td><td>提及检测</td></tr>
+      <tr><td style="color:#8b949e;">时间衰减 15%</td><td>e⁻⁰·⁰⁰¹ᵗ</td></tr>
+      <tr><td style="color:#8b949e;">语义近似 20%</td><td>关键词重叠</td></tr>
+    </table>
+  </div>
+  <div class="card"><h4>E — 共情度</h4>
+    <table>
+      <tr><td style="color:#8b949e;">情绪匹配 40%</td><td>标签一致性</td></tr>
+      <tr><td style="color:#8b949e;">历史有效 35%</td><td>策略反馈</td></tr>
+      <tr><td style="color:#8b949e;">冲突矩阵 25%</td><td>56格三级判定</td></tr>
+    </table>
+  </div>
+  <div class="card"><h4>C — 亲密度</h4>
+    <table>
+      <tr><td style="color:#8b949e;">关系权重 50%</td><td>配偶1.0/子女0.9/...</td></tr>
+      <tr><td style="color:#8b949e;">记忆权重 30%</td><td>intimacy_weight</td></tr>
+      <tr><td style="color:#8b949e;">访问热度 20%</td><td>min(count/10,1)</td></tr>
+    </table>
+  </div>
+  <div class="card"><h4>S+M — 安全+罚分</h4>
+    <table>
+      <tr><td style="color:#8b949e;">风险词 50%</td><td>病/死/钱/遗产</td></tr>
+      <tr><td style="color:#8b949e;">敏感话题 30%</td><td>按 sensitivity_map 扣分</td></tr>
+      <tr><td style="color:#8b949e;">医学边界 20%</td><td>药物/诊断 → S=0</td></tr>
+      <tr><td style="color:#8b949e;">罚分M</td><td>已故亲属0.5/创伤0.4/近期负面0.3</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- Emotion Conflict Matrix -->
+<h3>2. 情感冲突矩阵（E 子项）</h3>
+<p style="color:#8b949e;font-size:12px;margin-bottom:8px;">老人当前情绪 × 记忆情感标签 → 56格三级判定。正面情绪全开放。</p>
+<table>
+  <tr><th style="width:80px;">情绪 ↘ 标签→</th><th style="text-align:center;">搞笑</th><th style="text-align:center;">温馨</th><th style="text-align:center;">感动</th><th style="text-align:center;">遗憾</th><th style="text-align:center;">伤感</th><th style="text-align:center;">兴奋</th><th style="text-align:center;">日常</th><th style="text-align:center;">难忘</th></tr>
+  <tr><td style="color:#f0883e;">难过</td><td style="text-align:center;color:#f85149;">❌</td><td style="text-align:center;color:#3fb950;">✅</td><td style="text-align:center;color:#d29922;">⚠️</td><td style="text-align:center;color:#f85149;">❌</td><td style="text-align:center;color:#f85149;">❌</td><td style="text-align:center;color:#d29922;">⚠️</td><td style="text-align:center;color:#3fb950;">✅</td><td style="text-align:center;color:#3fb950;">✅</td></tr>
+  <tr><td style="color:#f0883e;">焦虑</td><td style="text-align:center;color:#3fb950;">✅</td><td style="text-align:center;color:#3fb950;">✅</td><td style="text-align:center;color:#3fb950;">✅</td><td style="text-align:center;color:#f85149;">❌</td><td style="text-align:center;color:#f85149;">❌</td><td style="text-align:center;color:#d29922;">⚠️</td><td style="text-align:center;color:#3fb950;">✅</td><td style="text-align:center;color:#d29922;">⚠️</td></tr>
+  <tr><td style="color:#f0883e;">孤独</td><td style="text-align:center;color:#3fb950;">✅</td><td style="text-align:center;color:#3fb950;">✅</td><td style="text-align:center;color:#3fb950;">✅</td><td style="text-align:center;color:#d29922;">⚠️</td><td style="text-align:center;color:#f85149;">❌</td><td style="text-align:center;color:#3fb950;">✅</td><td style="text-align:center;color:#3fb950;">✅</td><td style="text-align:center;color:#3fb950;">✅</td></tr>
+  <tr><td style="color:#f0883e;">思念</td><td style="text-align:center;color:#d29922;">⚠️</td><td style="text-align:center;color:#3fb950;">✅</td><td style="text-align:center;color:#3fb950;">✅</td><td style="text-align:center;color:#f85149;">❌</td><td style="text-align:center;color:#f85149;">❌</td><td style="text-align:center;color:#3fb950;">✅</td><td style="text-align:center;color:#3fb950;">✅</td><td style="text-align:center;color:#3fb950;">✅</td></tr>
+  <tr><td style="color:#f0883e;">抱怨</td><td style="text-align:center;color:#f85149;">❌</td><td style="text-align:center;color:#d29922;">⚠️</td><td style="text-align:center;color:#3fb950;">✅</td><td style="text-align:center;color:#d29922;">⚠️</td><td style="text-align:center;color:#d29922;">⚠️</td><td style="text-align:center;color:#d29922;">⚠️</td><td style="text-align:center;color:#3fb950;">✅</td><td style="text-align:center;color:#d29922;">⚠️</td></tr>
+  <tr><td style="color:#f0883e;">开心/平静/兴奋</td><td style="text-align:center;color:#3fb950;">✅</td><td style="text-align:center;color:#3fb950;">✅</td><td style="text-align:center;color:#3fb950;">✅</td><td style="text-align:center;color:#3fb950;">✅</td><td style="text-align:center;color:#3fb950;">✅</td><td style="text-align:center;color:#3fb950;">✅</td><td style="text-align:center;color:#3fb950;">✅</td><td style="text-align:center;color:#3fb950;">✅</td></tr>
+</table>
+<div style="margin-top:10px;font-size:12px;">
+  <span style="color:#3fb950;">✅ 兼容</span> &nbsp; <span style="color:#d29922;">⚠️ 降权 E×0.4</span> &nbsp; <span style="color:#f85149;">❌ 禁选 E=0</span>
+</div>
+<div style="margin-top:6px;font-size:11px;color:#8b949e;">
+  补充约束：兴奋+搞笑双标签→升级一档 · 已故亲属→非思念/难过情绪❌ · 遗憾标签+夜间(21:00-06:00)→❌
+</div>
+
+<hr>
+
+<!-- Strategy -->
+<h3>3. 策略选择 <code>engine/strategy.py</code></h3>
+<div class="grid2">
+  <div class="card"><h4>7 种意图</h4>
+    <span class="tag tag-red">怀念</span> <span class="tag tag-purple">抱怨</span> <span class="tag tag-orange">思念家人</span> <span class="tag tag-blue">表达孤独</span>
+    <span class="tag tag-green">担忧焦虑</span> <span class="tag tag-red">确认事实</span> <span class="tag tag-purple">日常闲聊</span>
+  </div>
+  <div class="card"><h4>× 9 种情绪 → 7 种策略</h4>
+    <span class="tag tag-green">分享式</span> <span class="tag tag-purple">安慰式</span> <span class="tag tag-orange">转移注意力</span>
+    <span class="tag tag-blue">确认式</span> <span class="tag tag-green">鼓励式</span>
+    <span class="tag tag-blue">附和式</span> <span class="tag tag-green">唠家常</span>
+  </div>
+</div>
+<p style="color:#8b949e;font-size:12px;">策略受 persona.comfort_style 约束：不在用户允许列表内则 fallback 到最接近项。</p>
+
+<hr>
+
+<!-- Smart Import -->
+<h3>4. 智能解析流程</h3>
+<div class="grid2">
+  <div class="card info">
+    <h4>👨‍👩‍👧 家人回忆视角</h4>
+    <ul style="color:#8b949e;font-size:13px;line-height:1.8;padding-left:16px;">
+      <li>LLM 提取 <code>persona</code>（AI扮演角色）</li>
+      <li>LLM 提取 <code>family_profiles</code>（家人档案）</li>
+      <li>LLM 提取 <code>memories</code>（记忆片段）</li>
+      <li>传入已知家人作为关系推断上下文</li>
+    </ul>
+  </div>
+  <div class="card info">
+    <h4>👵 老人回忆视角</h4>
+    <ul style="color:#8b949e;font-size:13px;line-height:1.8;padding-left:16px;">
+      <li>LLM 提取 <code>elder_profile</code>（老人画像）</li>
+      <li>LLM 提取 <code>memories</code>（记忆片段）</li>
+      <li>subject 自动标记为"老人"</li>
+    </ul>
+  </div>
+</div>
+
+<h3>5. 智能去重</h3>
+<div class="card warning">
+  <h4>LLM 交叉匹配</h4>
+  <p style="color:#8b949e;font-size:13px;line-height:1.8;">
+    解析后 → 对比已有 <code>personas</code> + <code>family_profiles</code> → LLM 判断同人 → 预览标注 🆕🔄⚠️ → 用户确认导入。
+  </p>
+</div>
+<div class="card info">
+  <h4>模糊名匹配（兜底）</h4>
+  <p style="color:#8b949e;font-size:13px;line-height:1.8;">
+    导入时 <code>"刘沛侨" in "孙子刘沛侨" → True</code>，合并并删 DB 旧行。不依赖 LLM 结果。
+  </p>
+</div>
+
+</body>
+</html>

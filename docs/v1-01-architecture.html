@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#0d1117; color:#c9d1d9; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; padding:24px; max-width:1000px; margin:0 auto; }
+  h2 { color:#f0f6fc; margin-bottom:4px; }
+  .subtitle { color:#8b949e; font-size:13px; margin-bottom:24px; }
+  h3 { color:#e6edf3; margin:28px 0 12px; font-size:16px; }
+  code { background:#21262d; padding:2px 6px; border-radius:4px; font-size:12px; color:#ff7b72; }
+  .code-block { background:#161b22; border-radius:8px; padding:18px; font-family:monospace; font-size:12.5px; line-height:1.9; overflow-x:auto; }
+  hr { border:none; border-top:2px solid #30363d; margin:32px 0; }
+  .card { background:#161b22; border-radius:10px; padding:20px; margin-bottom:16px; }
+  .card h4 { color:#f0883e; margin:0 0 10px; font-size:14px; }
+  .grid2 { display:flex; gap:16px; flex-wrap:wrap; }
+  .grid2>div { flex:1; min-width:280px; }
+  .grid3 { display:flex; gap:16px; flex-wrap:wrap; }
+  .grid3>div { flex:1; min-width:180px; }
+  .flow-h { display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-size:12px; justify-content:center; }
+  .flow-box { background:#0d1117; border:1px solid #30363d; border-radius:8px; padding:10px 14px; text-align:center; }
+</style>
+</head>
+<body>
+
+<h2>01 — 系统架构总览</h2>
+<p class="subtitle">多角色感知 · 智能解析 · 五因子评分 · 毛玻璃 UI</p>
+
+<h3>数据流</h3>
+<div class="flow-h" style="background:#161b22; border-radius:12px; padding:20px;">
+  <div class="flow-box" style="border-color:#f0883e;">
+    <div style="color:#f0883e;font-weight:bold;">📥 老人输入</div>
+    <div style="color:#8b949e;font-size:11px;">自然语言文本</div>
+  </div>
+  <span style="color:#f85149;">→</span>
+  <div class="flow-box" style="border-color:#a78bfa;">
+    <div style="color:#a78bfa;font-weight:bold;">🧠 LLM 分析</div>
+    <div style="color:#8b949e;font-size:10px;">意图·情绪</div>
+    <div style="color:#8b949e;font-size:10px;">对话对象·提及人物</div>
+  </div>
+  <span style="color:#f85149;">→</span>
+  <div class="flow-box" style="border-color:#f0883e;">
+    <div style="color:#f0883e;font-weight:bold;">🔍 人物匹配</div>
+    <div style="color:#8b949e;font-size:10px;">模糊名→切换角色</div>
+    <div style="color:#8b949e;font-size:10px;">检索相关记忆+档案</div>
+  </div>
+  <span style="color:#f85149;">→</span>
+  <div class="flow-box" style="border-color:#f85149;">
+    <div style="color:#f85149;font-weight:bold;">⚙️ 评分引擎</div>
+    <div style="color:#8b949e;font-size:10px;">αR+βE+γC+δS−εM</div>
+    <div style="color:#8b949e;font-size:10px;">安全过滤→Top-5</div>
+  </div>
+  <span style="color:#f85149;">→</span>
+  <div class="flow-box" style="border-color:#a78bfa;">
+    <div style="color:#a78bfa;font-weight:bold;">🧠 LLM 生成</div>
+    <div style="color:#8b949e;font-size:10px;">画像+记忆+档案</div>
+    <div style="color:#8b949e;font-size:10px;">话题联想展开</div>
+  </div>
+  <span style="color:#f85149;">→</span>
+  <div class="flow-box" style="border-color:#3fb950;">
+    <div style="color:#3fb950;font-weight:bold;">🛡️ 校验</div>
+    <div style="color:#8b949e;font-size:10px;">老年适配·安全</div>
+  </div>
+  <span style="color:#f85149;">→</span>
+  <div class="flow-box" style="border-color:#58a6ff;">
+    <div style="color:#58a6ff;font-weight:bold;">📤 回复</div>
+  </div>
+</div>
+
+<h3>文件结构</h3>
+<div class="code-block">
+<span style="color:#6e7681;">亲情陪伴系统/
+├──</span> <span style="color:#3fb950;">app.py</span>              <span style="color:#484f58;">Streamlit 主入口</span>
+<span style="color:#6e7681;">├──</span> <span style="color:#3fb950;">requirements.txt</span>
+<span style="color:#6e7681;">├──</span> <span style="color:#3fb950;">engine/</span>
+<span style="color:#6e7681;">│   ├──</span> <span style="color:#a78bfa;">memory.py</span>        <span style="color:#484f58;">MemoryUnit 内存存储</span>
+<span style="color:#6e7681;">│   ├──</span> <span style="color:#a78bfa;">persona.py</span>       <span style="color:#484f58;">多角色画像管理</span>
+<span style="color:#6e7681;">│   ├──</span> <span style="color:#a78bfa;">elder.py</span>         <span style="color:#484f58;">老人画像 (性别推导称呼)</span>
+<span style="color:#6e7681;">│   ├──</span> <span style="color:#a78bfa;">family.py</span>        <span style="color:#484f58;">家人档案 + 关系表</span>
+<span style="color:#6e7681;">│   ├──</span> <span style="color:#f85149;">scorer.py</span>        <span style="color:#484f58;">五因子评分引擎</span>
+<span style="color:#6e7681;">│   ├──</span> <span style="color:#f85149;">strategy.py</span>      <span style="color:#484f58;">7意图×9情绪→7策略</span>
+<span style="color:#6e7681;">│   ├──</span> <span style="color:#f85149;">adaptation.py</span>   <span style="color:#484f58;">老年适配 + 安全检查</span>
+<span style="color:#6e7681;">│   └──</span> <span style="color:#a78bfa;">db.py</span>            <span style="color:#484f58;">SQLite 4表持久化</span>
+<span style="color:#6e7681;">├──</span> <span style="color:#3fb950;">llm/</span>
+<span style="color:#6e7681;">│   ├──</span> <span style="color:#a78bfa;">client.py</span>        <span style="color:#484f58;">DeepSeek API (10s超时+重试)</span>
+<span style="color:#6e7681;">│   ├──</span> <span style="color:#a78bfa;">prompts.py</span>       <span style="color:#484f58;">意图/回复/策略 Prompt</span>
+<span style="color:#6e7681;">│   └──</span> <span style="color:#a78bfa;">parser.py</span>        <span style="color:#484f58;">双视角解析 + 智能去重</span>
+<span style="color:#6e7681;">└──</span> <span style="color:#3fb950;">tests/</span>              <span style="color:#484f58;">29 单元测试</span>
+</div>
+
+<h3>模块职责</h3>
+<div class="grid2">
+  <div class="card"><h4>🔴 Python 引擎 (engine/)</h4>
+    <ul style="color:#8b949e;font-size:13px;padding-left:16px;line-height:1.8;">
+      <li>评分公式计算 + 冲突矩阵</li><li>策略映射查表</li><li>老年适配规则</li>
+      <li>数据模型 + SQLite CRUD</li><li>多角色管理 + 模糊合并</li>
+    </ul>
+  </div>
+  <div class="card"><h4>🟣 LLM 网关 (llm/)</h4>
+    <ul style="color:#8b949e;font-size:13px;padding-left:16px;line-height:1.8;">
+      <li>意图 + 情绪 + 对话对象识别</li><li>双视角智能解析</li>
+      <li>人物去重判断</li><li>共情回复生成</li>
+      <li>话题联想展开</li>
+    </ul>
+  </div>
+</div>
+
+<h3>Pipeline 每轮对话</h3>
+<div class="flow-h" style="margin-top:12px;">
+  <div class="flow-box" style="border-color:#a78bfa;"><span class="tag tag-purple">API #1</span><br><span style="font-size:10px;color:#8b949e;">意图+情绪+对象</span></div>
+  <span style="color:#f85149;">→</span>
+  <div class="flow-box" style="border-color:#f85149;"><span class="tag tag-red">Python</span><br><span style="font-size:10px;color:#8b949e;">匹配+评分Top-5</span></div>
+  <span style="color:#f85149;">→</span>
+  <div class="flow-box" style="border-color:#a78bfa;"><span class="tag tag-purple">API #2</span><br><span style="font-size:10px;color:#8b949e;">生成回复</span></div>
+  <span style="color:#f85149;">→</span>
+  <div class="flow-box" style="border-color:#3fb950;"><span class="tag tag-green">Python</span><br><span style="font-size:10px;color:#8b949e;">校验</span></div>
+  <span style="color:#f85149;">→</span>
+  <div class="flow-box" style="border-color:#58a6ff;">📤</div>
+</div>
+<div style="color:#8b949e;font-size:11px;margin-top:8px;text-align:center;">2次API/轮 · 10s超时+重试 · 3-6秒延迟</div>
+
+</body>
+</html>
