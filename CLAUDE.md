@@ -8,7 +8,45 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Current State
 
-Pre-implementation. No source code, build system, or dependencies exist yet. The patent document serves as the technical specification.
+Core prototype implemented. Streamlit chat UI with SQLite persistence, LLM-powered smart parsing, scoring engine, and elderly adaptation rules. 13 unit tests.
+
+## Commands
+
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Run app (requires DEEPSEEK_API_KEY env var)
+export DEEPSEEK_API_KEY="your-key"
+python -m streamlit run app.py --server.port 8501
+
+# Run all tests
+python -m pytest tests/ -v
+
+# Run specific test
+python -m pytest tests/test_smart_parse_preview.py -v
+```
+
+## Architecture
+
+```
+app.py                  # Streamlit 主入口: UI + pipeline 编排
+engine/
+  memory.py             # MemoryUnit dataclass + 内存存储 (add/remove/get)
+  persona.py            # PersonaProfile dataclass + 内存存储 (set/get)
+  scorer.py             # 五因子评分: Score = αR + βE + γC + δS − εM + 情感冲突矩阵
+  strategy.py           # 意图×情绪 → 策略 7×9 映射矩阵
+  adaptation.py         # 6 条老年适配规则 + 安全检查 (假承诺/医学边界)
+  db.py                 # SQLite 持久化: persona + memories 两张表
+llm/
+  client.py             # DeepSeek API 客户端 (OpenAI 兼容 SDK)
+  prompts.py            # 3 组 Prompt 模板 (意图识别/回复生成/策略描述)
+  parser.py             # 自然语言 → 结构化画像+记忆 (LLM 智能解析)
+tests/
+  test_smart_parse_preview.py          # 解析预览数据逻辑
+  test_preview_has_editable_widgets.py # 预览控件可编辑性
+  test_import_syncs_form_fields.py     # 导入表单同步
+```
 
 ## Core Architecture (from Patent)
 
