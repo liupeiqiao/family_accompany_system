@@ -1,35 +1,45 @@
 @echo off
-chcp 65001 >nul
-title 亲情陪伴系统
-setlocal enabledelayedexpansion
+title Family Companion
 
 echo ================================
-echo     🏠 亲情陪伴系统
+echo    Family Companion System
 echo ================================
 echo.
 
 python --version >nul 2>&1
-if %errorlevel% neq 0 (
-    echo ❌ 未安装 Python，请从 https://python.org 下载安装
+if errorlevel 1 (
+    echo Python not found. Install from https://python.org
     pause
     exit /b 1
 )
 
-echo 📦 检查依赖...
-pip install -r requirements.txt -q 2>nul
+echo Upgrading pip...
+python -m pip install --upgrade pip --quiet 2>nul
+
+echo Installing dependencies...
+python -m pip install -r requirements.txt --quiet 2>nul
+if errorlevel 1 (
+    echo.
+    echo Retrying...
+    python -m pip install -r requirements.txt
+    if errorlevel 1 (
+        echo.
+        echo Install failed. Try: python -m pip install -r requirements.txt
+        pause
+        exit /b 1
+    )
+)
 
 if "%DEEPSEEK_API_KEY%"=="" (
     echo.
-    echo ⚠️  未设置 DEEPSEEK_API_KEY
-    set /p API_KEY="请输入 DeepSeek API Key（回车跳过）: "
-    if not "!API_KEY!"=="" set "DEEPSEEK_API_KEY=!API_KEY!"
+    echo WARNING: DEEPSEEK_API_KEY not set
+    set /p DEEPSEEK_API_KEY="Enter your DeepSeek API Key (or press Enter to skip): "
+    echo.
 )
 
 echo.
-echo 🚀 启动中... 浏览器打开 http://localhost:8501
-echo    按 Ctrl+C 停止
+echo Starting... Open http://localhost:8501
 echo.
 
-python -m streamlit run app.py --server.port 8501 --server.headless true
-
+python -m streamlit run app.py --server.port 8501
 pause
