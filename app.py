@@ -271,9 +271,13 @@ with st.sidebar:
     # 预览解析结果（可编辑）
     parsed_preview = st.session_state.get("parsed", {})
     if parsed_preview:
-        has_content = any(parsed_preview.get(k) for k in ["persona","memories","elder_profile","family_profiles"])
+        # 检查是否有任何有效数据
+        has_persona = bool(parsed_preview.get("persona", {}).get("role_label"))
+        has_memories = bool(parsed_preview.get("memories", []))
+        has_elder = bool(parsed_preview.get("elder_profile", {}).get("name"))
+        has_family = bool(parsed_preview.get("family_profiles", []))
+        has_content = has_persona or has_memories or has_elder or has_family
         if not has_content:
-            st.session_state.parsed = {}
             st.warning("解析结果为空，请调整描述后重试")
         else:
             with st.expander("📋 解析预览（可直接修改后导入）", expanded=True):
