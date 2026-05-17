@@ -242,5 +242,39 @@
   v0.1 — 标记 tag <code style="color:#f0883e;">git tag v0.1</code> · 2026-05-17
 </div>
 
+<hr>
+<h2>🧠 LLM 上下文注入（每轮对话）</h2>
+<p class="subtitle">回复生成前，以下数据全部注入 System Prompt</p>
+
+<div class="grid2">
+  <div class="card" style="border-left:3px solid #6e7681;">
+    <h4 style="color:#8b949e;">初版</h4>
+    <table>
+      <tr><td>PersonaProfile</td><td>当前角色画像</td></tr>
+      <tr><td>MemoryUnit ×1</td><td>评分最高的一条记忆</td></tr>
+      <tr><td>Strategy</td><td>共情策略</td></tr>
+      <tr><td>ElderProfile</td><td style="color:#f85149;">❌ 不存在</td></tr>
+      <tr><td>FamilyProfile</td><td style="color:#f85149;">❌ 不存在</td></tr>
+      <tr><td>Mentioned Persona</td><td style="color:#f85149;">❌ 不存在</td></tr>
+      <tr><td>Relations</td><td style="color:#f85149;">❌ 不存在</td></tr>
+    </table>
+  </div>
+  <div class="card" style="border-left:3px solid #3fb950;">
+    <h4 style="color:#3fb950;">v0.1</h4>
+    <table>
+      <tr><td>👴 ElderProfile</td><td>老人画像（姓名·性别·性格·健康·说话特点·经历）<span class="new-badge">NEW</span></td></tr>
+      <tr><td>👤 PersonaProfile</td><td>当前角色 + 自动切换 <span class="upgrade-badge">UPGRADE</span></td></tr>
+      <tr><td>👥 Mentioned Persona</td><td>被提及角色的画像 <span class="new-badge">NEW</span></td></tr>
+      <tr><td>👥 FamilyProfile</td><td>家人偏好档案 + 关系表 <span class="new-badge">NEW</span></td></tr>
+      <tr><td>📝 MemoryUnit ×5</td><td>评分排序 Top-5·含subject <span class="upgrade-badge">UPGRADE</span></td></tr>
+      <tr><td>🔗 Relations</td><td>家人间关系网（"刘承文是张怀粉的丈夫"）<span class="new-badge">NEW</span></td></tr>
+      <tr><td>🎯 Strategy</td><td>共情策略</td></tr>
+    </table>
+  </div>
+</div>
+
+<div style="text-align:center; padding:40px; color:#8b949e; font-size:13px; margin-top:24px; border-top:1px solid #30363d;">
+  v0.1 — 标记 tag <code style="color:#f0883e;">git tag v0.1</code> · 2026-05-17
+</div>
 </body>
 </html>

@@ -147,5 +147,19 @@
   </p>
 </div>
 
+<hr>
+<h3>6. LLM 上下文构建</h3>
+<p style="color:#8b949e;font-size:12px;margin-bottom:12px;">评分引擎选出 Top-5 记忆后，与画像数据一起通过 <code>build_response_system()</code> 构建完整上下文：</p>
+<div style="background:#161b22;border-radius:10px;padding:20px;font-size:13px;line-height:2;">
+  <span style="color:#f0883e;">System Prompt 结构：</span><br>
+  <span style="color:#8b949e;">├──</span> <span style="color:#d2a8ff;">角色身份</span><span style="color:#6e7681;">（你是{role_label}，用{appellation}称呼老人）</span><br>
+  <span style="color:#8b949e;">├──</span> <span style="color:#d2a8ff;">老人画像</span><span style="color:#6e7681;">（ElderProfile：性格/习惯/健康/说话特点）</span><br>
+  <span style="color:#8b949e;">├──</span> <span style="color:#d2a8ff;">当前策略</span><span style="color:#6e7681;">（{strategy_description}）</span><br>
+  <span style="color:#8b949e;">├──</span> <span style="color:#d2a8ff;">安全规则</span><span style="color:#6e7681;">（5条硬约束）</span><br>
+  <span style="color:#8b949e;">├──</span> <span style="color:#d2a8ff;">家人档案+关系</span><span style="color:#6e7681;">（FamilyProfile + relations）</span><br>
+  <span style="color:#8b949e;">├──</span> <span style="color:#d2a8ff;">提及人物画像</span><span style="color:#6e7681;">（被提到角色的 PersonaProfile）</span><br>
+  <span style="color:#8b949e;">├──</span> <span style="color:#d2a8ff;">Top-5 记忆</span><span style="color:#6e7681;">（每条含 content/subject/tags）</span><br>
+  <span style="color:#8b949e;">└──</span> <span style="color:#d2a8ff;">对话要求</span><span style="color:#6e7681;">（7条规则 + 话题联想）</span>
+</div>
 </body>
 </html>

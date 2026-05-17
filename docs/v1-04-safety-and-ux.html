@@ -160,5 +160,19 @@
   <div class="card" style="text-align:center;"><div style="font-size:24px;color:#58a6ff;">29个</div><div style="color:#8b949e;font-size:11px;">单元测试</div></div>
 </div>
 
+<hr>
+<h3>6. 每轮对话的数据注入</h3>
+<div class="card success">
+  <h4>🧠 LLM 收到的完整上下文</h4>
+  <table>
+    <tr><th style="width:120px;">数据源</th><th>内容</th><th>用途</th></tr>
+    <tr><td>ElderProfile</td><td>姓名·性别·性格·喜好·习惯·健康·说话特点·经历</td><td>让 AI 理解老人的特点，调整回复风格</td></tr>
+    <tr><td>PersonaProfile</td><td>AI扮演角色·称呼·性格·说话风格·陪伴方式</td><td>决定 AI 以什么身份/口吻说话</td></tr>
+    <tr><td>MemoryUnit ×5</td><td>评分排序后的记忆·含subject/标签</td><td>提供具体话题素材</td></tr>
+    <tr><td>FamilyProfile</td><td>被提及家人的档案 + relations 关系网</td><td>让 AI 了解人物背景和关系</td></tr>
+    <tr><td>Mentioned Persona</td><td>被提到角色的 PersonaProfile</td><td>补充该人物的性格/口吻信息</td></tr>
+    <tr><td>Strategy</td><td>共情策略（分享式/安慰式/…）</td><td>指导回复基调</td></tr>
+  </table>
+</div>
 </body>
 </html>

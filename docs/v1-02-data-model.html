@@ -140,5 +140,23 @@
   </div>
 </div>
 
+<hr>
+<h3>6. 数据注入 LLM（每轮对话）</h3>
+<div class="code-block">
+<span style="color:#8b949e;">// 回复生成前，以下结构化数据拼接为 System Prompt：</span>
+<span style="color:#f0883e;">## 老人画像</span>
+<span style="color:#d2a8ff;">{elder_profile}</span> <span style="color:#6e7681;">// ElderProfile 全部字段</span>
+<span style="color:#f0883e;">## 当前角色画像</span>
+<span style="color:#d2a8ff;">{persona}</span> <span style="color:#6e7681;">// PersonaProfile 全部字段</span>
+<span style="color:#f0883e;">## 提及人物画像</span>
+<span style="color:#d2a8ff;">{mentioned_personas}</span> <span style="color:#6e7681;">// 被提到角色的 PersonaProfile</span>
+<span style="color:#f0883e;">## 家人偏好档案</span>
+<span style="color:#d2a8ff;">{family_profiles}</span> <span style="color:#6e7681;">// FamilyProfile + relations 关系表</span>
+<span style="color:#f0883e;">## 家庭记忆（Top-5）</span>
+<span style="color:#d2a8ff;">{memories}</span> <span style="color:#6e7681;">// MemoryUnit ×5, 按评分排序, 含subject/标签</span>
+<span style="color:#f0883e;">## 共情策略</span>
+<span style="color:#d2a8ff;">{strategy}</span> <span style="color:#6e7681;">// 分享式|安慰式|转移注意力|...</span>
+</div>
+<p style="color:#8b949e;font-size:12px;">所有数据通过 <code>build_response_system()</code> 拼入 System Prompt → 发送给 DeepSeek 生成回复。</p>
 </body>
 </html>
