@@ -176,9 +176,16 @@ with st.sidebar:
                 with st.spinner("AI 解析中..."):
                     parsed = parse_user_text(smart_text.strip())
                     st.session_state.parsed = parsed
-                    persona_part = parsed.get("persona", {})
-                    memories_part = parsed.get("memories", [])
-                    st.success(f"解析完成：画像1份 + 记忆{len(memories_part)}条")
+                    p_count = 1 if parsed.get("persona",{}).get("role_label") else 0
+                    m_count = len(parsed.get("memories", []))
+                    e_count = 1 if parsed.get("elder_profile",{}).get("name") else 0
+                    f_count = len(parsed.get("family_profiles", []))
+                    parts = []
+                    if p_count: parts.append("画像1份")
+                    if m_count: parts.append(f"记忆{m_count}条")
+                    if e_count: parts.append("老人画像")
+                    if f_count: parts.append(f"家人{f_count}人")
+                    st.success(f"解析完成：{' + '.join(parts) if parts else '无有效数据'}")
             else:
                 st.warning("请先输入描述文字")
 
@@ -264,11 +271,33 @@ with st.sidebar:
     # 预览解析结果（可编辑）
     parsed_preview = st.session_state.get("parsed", {})
     if parsed_preview:
-        with st.expander("📋 解析预览（可直接修改后导入）", expanded=True):
-            st.caption("以下字段均可直接编辑，修改后点「一键导入」即用编辑后的数据入库")
+        has_content = any(parsed_preview.get(k) for k in ["persona","memories","elder_profile","family_profiles"])
+        if not has_content:
+            st.session_state.parsed = {}
+            st.warning("解析结果为空，请调整描述后重试")
+        else:
+            with st.expander("📋 解析预览（可直接修改后导入）", expanded=True):
+                st.caption("以下字段均可直接编辑，修改后点「一键导入」即用编辑后的数据入库")
+
+            # 老人画像预览
+            ep = parsed_preview.get("elder_profile", {})
+            if ep and ep.get("name"):
+                st.write("**👴 老人画像**")
+                ep["name"] = st.text_input("称呼", value=ep.get("name",""), key="prev_elder_name")
+                ep_name = ep.get("name","")
+                ep_pers = st.text_input("性格（、分隔）", value="、".join(ep.get("personality",[])), key="prev_elder_pers")
+                ep["personality"] = [x.strip() for x in ep_pers.split("、") if x.strip()]
+                ep_prefs = st.text_input("喜好（、分隔）", value="、".join(ep.get("preferences",[])), key="prev_elder_prefs")
+                ep["preferences"] = [x.strip() for x in ep_prefs.split("、") if x.strip()]
+                ep_hab = st.text_input("习惯（、分隔）", value="、".join(ep.get("habits",[])), key="prev_elder_hab")
+                ep["habits"] = [x.strip() for x in ep_hab.split("、") if x.strip()]
+                ep_health = st.text_input("健康（、分隔）", value="、".join(ep.get("health_notes",[])), key="prev_elder_health")
+                ep["health_notes"] = [x.strip() for x in ep_health.split("、") if x.strip()]
+                ep_speech = st.text_input("说话特点（、分隔）", value="、".join(ep.get("speech_traits",[])), key="prev_elder_speech")
+                ep["speech_traits"] = [x.strip() for x in ep_speech.split("、") if x.strip()]
 
             pp = parsed_preview.get("persona", {})
-            if pp:
+            if pp and pp.get("role_label"):
                 st.write("**人物画像**")
                 col_p1, col_p2 = st.columns(2)
                 with col_p1:
