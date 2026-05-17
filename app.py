@@ -161,7 +161,10 @@ def build_memory_context(top_memories: list[MemoryUnit]) -> str:
 with st.sidebar:
     # ===== 智能导入 =====
     st.header("🧠 智能导入")
-    st.caption("粘贴一段描述，AI 自动提取人物画像和家庭记忆")
+    st.caption("粘贴一段描述，选择视角后 AI 自动提取")
+
+    perspective = st.radio("描述视角", ["👨‍👩‍👧 家人回忆（描述家人）", "👵 老人回忆（老人自述）"],
+                           index=0, key="parser_perspective", horizontal=True)
 
     smart_text = st.text_area(
         "描述文字",
@@ -174,7 +177,8 @@ with st.sidebar:
         if st.button("🔍 智能解析", use_container_width=True):
             if smart_text.strip():
                 with st.spinner("AI 解析中..."):
-                    parsed = parse_user_text(smart_text.strip())
+                    persp = "elder" if "老人" in perspective else "family"
+                    parsed = parse_user_text(smart_text.strip(), perspective=persp)
                     st.session_state.parsed = parsed
                     p_count = 1 if parsed.get("persona",{}).get("role_label") else 0
                     m_count = len(parsed.get("memories", []))

@@ -32,8 +32,8 @@ def test_preview_shows_elder_profile_in_parsed_data():
     )
 
 
-def test_parser_prompt_handles_elder_perspective():
-    """Parser prompt 应包含提取 elder 记忆的指引。"""
-    from llm.parser import PARSER_USER
-    assert "老人" in PARSER_USER
-    assert "记忆" in PARSER_USER
+def test_parser_has_both_perspectives():
+    """Parser 应有家人回忆和老人回忆两种视角的 prompt。"""
+    from llm.parser import PARSER_USER_FAMILY, PARSER_USER_ELDER
+    assert "家人回忆" in PARSER_USER_FAMILY
+    assert "老人回忆" in PARSER_USER_ELDER
