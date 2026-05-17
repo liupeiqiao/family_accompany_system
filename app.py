@@ -269,12 +269,37 @@ with st.sidebar:
                         "sensitivity_map": p.sensitivity_map,
                     })
 
+                # 名字归一化：把"儿子"→"刘承文"、"孙子"→"刘沛侨"
+                all_known_names = {}
+                for pp in get_all_personas().values():
+                    if pp.is_complete():
+                        all_known_names[pp.role_label] = pp.role_label
+                for fn, fp in get_all_profiles().items():
+                    if fp.relation:
+                        all_known_names[fp.relation] = fn  # "儿子" → "刘承文"
+                        all_known_names[fn] = fn
+
+                def normalize_name(raw: str) -> str:
+                    if raw in all_known_names: return all_known_names[raw]
+                    for k, v in all_known_names.items():
+                        if raw in k or k in raw: return v
+                    return raw
+
                 for md in parsed.get("memories", []):
+                    raw_subject = md.get("subject", "")
+                    raw_members = md.get("family_members", [])
+                    fixed_subject = normalize_name(raw_subject)
+                    fixed_members = []
+                    for fm in raw_members:
+                        name_part = fm.split("(")[0] if "(" in fm else fm
+                        rel_part = fm.split("(")[1].rstrip(")") if "(" in fm else ""
+                        fixed_name = normalize_name(name_part)
+                        fixed_members.append(f"{fixed_name}({rel_part})" if rel_part else fixed_name)
                     mem = MemoryUnit(
                         content=md.get("content", ""),
                         memory_type=md.get("memory_type", "事件"),
-                        subject=md.get("subject", ""),
-                        family_members=md.get("family_members", []),
+                        subject=fixed_subject,
+                        family_members=fixed_members,
                         emotion_tags=md.get("emotion_tags", []),
                         topic_tags=md.get("topic_tags", []),
                     )
