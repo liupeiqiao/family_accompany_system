@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#0d1117; color:#c9d1d9; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; padding:24px; max-width:1100px; margin:0 auto; }
+  h2 { color:#f0f6fc; margin-bottom:4px; font-size:22px; }
+  .subtitle { color:#8b949e; font-size:13px; margin-bottom:24px; }
+  h3 { color:#e6edf3; margin:28px 0 12px; font-size:16px; }
+  code { background:#21262d; padding:2px 6px; border-radius:4px; font-size:12px; color:#ff7b72; }
+  .code-block { background:#161b22; border-radius:8px; padding:18px; font-family:monospace; font-size:12.5px; line-height:1.9; overflow-x:auto; margin-bottom:12px; }
+  .comment { color:#6e7681; } .keyword { color:#ff7b72; } .type { color:#ffa657; }
+  .field { color:#79c0ff; } .func { color:#d2a8ff; } .num { color:#a5d6ff; }
+  hr { border:none; border-top:2px solid #30363d; margin:32px 0; }
+  .card { background:#161b22; border-radius:10px; padding:20px; margin-bottom:16px; }
+  .card h4 { color:#f0883e; margin:0 0 10px; font-size:14px; }
+  .card.danger { border-left:3px solid #f85149; }
+  .card.warning { border-left:3px solid #d29922; }
+  .card.success { border-left:3px solid #3fb950; }
+  .card.info { border-left:3px solid #58a6ff; }
+  .grid2 { display:flex; gap:16px; flex-wrap:wrap; }
+  .grid2>div { flex:1; min-width:300px; }
+  .grid3 { display:flex; gap:16px; flex-wrap:wrap; }
+  .grid3>div { flex:1; min-width:200px; }
+  .grid4 { display:flex; gap:12px; flex-wrap:wrap; }
+  .grid4>div { flex:1; min-width:150px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th { text-align:left; padding:8px; border-bottom:2px solid #30363d; color:#8b949e; font-size:12px; }
+  td { padding:8px 10px; border-bottom:1px solid #21262d; }
+  .tag { display:inline-block; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:bold; margin:1px; }
+  .tag-red { background:#f8514922; color:#f85149; }
+  .tag-green { background:#3fb95022; color:#3fb950; }
+  .tag-orange { background:#f0883e22; color:#f0883e; }
+  .tag-purple { background:#a78bfa22; color:#a78bfa; }
+  .tag-blue { background:#58a6ff22; color:#58a6ff; }
+  .flow-h { display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-size:12px; }
+  .flow-box { background:#0d1117; border:1px solid #30363d; border-radius:8px; padding:10px 14px; text-align:center; }
+  .pill { display:inline-block; padding:2px 10px; border-radius:12px; font-size:11px; font-weight:bold; }
+  .pill-low { background:#3fb95022; color:#3fb950; }
+  .pill-mid { background:#d2992222; color:#d29922; }
+  .pill-hi { background:#f8514922; color:#f85149; }
+</style>
+</head>
+<body>
+
+<h2>📐 亲情陪伴系统 v0.1 — 架构总览</h2>
+<p class="subtitle">多角色感知 · 智能解析 · 五因子评分 · 毛玻璃 UI</p>
+
+<!-- Architecture Flow -->
+<h3>系统数据流</h3>
+<div class="flow-h" style="background:#161b22; border-radius:12px; padding:20px; justify-content:center;">
+  <div class="flow-box" style="border-color:#f0883e;">
+    <div style="color:#f0883e;font-weight:bold;">👵 老人输入</div>
+    <div style="color:#8b949e;font-size:11px;">自然语言文本</div>
+  </div>
+  <span style="color:#f85149;">→</span>
+  <div class="flow-box" style="border-color:#a78bfa;">
+    <div style="color:#a78bfa;font-weight:bold;">🧠 LLM 分析</div>
+    <div style="color:#8b949e;font-size:10px;">意图·情绪·对话对象</div>
+    <div style="color:#8b949e;font-size:10px;">提及人物·10s超时重试</div>
+  </div>
+  <span style="color:#f85149;">→</span>
+  <div class="flow-box" style="border-color:#f85149;">
+    <div style="color:#f85149;font-weight:bold;">⚙️ 评分引擎</div>
+    <div style="color:#8b949e;font-size:10px;">αR+βE+γC+δS−εM</div>
+    <div style="color:#8b949e;font-size:10px;">情感冲突矩阵56格</div>
+    <div style="color:#8b949e;font-size:10px;">安全过滤 → Top-5</div>
+  </div>
+  <span style="color:#f85149;">→</span>
+  <div class="flow-box" style="border-color:#f0883e;">
+    <div style="color:#f0883e;font-weight:bold;">🎯 策略选择</div>
+    <div style="color:#8b949e;font-size:10px;">7意图×9情绪→7策略</div>
+    <div style="color:#8b949e;font-size:10px;">角色自动切换</div>
+  </div>
+  <span style="color:#f85149;">→</span>
+  <div class="flow-box" style="border-color:#a78bfa;">
+    <div style="color:#a78bfa;font-weight:bold;">🧠 LLM 生成</div>
+    <div style="color:#8b949e;font-size:10px;">画像+记忆+档案+关系</div>
+    <div style="color:#8b949e;font-size:10px;">话题联想展开</div>
+  </div>
+  <span style="color:#f85149;">→</span>
+  <div class="flow-box" style="border-color:#3fb950;">
+    <div style="color:#3fb950;font-weight:bold;">🛡️ 适配校验</div>
+    <div style="color:#8b949e;font-size:10px;">60字句长·称呼检查</div>
+    <div style="color:#8b949e;font-size:10px;">医学边界·假承诺</div>
+  </div>
+  <span style="color:#f85149;">→</span>
+  <div class="flow-box" style="border-color:#58a6ff;">
+    <div style="color:#58a6ff;font-weight:bold;">📤 回复</div>
+  </div>
+</div>
+
+<hr>
+
+<!-- File Structure -->
+<h3>代码结构</h3>
+<div class="code-block">
+<span style="color:#6e7681;">亲情陪伴系统/
+├──</span> <span style="color:#3fb950;">app.py</span>              <span style="color:#484f58;">Streamlit 主入口 + UI (毛玻璃主题)</span>
+<span style="color:#6e7681;">├──</span> <span style="color:#3fb950;">启动.bat</span>             <span style="color:#484f58;">Windows 一键启动脚本</span>
+<span style="color:#6e7681;">├──</span> <span style="color:#3fb950;">requirements.txt</span>     <span style="color:#484f58;">streamlit + openai</span>
+<span style="color:#6e7681;">├──</span> <span style="color:#3fb950;">engine/</span>
+<span style="color:#6e7681;">│   ├──</span> <span style="color:#a78bfa;">memory.py</span>        <span style="color:#484f58;">MemoryUnit + 内存存储 (subject字段)</span>
+<span style="color:#6e7681;">│   ├──</span> <span style="color:#a78bfa;">persona.py</span>       <span style="color:#484f58;">多角色画像 + 模糊合并 + 自动切换</span>
+<span style="color:#6e7681;">│   ├──</span> <span style="color:#a78bfa;">elder.py</span>         <span style="color:#484f58;">老人画像 (性别推导称呼)</span>
+<span style="color:#6e7681;">│   ├──</span> <span style="color:#a78bfa;">family.py</span>        <span style="color:#484f58;">家人偏好档案 + 关系表</span>
+<span style="color:#6e7681;">│   ├──</span> <span style="color:#f85149;">scorer.py</span>        <span style="color:#484f58;">五因子评分 + 情感冲突矩阵 + Top-5</span>
+<span style="color:#6e7681;">│   ├──</span> <span style="color:#f85149;">strategy.py</span>      <span style="color:#484f58;">7意图×9情绪→7策略 映射</span>
+<span style="color:#6e7681;">│   ├──</span> <span style="color:#f85149;">adaptation.py</span>   <span style="color:#484f58;">老年适配规则 + 安全检查</span>
+<span style="color:#6e7681;">│   └──</span> <span style="color:#a78bfa;">db.py</span>            <span style="color:#484f58;">SQLite 4表: persona/memories/family/elder</span>
+<span style="color:#6e7681;">├──</span> <span style="color:#3fb950;">llm/</span>
+<span style="color:#6e7681;">│   ├──</span> <span style="color:#a78bfa;">client.py</span>        <span style="color:#484f58;">DeepSeek API 客户端 (超时+重试)</span>
+<span style="color:#6e7681;">│   ├──</span> <span style="color:#a78bfa;">prompts.py</span>       <span style="color:#484f58;">3组Prompt + 话题联想</span>
+<span style="color:#6e7681;">│   └──</span> <span style="color:#a78bfa;">parser.py</span>        <span style="color:#484f58;">双视角智能解析 + LLM去重</span>
+<span style="color:#6e7681;">└──</span> <span style="color:#3fb950;">tests/</span>              <span style="color:#484f58;">29 个单元测试</span>
+</div>
+
+<hr>
+
+<!-- Data Model -->
+<h3>数据模型</h3>
+<div class="grid2">
+  <div class="card">
+    <h4>👤 PersonaProfile (AI扮演角色)</h4>
+    <table>
+      <tr><td style="color:#8b949e;">role_label</td><td>"儿子刘承文"</td></tr>
+      <tr><td style="color:#8b949e;">relation</td><td>子女/儿媳/女婿/配偶/孙辈/朋友/护工</td></tr>
+      <tr><td style="color:#8b949e;">appellation</td><td>对老人的称呼</td></tr>
+      <tr><td style="color:#8b949e;">personality</td><td>12 项性格标签</td></tr>
+      <tr><td style="color:#8b949e;">speech_style</td><td>说话风格列表</td></tr>
+      <tr><td style="color:#8b949e;">comfort_style</td><td>10 项陪伴方式</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>👴 ElderProfile (老人画像)</h4>
+    <table>
+      <tr><td style="color:#8b949e;">full_name</td><td>"宋桂兰"</td></tr>
+      <tr><td style="color:#8b949e;">gender</td><td>男/女 → 推导称呼</td></tr>
+      <tr><td style="color:#8b949e;">personality</td><td>性格</td></tr>
+      <tr><td style="color:#8b949e;">preferences</td><td>喜好</td></tr>
+      <tr><td style="color:#8b949e;">habits</td><td>习惯</td></tr>
+      <tr><td style="color:#8b949e;">health_notes</td><td>健康注意</td></tr>
+      <tr><td style="color:#8b949e;">speech_traits</td><td>说话特点</td></tr>
+      <tr><td style="color:#8b949e;">life_experiences</td><td>经历</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>👥 FamilyProfile (家人档案)</h4>
+    <table>
+      <tr><td style="color:#8b949e;">name</td><td>"刘承文"</td></tr>
+      <tr><td style="color:#8b949e;">relation</td><td>与老人关系</td></tr>
+      <tr><td style="color:#8b949e;">personality</td><td>性格</td></tr>
+      <tr><td style="color:#8b949e;">preferences</td><td>喜好</td></tr>
+      <tr><td style="color:#8b949e;">habits</td><td>习惯</td></tr>
+      <tr><td style="color:#8b949e;">relations</td><td>与其他家人关系</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>📝 MemoryUnit (记忆)</h4>
+    <table>
+      <tr><td style="color:#8b949e;">content</td><td>记忆正文</td></tr>
+      <tr><td style="color:#8b949e;">subject</td><td>主语/关于谁</td></tr>
+      <tr><td style="color:#8b949e;">memory_type</td><td>5 种类型</td></tr>
+      <tr><td style="color:#8b949e;">family_members</td><td>涉及家人</td></tr>
+      <tr><td style="color:#8b949e;">emotion_tags</td><td>8 种情感</td></tr>
+      <tr><td style="color:#8b949e;">topic_tags</td><td>8 种话题</td></tr>
+    </table>
+  </div>
+</div>
+
+<hr>
+
+<!-- Scoring Engine -->
+<h3>评分引擎：Score = αR + βE + γC + δS − εM</h3>
+<div class="grid2">
+  <div class="card"><h4>R — 相关性</h4><table>
+    <tr><td style="color:#8b949e;">话题匹配 (40%)</td><td>Jaccard系数</td></tr>
+    <tr><td style="color:#8b949e;">家人匹配 (25%)</td><td>提及检测</td></tr>
+    <tr><td style="color:#8b949e;">时间衰减 (15%)</td><td>e⁻ˡᵃᵐᵇᵈᵃ·ᵗ</td></tr>
+    <tr><td style="color:#8b949e;">语义补丁 (20%)</td><td>关键词重叠</td></tr>
+  </table></div>
+  <div class="card"><h4>E — 共情度</h4><table>
+    <tr><td style="color:#8b949e;">情绪匹配 (40%)</td><td>标签一致性</td></tr>
+    <tr><td style="color:#8b949e;">历史有效 (35%)</td><td>策略效果反馈</td></tr>
+    <tr><td style="color:#8b949e;">冲突矩阵 (25%)</td><td>56格三级判定 ✅⚠️❌</td></tr>
+  </table></div>
+  <div class="card"><h4>C — 亲密度</h4><table>
+    <tr><td style="color:#8b949e;">关系权重 (50%)</td><td>配偶1.0/子女0.9/...</td></tr>
+    <tr><td style="color:#8b949e;">记忆权重 (30%)</td><td>intimacy_weight</td></tr>
+    <tr><td style="color:#8b949e;">访问热度 (20%)</td><td>调用频次</td></tr>
+  </table></div>
+  <div class="card"><h4>S — 安全性 + M 罚分</h4><table>
+    <tr><td style="color:#8b949e;">风险词检测</td><td>病/死/钱/遗产</td></tr>
+    <tr><td style="color:#8b949e;">医学边界</td><td>诊断/药物建议 → S=0</td></tr>
+    <tr><td style="color:#8b949e;">敏感话题</td><td>已故亲人 → M=0.5</td></tr>
+    <tr><td style="color:#8b949e;">夜间保护</td><td>21:00-06:00 遗憾标签 ❌</td></tr>
+  </table></div>
+</div>
+
+<hr>
+
+<!-- Strategy Matrix -->
+<h3>策略选择：7意图 × 9情绪 → 7策略</h3>
+<div class="grid2">
+  <div>
+    <h4 style="color:#f0883e;">🔍 7 种意图</h4>
+    <span class="tag tag-red">怀念</span> <span class="tag tag-purple">抱怨</span> <span class="tag tag-orange">思念家人</span>
+    <span class="tag tag-blue">表达孤独</span> <span class="tag tag-green">担忧焦虑</span>
+    <span class="tag tag-red">确认事实</span> <span class="tag tag-purple">日常闲聊</span>
+  </div>
+  <div>
+    <h4 style="color:#f0883e;">🎯 7 种策略</h4>
+    <span class="tag tag-green">分享式</span> <span class="tag tag-purple">安慰式</span> <span class="tag tag-orange">转移注意力</span>
+    <span class="tag tag-blue">确认式</span> <span class="tag tag-green">鼓励式</span>
+    <span class="tag tag-blue">附和式</span> <span class="tag tag-green">唠家常</span>
+  </div>
+</div>
+
+<hr>
+
+<!-- Key Numbers -->
+<h3>关键指标</h3>
+<div class="grid4">
+  <div class="card" style="text-align:center;"><div style="font-size:28px;color:#f0883e;">2次</div><div style="color:#8b949e;font-size:12px;">每轮API调用</div></div>
+  <div class="card" style="text-align:center;"><div style="font-size:28px;color:#3fb950;">10s</div><div style="color:#8b949e;font-size:12px;">超时+重试</div></div>
+  <div class="card" style="text-align:center;"><div style="font-size:28px;color:#a78bfa;">56格</div><div style="color:#8b949e;font-size:12px;">情感冲突矩阵</div></div>
+  <div class="card" style="text-align:center;"><div style="font-size:28px;color:#58a6ff;">29个</div><div style="color:#8b949e;font-size:12px;">单元测试</div></div>
+  <div class="card" style="text-align:center;"><div style="font-size:28px;color:#f0883e;">4表</div><div style="color:#8b949e;font-size:12px;">SQLite持久化</div></div>
+  <div class="card" style="text-align:center;"><div style="font-size:28px;color:#3fb950;">12项</div><div style="color:#8b949e;font-size:12px;">性格标签</div></div>
+  <div class="card" style="text-align:center;"><div style="font-size:28px;color:#a78bfa;">7种</div><div style="color:#8b949e;font-size:12px;">关系类型</div></div>
+  <div class="card" style="text-align:center;"><div style="font-size:28px;color:#58a6ff;">5层</div><div style="color:#8b949e;font-size:12px;">安全校验</div></div>
+</div>
+
+</body>
+</html>

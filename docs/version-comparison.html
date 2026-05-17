@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#0d1117; color:#c9d1d9; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; padding:24px; max-width:1100px; margin:0 auto; }
+  h2 { color:#f0f6fc; margin-bottom:4px; font-size:22px; }
+  .subtitle { color:#8b949e; font-size:13px; margin-bottom:24px; }
+  h3 { color:#e6edf3; margin:28px 0 12px; font-size:16px; }
+  hr { border:none; border-top:2px solid #30363d; margin:32px 0; }
+  .card { background:#161b22; border-radius:10px; padding:20px; margin-bottom:16px; }
+  .card h4 { color:#f0883e; margin:0 0 10px; font-size:14px; }
+  .grid2 { display:flex; gap:16px; flex-wrap:wrap; }
+  .grid2>div { flex:1; min-width:350px; }
+  .grid3 { display:flex; gap:16px; flex-wrap:wrap; }
+  .grid3>div { flex:1; min-width:200px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th { text-align:left; padding:8px; border-bottom:2px solid #30363d; color:#8b949e; font-size:12px; }
+  td { padding:8px 10px; border-bottom:1px solid #21262d; vertical-align:top; }
+  .tag { display:inline-block; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:bold; margin:1px; }
+  .tag-green { background:#3fb95022; color:#3fb950; }
+  .tag-orange { background:#f0883e22; color:#f0883e; }
+  .tag-purple { background:#a78bfa22; color:#a78bfa; }
+  .tag-red { background:#f8514922; color:#f85149; }
+  .tag-blue { background:#58a6ff22; color:#58a6ff; }
+  .highlight { background:#f0883e22; border-left:3px solid #f0883e; padding:14px 18px; border-radius:4px; margin:16px 0; }
+  .hero { text-align:center; padding:40px 20px; background:linear-gradient(180deg, #1a1a2e 0%, #0d1117 100%); border-radius:16px; margin-bottom:32px; border:1px solid #30363d; }
+  .hero h2 { font-size:28px; margin-bottom:8px; }
+  .big-num { font-size:48px; font-weight:bold; }
+  .arrow-down { text-align:center; color:#f0883e; font-size:32px; margin:16px 0; }
+  .upgrade-badge { background:linear-gradient(135deg, #f0883e, #f85149); color:#fff; padding:3px 10px; border-radius:8px; font-size:10px; font-weight:bold; margin-left:6px; }
+  .new-badge { background:linear-gradient(135deg, #3fb950, #238636); color:#fff; padding:3px 10px; border-radius:8px; font-size:10px; font-weight:bold; margin-left:6px; }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <h2>🏠 亲情陪伴系统</h2>
+  <p style="color:#f0883e;font-size:18px;font-weight:bold;">从专利原型到智能共情引擎</p>
+  <p style="color:#8b949e;">初版 → v0.1 进化对照</p>
+</div>
+
+<!-- ============ 1. 智能识别 ============ -->
+<h2 style="color:#f0883e;">🔥 重点更新一：智能识别系统</h2>
+<p class="subtitle">从手动填表到 AI 自动提取，从单角色到多角色感知</p>
+
+<h3>智能解析导入</h3>
+<div class="grid2">
+  <div class="card" style="border-left:3px solid #6e7681;">
+    <h4 style="color:#8b949e;">❌ 初版</h4>
+    <table>
+      <tr><td style="color:#8b949e;width:80px;">输入方式</td><td>手动逐个字段填写表单</td></tr>
+      <tr><td style="color:#8b949e;">视角判断</td><td>无，全靠人工分类</td></tr>
+      <tr><td style="color:#8b949e;">标签提取</td><td>手工选性格/情感/话题标签</td></tr>
+      <tr><td style="color:#8b949e;">关系识别</td><td>手动下拉选，易出错</td></tr>
+      <tr><td style="color:#8b949e;">重复检测</td><td>无，同名重复导入</td></tr>
+    </table>
+  </div>
+  <div class="card" style="border-left:3px solid #3fb950;">
+    <h4 style="color:#3fb950;">✅ v0.1</h4>
+    <table>
+      <tr><td style="color:#8b949e;width:80px;">输入方式</td><td>粘贴一段自然语言描述，AI 自动提取 <span class="new-badge">NEW</span></td></tr>
+      <tr><td style="color:#8b949e;">双视角</td><td>家人回忆 / 老人回忆 一键切换 <span class="new-badge">NEW</span></td></tr>
+      <tr><td style="color:#8b949e;">标签提取</td><td>LLM 自动分配 12 性格/8 情感/8 话题标签 <span class="new-badge">NEW</span></td></tr>
+      <tr><td style="color:#8b949e;">关系推断</td><td>结合已知家人上下文推理关系，7 种关系类型 <span class="upgrade-badge">UPGRADE</span></td></tr>
+      <tr><td style="color:#8b949e;">智能去重</td><td>LLM 交叉匹配 + 模糊名匹配 + 预览确认 <span class="new-badge">NEW</span></td></tr>
+    </table>
+  </div>
+</div>
+
+<h3>对话中的实时识别</h3>
+<div class="grid2">
+  <div class="card" style="border-left:3px solid #6e7681;">
+    <h4 style="color:#8b949e;">❌ 初版</h4>
+    <table>
+      <tr><td style="color:#8b949e;">对话对象</td><td>手动下拉切换角色</td></tr>
+      <tr><td style="color:#8b949e;">提及检测</td><td>只检测第一个匹配</td></tr>
+      <tr><td style="color:#8b949e;">人格注入</td><td>仅注入当前角色画像</td></tr>
+    </table>
+  </div>
+  <div class="card" style="border-left:3px solid #3fb950;">
+    <h4 style="color:#3fb950;">✅ v0.1</h4>
+    <table>
+      <tr><td style="color:#8b949e;">智能切换</td><td>识别"小明…" → 自动切换到儿子角色应答 <span class="new-badge">NEW</span></td></tr>
+      <tr><td style="color:#8b949e;">多人物感知</td><td>同时识别对话对象 + 提及人物，分别注入画像 <span class="new-badge">NEW</span></td></tr>
+      <tr><td style="color:#8b949e;">上下文注入</td><td>老人画像 + 当前角色 + 提及人物画像 + 家人关系表 + Top-5记忆 <span class="upgrade-badge">UPGRADE</span></td></tr>
+    </table>
+  </div>
+</div>
+
+<hr>
+
+<!-- ============ 2. 人物档案 ============ -->
+<h2 style="color:#f0883e;">🔥 重点更新二：人物档案体系</h2>
+<p class="subtitle">从单一角色画像到完整的家庭人物关系网</p>
+
+<div class="highlight">
+  <span style="color:#f0883e; font-weight:bold;">初版只有 1 张表：PersonaProfile（AI 扮演谁）</span><br>
+  <span style="color:#3fb950; font-weight:bold;">v0.1 扩展到 4 张表：PersonaProfile + ElderProfile + FamilyProfile + MemoryUnit</span>
+</div>
+
+<div class="grid2">
+  <div class="card" style="border-left:3px solid #6e7681;">
+    <h4 style="color:#8b949e;">初版 · 单一画像</h4>
+    <table>
+      <tr><td>👤 PersonaProfile</td><td>只记录 AI 扮演角色（儿子/女儿...）</td></tr>
+      <tr><td>📝 MemoryUnit</td><td>记忆无主语标注</td></tr>
+      <tr><td>❌ 老人画像</td><td>不存在</td></tr>
+      <tr><td>❌ 家人档案</td><td>不存在</td></tr>
+      <tr><td>❌ 人物关系</td><td>不存在</td></tr>
+    </table>
+  </div>
+  <div class="card" style="border-left:3px solid #3fb950;">
+    <h4 style="color:#3fb950;">v0.1 · 四层画像体系</h4>
+    <table>
+      <tr><td>👴 <b>ElderProfile</b></td><td>姓名·性别·性格·喜好·习惯·健康·说话特点·人生经历 <span class="new-badge">NEW</span></td></tr>
+      <tr><td>👤 <b>PersonaProfile</b></td><td>多角色支持·自动切换·模糊合并 <span class="upgrade-badge">UPGRADE</span></td></tr>
+      <tr><td>👥 <b>FamilyProfile</b></td><td>每位家人的独立档案·偏好·习惯·关系网 <span class="new-badge">NEW</span></td></tr>
+      <tr><td>📝 <b>MemoryUnit</b></td><td>带 subject 主语标注·按人物检索 <span class="upgrade-badge">UPGRADE</span></td></tr>
+    </table>
+  </div>
+</div>
+
+<h3>人物关系网</h3>
+<table>
+  <tr><th width="120">维度</th><th width="250">初版</th><th>v0.1</th></tr>
+  <tr>
+    <td>角色存储</td>
+    <td>单行 persona 表 (id=1)</td>
+    <td>多行 persona 表 (role_label PK) <span class="new-badge">NEW</span></td>
+  </tr>
+  <tr>
+    <td>老人信息</td>
+    <td>❌ 无结构化存储</td>
+    <td>ElderProfile: 姓名·性别→自动推导称呼·9项属性 <span class="new-badge">NEW</span></td>
+  </tr>
+  <tr>
+    <td>家人信息</td>
+    <td>❌ 无</td>
+    <td>FamilyProfile: 每人独立档案 + relations 家人间关系 <span class="new-badge">NEW</span></td>
+  </tr>
+  <tr>
+    <td>关系推理</td>
+    <td>❌ 无</td>
+    <td>已知张怀粉=儿媳 + "我是张怀粉的丈夫" → 推断=儿子 <span class="new-badge">NEW</span></td>
+  </tr>
+  <tr>
+    <td>记忆归属</td>
+    <td>无主语标注</td>
+    <td>subject 字段标记每条记忆属于谁 <span class="upgrade-badge">UPGRADE</span></td>
+  </tr>
+  <tr>
+    <td>合并去重</td>
+    <td>❌ 无（同名重复导入）</td>
+    <td>LLM交叉去重 + 模糊名匹配 + 预览确认 <span class="new-badge">NEW</span></td>
+  </tr>
+</table>
+
+<hr>
+
+<!-- ============ 其他重要更新 ============ -->
+<h2>📊 其他重要更新</h2>
+
+<div class="grid2">
+  <div class="card">
+    <h4>🧠 评分引擎</h4>
+    <table>
+      <tr><td style="color:#8b949e;">初版</td><td>选 Top-1 记忆</td></tr>
+      <tr><td style="color:#3fb950;">v0.1</td><td>安全过滤 → 排序 → Top-5，交给 LLM 选择 <span class="upgrade-badge">UPGRADE</span></td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>🛡️ 安全保障</h4>
+    <table>
+      <tr><td style="color:#8b949e;">初版</td><td>4 层 Python 校验</td></tr>
+      <tr><td style="color:#3fb950;">v0.1</td><td>5 层校验 + 情感冲突56格矩阵 + 夜间保护 <span class="upgrade-badge">UPGRADE</span></td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>💾 持久化</h4>
+    <table>
+      <tr><td style="color:#8b949e;">初版</td><td>纯内存，刷新即丢失</td></tr>
+      <tr><td style="color:#3fb950;">v0.1</td><td>SQLite 4 表 + 自动迁移 + 热重载恢复 <span class="new-badge">NEW</span></td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>🎨 UI</h4>
+    <table>
+      <tr><td style="color:#8b949e;">初版</td><td>Streamlit 默认样式</td></tr>
+      <tr><td style="color:#3fb950;">v0.1</td><td>现代简约毛玻璃 · 暖木色调 · ZCOOL XiaoWei 字体 <span class="new-badge">NEW</span></td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>🔧 健壮性</h4>
+    <table>
+      <tr><td style="color:#8b949e;">初版</td><td>无超时/重试</td></tr>
+      <tr><td style="color:#3fb950;">v0.1</td><td>10s超时 + 自动重试 + JSON解析容错 <span class="new-badge">NEW</span></td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>📝 回复质量</h4>
+    <table>
+      <tr><td style="color:#8b949e;">初版</td><td>单句 ≤25字</td></tr>
+      <tr><td style="color:#3fb950;">v0.1</td><td>2-4句 ≤60字 + 话题联想展开 <span class="upgrade-badge">UPGRADE</span></td></tr>
+    </table>
+  </div>
+</div>
+
+<hr>
+
+<!-- Stats Comparison -->
+<h3>数字对比</h3>
+<div class="grid3">
+  <div class="card" style="text-align:center;">
+    <div style="color:#8b949e;font-size:12px;">数据结构</div>
+    <div style="font-size:20px;"><span style="color:#6e7681;">2 → </span><span style="color:#3fb950;">4</span> 张表</div>
+  </div>
+  <div class="card" style="text-align:center;">
+    <div style="color:#8b949e;font-size:12px;">源文件</div>
+    <div style="font-size:20px;"><span style="color:#6e7681;">8 → </span><span style="color:#3fb950;">14</span> 个</div>
+  </div>
+  <div class="card" style="text-align:center;">
+    <div style="color:#8b949e;font-size:12px;">测试</div>
+    <div style="font-size:20px;"><span style="color:#6e7681;">0 → </span><span style="color:#3fb950;">29</span> 个</div>
+  </div>
+  <div class="card" style="text-align:center;">
+    <div style="color:#8b949e;font-size:12px;">Git 提交</div>
+    <div style="font-size:20px;"><span style="color:#6e7681;">0 → </span><span style="color:#3fb950;">40+</span> 次</div>
+  </div>
+  <div class="card" style="text-align:center;">
+    <div style="color:#8b949e;font-size:12px;">角色类型</div>
+    <div style="font-size:20px;"><span style="color:#6e7681;">4 → </span><span style="color:#3fb950;">7</span> 种关系</div>
+  </div>
+  <div class="card" style="text-align:center;">
+    <div style="color:#8b949e;font-size:12px;">安全校验</div>
+    <div style="font-size:20px;"><span style="color:#6e7681;">4 → </span><span style="color:#3fb950;">5</span> 层</div>
+  </div>
+</div>
+
+<div style="text-align:center; padding:40px; color:#8b949e; font-size:13px; margin-top:24px; border-top:1px solid #30363d;">
+  v0.1 — 标记 tag <code style="color:#f0883e;">git tag v0.1</code> · 2026-05-17
+</div>
+
+</body>
+</html>
