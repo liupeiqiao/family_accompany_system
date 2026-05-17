@@ -79,11 +79,11 @@ h3 { color: #6b4228 !important; font-size: 1rem !important; }
     background: rgba(190,140,105,0.45) !important; color: #3d2210 !important; transform: translateY(-1px);
 }
 [data-testid="stSidebar"] .stButton > button {
-    background: rgba(180,140,110,0.3) !important; border: 1px solid rgba(200,160,130,0.35) !important;
-    color: #f5ede0 !important; backdrop-filter: blur(6px);
+    background: rgba(180,140,110,0.35) !important; border: 1px solid rgba(190,150,120,0.4) !important;
+    color: #c4a888 !important; backdrop-filter: blur(6px);
 }
 [data-testid="stSidebar"] .stButton > button:hover {
-    background: rgba(180,140,110,0.5) !important; color: #fff !important;
+    background: rgba(180,140,110,0.55) !important; color: #e8d0b8 !important;
 }
 
 /* 输入框占位符 — 米色可见 */
