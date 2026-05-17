@@ -313,9 +313,9 @@ with st.sidebar:
                     rel_idx = relation_opts.index(cur_rel) if cur_rel in relation_opts else 0
                     pp["relation"] = st.selectbox("关系", relation_opts, index=rel_idx, key="prev_rel")
 
-                all_personality = ["温和", "幽默", "细心", "沉稳", "话多", "乐观", "感性"]
+                all_personality = ["温和", "幽默", "细心", "沉稳", "话多", "乐观", "感性", "活泼", "内向", "开朗", "随和", "大条"]
                 pp["personality"] = st.multiselect("性格标签", all_personality,
-                    default=pp.get("personality", []), key="prev_pers")
+                    default=[v for v in pp.get("personality", []) if v in all_personality], key="prev_pers")
 
                 speech_text = "\n".join(pp.get("speech_style", []))
                 new_speech = st.text_area("说话风格（一行一条）", value=speech_text, key="prev_speech")
@@ -324,7 +324,7 @@ with st.sidebar:
                 all_comfort = ["唠家常", "撒娇", "讲趣事", "一起回忆", "逗开心",
                                "讲道理", "转移话题", "鼓励", "附和倾听", "默默陪伴"]
                 pp["comfort_style"] = st.multiselect("陪伴方式", all_comfort,
-                    default=pp.get("comfort_style", []), key="prev_comfort")
+                    default=[v for v in pp.get("comfort_style", []) if v in all_comfort], key="prev_comfort")
 
             mems = parsed_preview.get("memories", [])
             if mems:
@@ -358,11 +358,11 @@ with st.sidebar:
                         with col_f2:
                             all_emo = ["温馨", "快乐", "感动", "搞笑", "难忘", "遗憾", "伤感", "兴奋"]
                             m["emotion_tags"] = st.multiselect(
-                                f"情感标签{i+1}", all_emo, default=m.get("emotion_tags", []), key=f"prev_me_{i}"
+                                f"情感标签{i+1}", all_emo, default=[v for v in m.get("emotion_tags", []) if v in all_emo], key=f"prev_me_{i}"
                             )
                         all_topics = ["饮食", "旅行", "节日", "成长", "健康", "宠物", "工作", "日常"]
                         m["topic_tags"] = st.multiselect(
-                            f"话题标签{i+1}", all_topics, default=m.get("topic_tags", []), key=f"prev_mtpc_{i}"
+                            f"话题标签{i+1}", all_topics, default=[v for v in m.get("topic_tags", []) if v in all_topics], key=f"prev_mtpc_{i}"
                         )
                         st.divider()
 
