@@ -370,8 +370,6 @@ with st.sidebar:
                         st.session_state.edit_persona = False
                         st.session_state.show_new_persona_form = True
                         st.rerun()
-                        st.session_state.edit_persona = False
-                        st.rerun()
 
         # 画像编辑模式（内联展开）
         if st.session_state.get("edit_persona", False):

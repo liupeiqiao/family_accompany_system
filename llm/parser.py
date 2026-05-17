@@ -79,7 +79,7 @@ def parse_user_text(user_text: str) -> dict:
     try:
         raw = chat(PARSER_SYSTEM, PARSER_USER.format(user_text=user_text), temperature=0.3)
     except Exception:
-        return {"persona": {}, "memories": []}
+        return {"persona": {}, "memories": [], "family_profiles": []}
 
     # JSON 解析容错
     try:
@@ -96,4 +96,4 @@ def parse_user_text(user_text: str) -> dict:
             pass
 
     # Fallback
-    return {"persona": {}, "memories": []}
+    return {"persona": {}, "memories": [], "family_profiles": []}
