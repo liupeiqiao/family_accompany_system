@@ -716,7 +716,7 @@ with st.sidebar:
                 if fp.habits:
                     st.caption(f"习惯：{'、'.join(fp.habits)}")
                 if fp.relations:
-                    rel_text = "；".join(f"{r['person']}→{r['relation']}" for r in fp.relations)
+                    rel_text = "；".join(f"{r.get('person','?')}→{r.get('relation','?')}" for r in fp.relations if isinstance(r, dict))
                     st.caption(f"家人关系：{rel_text}")
                 if fp.notes:
                     st.caption(fp.notes)
@@ -737,7 +737,7 @@ with st.sidebar:
                 new_pers = st.text_input("性格（逗号分隔）", value="、".join(fp.personality), key=f"edit_fp_pers_{fname}")
                 new_prefs = st.text_input("喜好（逗号分隔）", value="、".join(fp.preferences), key=f"edit_fp_prefs_{fname}")
                 new_habits = st.text_input("习惯（逗号分隔）", value="、".join(fp.habits), key=f"edit_fp_hab_{fname}")
-                default_rels = "、".join(f"{r['person']}→{r['relation']}" for r in fp.relations)
+                default_rels = "、".join(f"{r.get('person','?')}→{r.get('relation','?')}" for r in fp.relations if isinstance(r, dict))
                 new_rels = st.text_input("家人关系（人→关系，、分隔）", value=default_rels, key=f"edit_fp_rels_{fname}", placeholder="小红→妻子、小花→女儿")
                 new_notes = st.text_input("备注", value=fp.notes, key=f"edit_fp_notes_{fname}")
                 cs, cc = st.columns(2)
@@ -987,7 +987,7 @@ def run_pipeline(user_input: str) -> str:
             family_context += f"- {fp.name}（{'，'.join(parts)}）\n"
             # 家人关系表
             if fp.relations:
-                rel_parts = [f"{r['person']}的{r['relation']}" for r in fp.relations]
+                rel_parts = [f"{r.get('person','?')}的{r.get('relation','?')}" for r in fp.relations if isinstance(r, dict)]
                 family_context += f"  关系：{fp.name}是{'，'.join(rel_parts)}\n"
     if family_context:
         family_context = "## 家人偏好档案\n" + family_context + "\n"
