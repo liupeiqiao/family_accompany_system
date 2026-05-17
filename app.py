@@ -374,6 +374,8 @@ with st.sidebar:
                     if st.button("🗑️ 删除", key="btn_del_elder", use_container_width=True):
                         set_elder(ElderProfile())
                         db_delete_elder()
+                        for k in list(st.session_state.keys()):
+                            if k.startswith("e_"): st.session_state.pop(k, None)
                         st.rerun()
         else:
             with st.expander("✏️ 编辑老人画像", expanded=True):
@@ -573,6 +575,9 @@ with st.sidebar:
                     st.caption(f"喜好：{'、'.join(fp.preferences)}")
                 if fp.habits:
                     st.caption(f"习惯：{'、'.join(fp.habits)}")
+                if fp.relations:
+                    rel_text = "；".join(f"{r['person']}→{r['relation']}" for r in fp.relations)
+                    st.caption(f"家人关系：{rel_text}")
                 if fp.notes:
                     st.caption(fp.notes)
                 c1, c2 = st.columns(2)
@@ -592,6 +597,8 @@ with st.sidebar:
                 new_pers = st.text_input("性格（逗号分隔）", value="、".join(fp.personality), key=f"edit_fp_pers_{fname}")
                 new_prefs = st.text_input("喜好（逗号分隔）", value="、".join(fp.preferences), key=f"edit_fp_prefs_{fname}")
                 new_habits = st.text_input("习惯（逗号分隔）", value="、".join(fp.habits), key=f"edit_fp_hab_{fname}")
+                default_rels = "、".join(f"{r['person']}→{r['relation']}" for r in fp.relations)
+                new_rels = st.text_input("家人关系（人→关系，、分隔）", value=default_rels, key=f"edit_fp_rels_{fname}", placeholder="小红→妻子、小花→女儿")
                 new_notes = st.text_input("备注", value=fp.notes, key=f"edit_fp_notes_{fname}")
                 cs, cc = st.columns(2)
                 with cs:
@@ -601,6 +608,10 @@ with st.sidebar:
                         fp.personality = [x.strip() for x in new_pers.split("、") if x.strip()]
                         fp.preferences = [x.strip() for x in new_prefs.split("、") if x.strip()]
                         fp.habits = [x.strip() for x in new_habits.split("、") if x.strip()]
+                        fp.relations = []
+                        for r in [x.strip() for x in new_rels.split("、") if x.strip()]:
+                            parts = r.split("→", 1)
+                            if len(parts)==2: fp.relations.append({"person":parts[0].strip(),"relation":parts[1].strip()})
                         fp.notes = new_notes.strip()
                         add_profile(fp)
                         db_save_family({"name":fp.name,"relation":fp.relation,"personality":fp.personality,"preferences":fp.preferences,"habits":fp.habits,"relations":fp.relations,"notes":fp.notes})
