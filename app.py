@@ -80,9 +80,10 @@ h3 { color: #6b4228 !important; font-size: 1rem !important; }
 }
 [data-testid="stSidebar"] .stButton > button:hover { background: rgba(255,255,255,0.2) !important; color: #fff !important; }
 
-/* 输入框占位符 */
+/* 输入框占位符 — 米色可见 */
 [data-testid="stSidebar"] input::placeholder,
-[data-testid="stSidebar"] textarea::placeholder { color: rgba(255,255,255,0.4) !important; }
+[data-testid="stSidebar"] textarea::placeholder { color: #c4b098 !important; }
+input::placeholder, textarea::placeholder { color: #b8a088 !important; }
 
 /* 多选标签 — 玻璃感 */
 [data-testid="stSidebar"] [data-baseweb="tag"] {
@@ -115,10 +116,16 @@ div[data-testid="stVerticalBlock"] > div > div > div > div[style*="border"] {
 /* Radio */
 [data-testid="stRadio"] label { font-weight: 500 !important; }
 
-/* Expander 标题 */
-[data-testid="stSidebar"] [data-testid="stExpander"] summary { color: #e8ddd0 !important; }
-[data-testid="stSidebar"] [data-testid="stExpander"] summary:hover { color: #f0c090 !important; }
-[data-testid="stSidebar"] [data-testid="stExpander"] p { color: #e8ddd0 !important; }
+/* 侧边栏 Expander */
+[data-testid="stSidebar"] [data-testid="stExpander"] summary { color: #f5e0c8 !important; }
+[data-testid="stSidebar"] [data-testid="stExpander"] summary:hover { color: #f8d0a0 !important; }
+[data-testid="stSidebar"] [data-testid="stExpander"] p,
+[data-testid="stSidebar"] [data-testid="stExpander"] label,
+[data-testid="stSidebar"] [data-testid="stExpander"] span,
+[data-testid="stSidebar"] [data-testid="stExpander"] div { color: #efe0d0 !important; }
+
+/* 侧边栏 header 表情区亮色 */
+[data-testid="stSidebar"] .stHeader { color: #f5c898 !important; }
 
 /* 主区域字幕 */
 .stCaption { color: #8b6b50 !important; }
