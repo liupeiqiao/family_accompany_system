@@ -35,74 +35,81 @@ st.markdown("""
 * { font-family: 'Noto Sans SC', -apple-system, sans-serif !important; }
 h1, h2, h3 { font-family: 'ZCOOL XiaoWei', 'Noto Serif SC', serif !important; }
 
-/* 主背景 */
-.stApp { background: #faf8f5; }
+/* 主背景 — 柔光暖调 */
+.stApp { background: linear-gradient(160deg, #fefaf5 0%, #fdf3e8 30%, #f8ede0 60%, #faf3ea 100%); }
 
 /* 标题 */
 h1 { color: #4a2c17 !important; font-weight: 700 !important; font-size: 2rem !important; letter-spacing: 0.04em; }
 h2 { color: #5c3822 !important; font-weight: 600 !important; font-size: 1.2rem !important; }
 h3 { color: #6b4228 !important; font-size: 1rem !important; }
 
-/* 侧边栏 */
-[data-testid="stSidebar"] { background: #2a1f18 !important; }
+/* 侧边栏 — 亮木暖调 + 玻璃 */
+[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, rgba(58,38,24,0.92) 0%, rgba(44,26,14,0.88) 100%) !important;
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+}
 [data-testid="stSidebar"] label, [data-testid="stSidebar"] p, [data-testid="stSidebar"] span,
 [data-testid="stSidebar"] div, [data-testid="stSidebar"] small, [data-testid="stSidebar"] caption,
 [data-testid="stSidebar"] .stMarkdown, [data-testid="stSidebar"] .stCaption,
 [data-testid="stSidebar"] .stTextInput label, [data-testid="stSidebar"] .stTextArea label,
 [data-testid="stSidebar"] .stSelectbox label, [data-testid="stSidebar"] .stMultiselect label,
-[data-testid="stSidebar"] .stRadio label { color: #e8ddd0 !important; }
-[data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 { color: #f0c090 !important; font-family: 'ZCOOL XiaoWei', serif !important; }
+[data-testid="stSidebar"] .stRadio label { color: #efe4d8 !important; }
+[data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 { color: #f5c898 !important; font-family: 'ZCOOL XiaoWei', serif !important; }
 [data-testid="stSidebar"] .stTextInput > div > div > input,
 [data-testid="stSidebar"] .stTextArea > div > div > textarea {
-    background: #35281e !important; border: 1px solid #5a4638 !important; color: #f0e0d0 !important; border-radius: 6px !important;
+    background: rgba(255,255,255,0.1) !important; border: 1px solid rgba(255,255,255,0.18) !important;
+    color: #f5ede0 !important; border-radius: 8px !important;
 }
 [data-testid="stSidebar"] [data-baseweb="select"] > div {
-    background: #35281e !important; border-color: #5a4638 !important; color: #f0e0d0 !important;
+    background: rgba(255,255,255,0.1) !important; border-color: rgba(255,255,255,0.18) !important;
+    color: #f5ede0 !important;
 }
-[data-testid="stSidebar"] [data-baseweb="select"] svg { fill: #e8ddd0 !important; }
-[data-testid="stSidebar"] .st-bq, [data-testid="stSidebar"] .st-br { color: #e8ddd0 !important; }
+[data-testid="stSidebar"] [data-baseweb="select"] svg { fill: #efe4d8 !important; }
+[data-testid="stSidebar"] .st-bq, [data-testid="stSidebar"] .st-br { color: #efe4d8 !important; }
 
-/* 按钮 */
+/* 按钮 — 哑光陶土 */
 .stButton > button {
-    background: #c67a4a !important; color: #fff !important; border: none !important;
-    border-radius: 6px !important; font-weight: 500 !important; font-size: 0.88rem !important;
-    letter-spacing: 0.02em; transition: all 0.15s ease; padding: 6px 16px !important;
+    background: rgba(198,122,74,0.9) !important; color: #fff !important; border: none !important;
+    border-radius: 8px !important; font-weight: 500 !important; font-size: 0.88rem !important;
+    letter-spacing: 0.02em; transition: all 0.2s ease; padding: 6px 16px !important;
+    backdrop-filter: blur(4px);
 }
-.stButton > button:hover { background: #b06638 !important; }
+.stButton > button:hover { background: rgba(176,102,56,0.95) !important; transform: translateY(-1px); }
 [data-testid="stSidebar"] .stButton > button {
-    background: #5a3d2e !important; border: 1px solid #7a5c4a !important; color: #f0e0d0 !important;
+    background: rgba(255,255,255,0.12) !important; border: 1px solid rgba(255,255,255,0.2) !important; color: #f5ede0 !important;
 }
-[data-testid="stSidebar"] .stButton > button:hover { background: #6b4a38 !important; color: #fff !important; }
+[data-testid="stSidebar"] .stButton > button:hover { background: rgba(255,255,255,0.2) !important; color: #fff !important; }
 
 /* 输入框占位符 */
 [data-testid="stSidebar"] input::placeholder,
-[data-testid="stSidebar"] textarea::placeholder { color: #8a7a68 !important; }
+[data-testid="stSidebar"] textarea::placeholder { color: rgba(255,255,255,0.4) !important; }
 
-/* 多选标签 */
+/* 多选标签 — 玻璃感 */
 [data-testid="stSidebar"] [data-baseweb="tag"] {
-    background: #5a3d2e !important; color: #f0e0d0 !important;
+    background: rgba(255,255,255,0.15) !important; color: #f5ede0 !important;
+    border-radius: 6px !important; backdrop-filter: blur(4px);
 }
-[data-testid="stSidebar"] [data-baseweb="tag"] span { color: #f0e0d0 !important; }
+[data-testid="stSidebar"] [data-baseweb="tag"] span { color: #f5ede0 !important; }
 
 /* 滑块 */
-[data-testid="stSidebar"] .stSlider label { color: #e8ddd0 !important; }
+[data-testid="stSidebar"] .stSlider label { color: #efe4d8 !important; }
 
 /* 聊天消息 */
 [data-testid="stChatMessage"] { background: transparent !important; border: none !important; }
 [data-testid="stChatMessage"] > div { border-radius: 14px !important; padding: 12px 18px !important; }
 .stChatMessage [data-testid="stChatMessageContent"] { font-size: 1rem !important; line-height: 1.85 !important; }
 
-/* 卡片 */
+/* 卡片 — 毛玻璃 */
 [data-testid="stExpander"] {
-    background: #fff !important; border: 1px solid #e8ddd0 !important; border-radius: 10px !important;
-    box-shadow: 0 1px 4px rgba(74,44,23,0.04);
+    background: rgba(255,255,255,0.7) !important; border: 1px solid rgba(200,180,160,0.3) !important;
+    border-radius: 12px !important; backdrop-filter: blur(8px);
+    box-shadow: 0 2px 12px rgba(74,44,23,0.06);
 }
 
-/* 容器卡片 */
 div[data-testid="stVerticalBlock"] > div > div > div > div[style*="border"] {
-    border: 1px solid #e8ddd0 !important; border-radius: 10px !important;
-    background: #fff !important; padding: 14px !important;
-    box-shadow: 0 1px 3px rgba(74,44,23,0.04);
+    border: 1px solid rgba(200,180,160,0.3) !important; border-radius: 12px !important;
+    background: rgba(255,255,255,0.65) !important; padding: 14px !important;
+    backdrop-filter: blur(8px); box-shadow: 0 2px 12px rgba(74,44,23,0.05);
 }
 
 /* Radio */
@@ -121,27 +128,32 @@ div[data-testid="stVerticalBlock"] > div > div > div > div[style*="border"] {
 .stWarning { background: #faf3e6 !important; border-left: 3px solid #c9a35a !important; border-radius: 4px !important; }
 .stInfo { background: #edf0f5 !important; border-left: 3px solid #7a9ab8 !important; border-radius: 4px !important; }
 
-/* 聊天气泡 */
+/* 聊天气泡 — 轻玻璃 */
 .stChatMessage [data-testid="stChatMessageContent"] {
-    background: #fff !important; border-radius: 14px !important; padding: 10px 16px !important;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+    background: rgba(255,255,255,0.75) !important; border-radius: 14px !important;
+    padding: 10px 16px !important; backdrop-filter: blur(6px);
+    box-shadow: 0 1px 6px rgba(74,44,23,0.05);
 }
 
 /* 输入框 */
 [data-testid="stChatInput"] textarea {
-    border: 1.5px solid #e0d0be !important; border-radius: 12px !important; background: #fff !important;
+    border: 1.5px solid rgba(200,170,140,0.4) !important; border-radius: 14px !important;
+    background: rgba(255,255,255,0.7) !important; backdrop-filter: blur(6px);
 }
 [data-testid="stChatInput"] textarea:focus {
-    border-color: #c67a4a !important; box-shadow: 0 0 0 2px rgba(198,122,74,0.12) !important;
+    border-color: rgba(198,122,74,0.6) !important;
+    box-shadow: 0 0 0 3px rgba(198,122,74,0.1) !important;
 }
 
 /* 分隔线 */
-hr { border-color: #e8ddd0 !important; }
+hr { border-color: rgba(200,180,160,0.3) !important; }
 
-/* Metric */
-[data-testid="stMetric"] { background: #fff !important; border-radius: 8px; padding: 6px 12px !important;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
-[data-testid="stMetric"] label { color: #9a7a60 !important; }
+/* Metric — 玻璃卡片 */
+[data-testid="stMetric"] {
+    background: rgba(255,255,255,0.7) !important; border-radius: 10px; padding: 6px 12px !important;
+    backdrop-filter: blur(6px); box-shadow: 0 1px 6px rgba(74,44,23,0.04);
+}
+[data-testid="stMetric"] label { color: #a08870 !important; }
 [data-testid="stMetricValue"] { color: #4a2c17 !important; }
 </style>
 """, unsafe_allow_html=True)
