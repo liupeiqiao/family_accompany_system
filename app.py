@@ -578,7 +578,7 @@ with st.sidebar:
     # 角色切换下拉框
     if persona_labels:
         # 自动同步：如果 pipeline 切换了角色，下拉框跟随
-        auto_switched = st.session_state.get("persona_selector", "")
+        auto_switched = st.session_state.pop("auto_switched", "")
         current_label = auto_switched if auto_switched in persona_labels else (
             current_persona.role_label if current_persona.is_complete() and current_persona.role_label in persona_labels else persona_labels[0])
         selected_label = st.selectbox("当前角色", persona_labels,
@@ -920,7 +920,7 @@ def run_pipeline(user_input: str) -> str:
         if persona.role_label != matched_persona:
             switch_persona(matched_persona)
             persona = get_persona()
-            st.session_state.persona_selector = matched_persona  # 同步下拉框
+            st.session_state.auto_switched = matched_persona  # 下次渲染时同步下拉框
     # 没提到具体角色 → 保持当前 persona（可能为空，走通用模式）
 
     # Step 2: 根据提及人物 + 对话对象检索相关记忆
