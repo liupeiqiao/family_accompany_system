@@ -228,19 +228,27 @@ with st.sidebar:
                         comfort_style=persona_part.get("comfort_style", []),
                     )
                     from engine.persona import get_all_personas as gap, merge_persona, add_or_update_persona as add_p
-                    # 用 dedup 结果判断合并目标
+                    # 用 dedup 结果判断合并目标（模糊匹配）
                     pmatch = dedup_result.get("persona_match", "")
+                    def _find_persona(name: str):
+                        """模糊查找：名字包含或等于 role_label"""
+                        all_p = gap()
+                        if name in all_p:
+                            return all_p[name]
+                        for k, v in all_p.items():
+                            if name in k or k in name:
+                                return v
+                        return None
                     if dedup_result.get("persona_action") == "merge" and pmatch:
-                        existing = gap().get(pmatch)
+                        existing = _find_persona(pmatch)
                         if not existing:
-                            # 可能在 family_profiles 中
                             fp_match = get_profile(pmatch)
                             if fp_match:
                                 p = merge_persona(p, {"role_label": fp_match.name, "personality": fp_match.personality})
                         if existing:
                             p = merge_persona(existing, persona_part)
                     else:
-                        existing = gap().get(p.role_label)
+                        existing = _find_persona(p.role_label) or gap().get(p.role_label)
                         if existing:
                             p = merge_persona(existing, persona_part)
                     add_p(p)
@@ -297,6 +305,12 @@ with st.sidebar:
                     elif fa.get("action") == "merge_into":
                         target = fa.get("target", "")
                         existing_fp = get_profile(target) if target else None
+                        if not existing_fp and target:
+                            # 模糊查找
+                            for k, v in get_all_profiles().items():
+                                if target in k or k in target:
+                                    existing_fp = v
+                                    break
                         if existing_fp:
                             existing_fp.relation = fd.get("relation") or existing_fp.relation
                             existing_fp.personality = list(dict.fromkeys(existing_fp.personality + fd.get("personality", [])))
