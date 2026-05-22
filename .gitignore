@@ -1,33 +1,79 @@
 # Python
 __pycache__/
 *.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
 *.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Test / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+.tox/
+.nox/
 
 # Virtual env
 venv/
 .venv/
-
-# IDE
-.vscode/
-.idea/
-
-# Sensitive / local
-companion.db
-.claude/
-
-# Superpowers
-.superpowers/
-
-# Streamlit
-.streamlit/
-
-# Large binary files
-*.docx
-*.txt
+env/
+.env/
+ENV/
 
 # Local Python packages (accidental pip install in project dir)
 Lib/
 Scripts/
+Include/
 etc/
 share/
 pyvenv.cfg
+
+# App runtime data
+companion.db
+*.sqlite
+*.sqlite3
+*.db
+
+# Secrets / local configuration
+.env
+.env.*
+!.env.example
+.claude/
+
+# Streamlit
+.streamlit/
+!.streamlit/config.toml
+.streamlit/secrets.toml
+
+# Superpowers
+.superpowers/
+
+# Logs
+*.log
+logs/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Large or generated documents
+*.docx
