@@ -198,6 +198,46 @@ def test_import_handler_allows_empty_payload(tmp_path, monkeypatch):
     assert result.imported.memories == 0
 
 
+def test_fastapi_import_endpoint_saves_payload(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from api.main import app
+    from engine import db
+
+    monkeypatch.chdir(tmp_path)
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/import",
+        json={
+            "family_id": "local",
+            "persona": {
+                "role_label": "儿子小明",
+                "relation": "子女",
+                "appellation": "妈",
+            },
+            "elder_profile": {"full_name": "宋桂兰", "gender": "女"},
+            "family_profiles": [{"name": "小明", "relation": "儿子"}],
+            "memories": [{"content": "去年中秋小明陪妈妈在院子里赏月。"}],
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "ok": True,
+        "imported": {
+            "persona": 1,
+            "elder_profile": 1,
+            "family_profiles": 1,
+            "memories": 1,
+        },
+    }
+    assert db.load_persona()["role_label"] == "儿子小明"
+    assert db.load_elder()["full_name"] == "宋桂兰"
+    assert db.load_all_family_profiles()[0]["name"] == "小明"
+    assert db.load_all_memories()[0]["content"] == "去年中秋小明陪妈妈在院子里赏月。"
+
+
 def test_fastapi_entrypoint_declares_parse_and_chat_routes():
     source = Path("api/main.py").read_text(encoding="utf-8")
 
