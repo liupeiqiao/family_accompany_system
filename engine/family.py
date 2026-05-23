@@ -4,6 +4,19 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 
+def normalize_family_relation(relation: str, gender: str) -> str:
+    relation_text = (relation or "").strip()
+    gender_text = (gender or "").strip()
+
+    if relation_text in {"子女", "儿女", "孩子"}:
+        if gender_text == "男":
+            return "儿子"
+        if gender_text == "女":
+            return "女儿"
+
+    return relation_text
+
+
 @dataclass
 class FamilyProfile:
     """一个家人的偏好档案"""

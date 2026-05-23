@@ -5,6 +5,8 @@ import json
 import sqlite3
 from datetime import datetime
 
+from .family import normalize_family_relation
+
 DB_PATH = "companion.db"
 
 
@@ -220,13 +222,15 @@ def load_all_memories() -> list[dict]:
 
 def save_family_profile(profile_dict: dict) -> None:
     conn = _connect()
+    gender = profile_dict.get("gender", "")
+    relation = normalize_family_relation(profile_dict.get("relation", ""), gender)
     conn.execute("""
         INSERT OR REPLACE INTO family_profiles (name, gender, relation, personality, preferences, habits, notes, relations)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         profile_dict.get("name", ""),
-        profile_dict.get("gender", ""),
-        profile_dict.get("relation", ""),
+        gender,
+        relation,
         json.dumps(profile_dict.get("personality", []), ensure_ascii=False),
         json.dumps(profile_dict.get("preferences", []), ensure_ascii=False),
         json.dumps(profile_dict.get("habits", []), ensure_ascii=False),

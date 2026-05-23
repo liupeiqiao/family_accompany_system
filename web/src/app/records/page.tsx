@@ -244,6 +244,7 @@ export default function RecordsPage() {
               老人视角
             </button>
           </div>
+          <p className="helperText">家人档案保存时会根据性别把“子女/儿女/孩子”细分为“儿子/女儿”。</p>
           <textarea
             id="sourceText"
             value={sourceText}

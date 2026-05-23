@@ -117,6 +117,12 @@ a {
   margin: 0;
 }
 
+.helperText {
+  color: #6f6256;
+  font-size: 14px;
+  margin: 0;
+}
+
 form {
   display: grid;
   gap: 10px;

@@ -185,6 +185,7 @@ def test_records_page_supports_profile_memory_import_flow():
     assert "家人视角" in records_source
     assert "老人视角" in records_source
     assert "perspective," in records_source
+    assert "子女/儿女/孩子" in records_source
 
 
 def test_web_app_has_supabase_and_backend_api_boundaries():
@@ -216,4 +217,5 @@ def test_family_profile_gender_is_part_of_parse_and_context_contracts():
 
     assert "gender" in parser_source
     assert '"gender":"男或女"' in parser_source
+    assert "男=儿子，女=女儿" in parser_source
     assert "性别" in chat_source

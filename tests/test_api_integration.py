@@ -226,6 +226,32 @@ def test_family_profile_gender_persists_through_sqlite(tmp_path, monkeypatch):
     assert profile["relation"] == "女儿"
 
 
+def test_family_profile_relation_is_normalized_by_gender_on_import(tmp_path, monkeypatch):
+    from api.handlers import handle_import
+    from api.schemas import ImportRequest
+    from engine import db
+
+    monkeypatch.chdir(tmp_path)
+
+    result = handle_import(
+        ImportRequest(
+            family_id="local",
+            family_profiles=[
+                {"name": "小明", "gender": "男", "relation": "子女"},
+                {"name": "小红", "gender": "女", "relation": "子女"},
+                {"name": "小刚", "gender": "", "relation": "子女"},
+            ],
+        )
+    )
+
+    profiles = {profile["name"]: profile for profile in db.load_all_family_profiles()}
+
+    assert result.imported.family_profiles == 3
+    assert profiles["小明"]["relation"] == "儿子"
+    assert profiles["小红"]["relation"] == "女儿"
+    assert profiles["小刚"]["relation"] == "子女"
+
+
 def test_fastapi_import_endpoint_saves_payload(tmp_path, monkeypatch):
     from fastapi.testclient import TestClient
 
