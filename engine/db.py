@@ -52,6 +52,7 @@ def init_db() -> None:
     conn.execute("""
         CREATE TABLE IF NOT EXISTS family_profiles (
             name TEXT PRIMARY KEY,
+            gender TEXT DEFAULT '',
             relation TEXT DEFAULT '',
             personality TEXT DEFAULT '[]',
             preferences TEXT DEFAULT '[]',
@@ -63,6 +64,10 @@ def init_db() -> None:
     # Migration: add missing columns
     try:
         conn.execute("ALTER TABLE family_profiles ADD COLUMN relations TEXT DEFAULT '[]'")
+    except Exception:
+        pass
+    try:
+        conn.execute("ALTER TABLE family_profiles ADD COLUMN gender TEXT DEFAULT ''")
     except Exception:
         pass
     # Migration: if elder_profile has old schema (name instead of full_name), rename column
@@ -216,10 +221,11 @@ def load_all_memories() -> list[dict]:
 def save_family_profile(profile_dict: dict) -> None:
     conn = _connect()
     conn.execute("""
-        INSERT OR REPLACE INTO family_profiles (name, relation, personality, preferences, habits, notes, relations)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT OR REPLACE INTO family_profiles (name, gender, relation, personality, preferences, habits, notes, relations)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         profile_dict.get("name", ""),
+        profile_dict.get("gender", ""),
         profile_dict.get("relation", ""),
         json.dumps(profile_dict.get("personality", []), ensure_ascii=False),
         json.dumps(profile_dict.get("preferences", []), ensure_ascii=False),
@@ -246,6 +252,7 @@ def load_all_family_profiles() -> list[dict]:
     for row in rows:
         result.append({
             "name": row["name"],
+            "gender": row["gender"] if "gender" in row.keys() else "",
             "relation": row["relation"],
             "personality": json.loads(row["personality"]),
             "preferences": json.loads(row["preferences"]),

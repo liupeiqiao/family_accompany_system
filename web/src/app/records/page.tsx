@@ -42,6 +42,7 @@ const personaFields = [
 
 const familyFields = [
   ["name", "姓名"],
+  ["gender", "性别"],
   ["relation", "关系"],
   ["personality", "性格"],
   ["preferences", "偏好"],

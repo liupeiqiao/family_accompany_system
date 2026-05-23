@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 class FamilyProfile:
     """一个家人的偏好档案"""
     name: str = ""              # 主键，如"小明"
+    gender: str = ""            # 性别："男" | "女" | ""
     relation: str = ""          # 与老人关系："儿子"
     personality: list[str] = field(default_factory=list)  # ["温和","爱吃"]
     preferences: list[str] = field(default_factory=list)  # ["吃辣","打篮球"]

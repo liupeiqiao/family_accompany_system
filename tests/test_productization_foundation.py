@@ -180,6 +180,7 @@ def test_records_page_supports_profile_memory_import_flow():
     assert "deleteMemory" in records_source
     assert "一键保存" in records_source
     assert "后端保存接口未加载" in records_source
+    assert '["gender", "性别"]' in records_source
 
 
 def test_web_app_has_supabase_and_backend_api_boundaries():
@@ -203,3 +204,12 @@ def test_web_app_has_supabase_and_backend_api_boundaries():
     assert "importParsedData" in backend_source
     assert "response.status" in backend_source
     assert "status" in backend_source
+
+
+def test_family_profile_gender_is_part_of_parse_and_context_contracts():
+    parser_source = (ROOT / "llm" / "parser.py").read_text(encoding="utf-8")
+    chat_source = (ROOT / "productization" / "chat_service.py").read_text(encoding="utf-8")
+
+    assert "gender" in parser_source
+    assert '"gender":"男或女"' in parser_source
+    assert "性别" in chat_source

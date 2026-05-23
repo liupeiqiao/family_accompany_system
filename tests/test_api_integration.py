@@ -150,6 +150,7 @@ def test_import_handler_saves_profile_and_memory_data(tmp_path, monkeypatch):
             family_profiles=[
                 {
                     "name": "小明",
+                    "gender": "男",
                     "relation": "儿子",
                     "personality": ["稳重"],
                     "preferences": ["做饭"],
@@ -180,6 +181,7 @@ def test_import_handler_saves_profile_and_memory_data(tmp_path, monkeypatch):
     assert db.load_persona()["role_label"] == "儿子小明"
     assert db.load_elder()["full_name"] == "宋桂兰"
     assert db.load_all_family_profiles()[0]["name"] == "小明"
+    assert db.load_all_family_profiles()[0]["gender"] == "男"
     assert db.load_all_memories()[0]["content"] == "去年中秋小明陪妈妈在院子里赏月。"
 
 
@@ -196,6 +198,32 @@ def test_import_handler_allows_empty_payload(tmp_path, monkeypatch):
     assert result.imported.elder_profile == 0
     assert result.imported.family_profiles == 0
     assert result.imported.memories == 0
+
+
+def test_family_profile_gender_persists_through_sqlite(tmp_path, monkeypatch):
+    from engine import db
+
+    monkeypatch.chdir(tmp_path)
+    db.init_db()
+
+    db.save_family_profile(
+        {
+            "name": "小红",
+            "gender": "女",
+            "relation": "女儿",
+            "personality": ["细心"],
+            "preferences": ["唱歌"],
+            "habits": ["周三打电话"],
+            "relations": [],
+            "notes": "住在兰州",
+        }
+    )
+
+    profile = db.load_all_family_profiles()[0]
+
+    assert profile["name"] == "小红"
+    assert profile["gender"] == "女"
+    assert profile["relation"] == "女儿"
 
 
 def test_fastapi_import_endpoint_saves_payload(tmp_path, monkeypatch):
@@ -217,7 +245,7 @@ def test_fastapi_import_endpoint_saves_payload(tmp_path, monkeypatch):
                 "appellation": "妈",
             },
             "elder_profile": {"full_name": "宋桂兰", "gender": "女"},
-            "family_profiles": [{"name": "小明", "relation": "儿子"}],
+            "family_profiles": [{"name": "小明", "gender": "男", "relation": "儿子"}],
             "memories": [{"content": "去年中秋小明陪妈妈在院子里赏月。"}],
         },
     )
@@ -235,6 +263,7 @@ def test_fastapi_import_endpoint_saves_payload(tmp_path, monkeypatch):
     assert db.load_persona()["role_label"] == "儿子小明"
     assert db.load_elder()["full_name"] == "宋桂兰"
     assert db.load_all_family_profiles()[0]["name"] == "小明"
+    assert db.load_all_family_profiles()[0]["gender"] == "男"
     assert db.load_all_memories()[0]["content"] == "去年中秋小明陪妈妈在院子里赏月。"
 
 
@@ -278,6 +307,7 @@ def test_imported_data_is_used_by_chat_endpoint_prompt(tmp_path, monkeypatch):
             "family_profiles": [
                 {
                     "name": "小明",
+                    "gender": "男",
                     "relation": "儿子",
                     "personality": ["稳重"],
                     "preferences": ["做饭"],
@@ -318,6 +348,7 @@ def test_imported_data_is_used_by_chat_endpoint_prompt(tmp_path, monkeypatch):
     assert "宋桂兰" in response_prompt
     assert "听秦腔" in response_prompt
     assert "小明是老人的儿子" in response_prompt
+    assert "性别男" in response_prompt
     assert "去年中秋小明陪妈妈在院子里赏月" in response_prompt
 
 

@@ -538,6 +538,8 @@ def _build_family_context(
         if not profile:
             continue
         parts = [f"{profile.name}是老人的{profile.relation}"]
+        if profile.gender:
+            parts.append(f"性别{profile.gender}")
         if profile.personality:
             parts.append(f"性格{'、'.join(profile.personality)}")
         if profile.preferences:

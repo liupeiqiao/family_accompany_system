@@ -245,7 +245,7 @@ if not get_all_memories():
 if not get_all_profiles():
     for fdata in db_load_families():
         fp = FamilyProfile(
-            name=fdata["name"], relation=fdata.get("relation",""),
+            name=fdata["name"], gender=fdata.get("gender",""), relation=fdata.get("relation",""),
             personality=fdata.get("personality",[]), preferences=fdata.get("preferences",[]),
             habits=fdata.get("habits",[]), relations=fdata.get("relations",[]),
             notes=fdata.get("notes",""),
@@ -478,6 +478,7 @@ with st.sidebar:
                                     existing_fp = v
                                     break
                         if existing_fp:
+                            existing_fp.gender = fd.get("gender") or existing_fp.gender
                             existing_fp.relation = fd.get("relation") or existing_fp.relation
                             existing_fp.personality = list(dict.fromkeys(existing_fp.personality + fd.get("personality", [])))
                             existing_fp.preferences = list(dict.fromkeys(existing_fp.preferences + fd.get("preferences", [])))
@@ -485,20 +486,20 @@ with st.sidebar:
                             existing_fp.relations = fd.get("relations") or existing_fp.relations
                             existing_fp.notes = fd.get("notes") or existing_fp.notes
                             add_profile(existing_fp)
-                            db_save_family({"name":existing_fp.name,"relation":existing_fp.relation,"personality":existing_fp.personality,"preferences":existing_fp.preferences,"habits":existing_fp.habits,"relations":existing_fp.relations,"notes":existing_fp.notes})
+                            db_save_family({"name":existing_fp.name,"gender":existing_fp.gender,"relation":existing_fp.relation,"personality":existing_fp.personality,"preferences":existing_fp.preferences,"habits":existing_fp.habits,"relations":existing_fp.relations,"notes":existing_fp.notes})
                         else:
                             # target 不存在，当新档案添加
-                            fp = FamilyProfile(name=fname, relation=fd.get("relation",""),
+                            fp = FamilyProfile(name=fname, gender=fd.get("gender",""), relation=fd.get("relation",""),
                                 personality=fd.get("personality",[]), preferences=fd.get("preferences",[]),
                                 habits=fd.get("habits",[]), relations=fd.get("relations",[]), notes=fd.get("notes",""))
                             add_profile(fp)
-                            db_save_family({"name":fp.name,"relation":fp.relation,"personality":fp.personality,"preferences":fp.preferences,"habits":fp.habits,"relations":fp.relations,"notes":fp.notes})
+                            db_save_family({"name":fp.name,"gender":fp.gender,"relation":fp.relation,"personality":fp.personality,"preferences":fp.preferences,"habits":fp.habits,"relations":fp.relations,"notes":fp.notes})
                     else:
-                        fp = FamilyProfile(name=fname, relation=fd.get("relation",""),
+                        fp = FamilyProfile(name=fname, gender=fd.get("gender",""), relation=fd.get("relation",""),
                             personality=fd.get("personality",[]), preferences=fd.get("preferences",[]),
                             habits=fd.get("habits",[]), relations=fd.get("relations",[]), notes=fd.get("notes",""))
                         add_profile(fp)
-                        db_save_family({"name":fp.name,"relation":fp.relation,"personality":fp.personality,"preferences":fp.preferences,"habits":fp.habits,"relations":fp.relations,"notes":fp.notes})
+                        db_save_family({"name":fp.name,"gender":fp.gender,"relation":fp.relation,"personality":fp.personality,"preferences":fp.preferences,"habits":fp.habits,"relations":fp.relations,"notes":fp.notes})
 
                 elder_msg = "+老人画像" if parsed.get("elder_profile",{}).get("full_name") else ""
                 st.success(f"已导入！画像+{len(parsed.get('memories', []))}条记忆+{len(parsed.get('family_profiles', []))}人档案{elder_msg}")
@@ -871,7 +872,8 @@ with st.sidebar:
         edit_fp_key = f"edit_fp_{fname}"
         if not st.session_state.get(edit_fp_key, False):
             with st.container(border=True):
-                st.caption(f"**{fp.name}** · {fp.relation}")
+                gender_text = f" · {fp.gender}" if fp.gender else ""
+                st.caption(f"**{fp.name}** · {fp.relation}{gender_text}")
                 if fp.personality:
                     st.caption(f"性格：{'、'.join(fp.personality)}")
                 if fp.preferences:
@@ -896,6 +898,9 @@ with st.sidebar:
         else:
             with st.expander(f"✏️ {fp.name}", expanded=True):
                 new_name = st.text_input("姓名", value=fp.name, key=f"edit_fp_name_{fname}")
+                gender_options = ["", "女", "男"]
+                gender_index = gender_options.index(fp.gender) if fp.gender in gender_options else 0
+                new_gender = st.selectbox("性别", gender_options, index=gender_index, key=f"edit_fp_gender_{fname}", format_func=lambda x: x or "未知")
                 new_rel = st.text_input("关系", value=fp.relation, key=f"edit_fp_rel_{fname}")
                 new_pers = st.text_input("性格（逗号分隔）", value="、".join(fp.personality), key=f"edit_fp_pers_{fname}")
                 new_prefs = st.text_input("喜好（逗号分隔）", value="、".join(fp.preferences), key=f"edit_fp_prefs_{fname}")
@@ -907,6 +912,7 @@ with st.sidebar:
                 with cs:
                     if st.button("💾 保存", key=f"btn_save_fp_{fname}", use_container_width=True):
                         fp.name = new_name.strip()
+                        fp.gender = new_gender
                         fp.relation = new_rel.strip()
                         fp.personality = [x.strip() for x in new_pers.split("、") if x.strip()]
                         fp.preferences = [x.strip() for x in new_prefs.split("、") if x.strip()]
@@ -917,7 +923,7 @@ with st.sidebar:
                             if len(parts)==2: fp.relations.append({"person":parts[0].strip(),"relation":parts[1].strip()})
                         fp.notes = new_notes.strip()
                         add_profile(fp)
-                        db_save_family({"name":fp.name,"relation":fp.relation,"personality":fp.personality,"preferences":fp.preferences,"habits":fp.habits,"relations":fp.relations,"notes":fp.notes})
+                        db_save_family({"name":fp.name,"gender":fp.gender,"relation":fp.relation,"personality":fp.personality,"preferences":fp.preferences,"habits":fp.habits,"relations":fp.relations,"notes":fp.notes})
                         if fp.name != fname: remove_profile(fname); db_delete_family(fname)
                         st.session_state[edit_fp_key] = False
                         st.rerun()
@@ -928,6 +934,7 @@ with st.sidebar:
 
     with st.expander("➕ 新增家人", expanded=len(family_profiles)==0):
         nf_name = st.text_input("姓名", key="new_fp_name", placeholder="如：小明")
+        nf_gender = st.selectbox("性别", ["", "女", "男"], key="new_fp_gender", format_func=lambda x: x or "未知")
         nf_rel = st.text_input("关系", key="new_fp_rel", placeholder="如：儿子")
         nf_pers = st.text_input("性格（逗号分隔）", key="new_fp_pers")
         nf_prefs = st.text_input("喜好（逗号分隔）", key="new_fp_prefs")
@@ -936,15 +943,15 @@ with st.sidebar:
         if st.button("➕ 添加家人", key="btn_add_fp"):
             if nf_name.strip():
                 fp = FamilyProfile(
-                    name=nf_name.strip(), relation=nf_rel.strip(),
+                    name=nf_name.strip(), gender=nf_gender, relation=nf_rel.strip(),
                     personality=[x.strip() for x in nf_pers.split("、") if x.strip()],
                     preferences=[x.strip() for x in nf_prefs.split("、") if x.strip()],
                     habits=[x.strip() for x in nf_habits.split("、") if x.strip()],
                     notes=nf_notes.strip(),
                 )
                 add_profile(fp)
-                db_save_family({"name":fp.name,"relation":fp.relation,"personality":fp.personality,"preferences":fp.preferences,"habits":fp.habits,"relations":fp.relations,"notes":fp.notes})
-                for k in ["new_fp_name","new_fp_rel","new_fp_pers","new_fp_prefs","new_fp_hab","new_fp_notes"]:
+                db_save_family({"name":fp.name,"gender":fp.gender,"relation":fp.relation,"personality":fp.personality,"preferences":fp.preferences,"habits":fp.habits,"relations":fp.relations,"notes":fp.notes})
+                for k in ["new_fp_name","new_fp_gender","new_fp_rel","new_fp_pers","new_fp_prefs","new_fp_hab","new_fp_notes"]:
                     st.session_state.pop(k, None)
                 st.rerun()
 
@@ -1144,6 +1151,7 @@ def run_pipeline(user_input: str) -> str:
         fp = all_families.get(name)
         if fp:
             parts = [f"{fp.name}是老人的{fp.relation}"]
+            if fp.gender: parts.append(f"性别{fp.gender}")
             if fp.personality: parts.append(f"性格{'、'.join(fp.personality)}")
             if fp.preferences: parts.append(f"喜好{'、'.join(fp.preferences)}")
             if fp.habits: parts.append(f"习惯{'、'.join(fp.habits)}")
