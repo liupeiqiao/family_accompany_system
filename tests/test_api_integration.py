@@ -339,6 +339,136 @@ def test_response_prompt_guides_family_like_memory_expression():
     assert "不要每次强行回忆" in prompt
 
 
+def test_chat_auto_switches_persona_when_elder_calls_family_member(tmp_path, monkeypatch):
+    from engine import db
+    from productization.chat_service import generate_chat_reply
+
+    monkeypatch.chdir(tmp_path)
+    db.init_db()
+    db.save_persona(
+        {
+            "role_label": "儿子小明",
+            "relation": "儿子",
+            "appellation": "妈",
+            "personality": ["稳重"],
+            "speech_style": ["慢慢说"],
+            "comfort_style": ["唠家常"],
+        }
+    )
+    db.save_persona(
+        {
+            "role_label": "女儿小红",
+            "relation": "女儿",
+            "appellation": "妈",
+            "personality": ["细心"],
+            "speech_style": ["温柔一点"],
+            "comfort_style": ["安慰式", "唠家常"],
+        }
+    )
+
+    captured_prompts: list[str] = []
+
+    def fake_chat(system_prompt: str, user_prompt: str, temperature: float = 0.7):
+        captured_prompts.append(system_prompt)
+        if len(captured_prompts) == 1:
+            return '{"intent":"思念家人","emotion":"思念","confidence":0.92,"keywords":[],"talk_to":"陪伴者","mentioned":["小红"]}'
+        return "妈，我在呢，我也想您。"
+
+    result = generate_chat_reply("小红，我想你了。", chat_fn=fake_chat)
+
+    assert result.text.startswith("妈，我在呢")
+    assert "你是一个老年人的女儿小红" in captured_prompts[1]
+    assert result.debug["selected_persona"] == "女儿小红"
+    assert result.debug["persona_switch_reason"] == "direct_name"
+    assert result.debug["persona_switch_confidence"] >= 0.8
+
+
+def test_chat_auto_switches_persona_when_elder_requests_relation(tmp_path, monkeypatch):
+    from engine import db
+    from productization.chat_service import generate_chat_reply
+
+    monkeypatch.chdir(tmp_path)
+    db.init_db()
+    db.save_persona(
+        {
+            "role_label": "儿子小明",
+            "relation": "儿子",
+            "appellation": "妈",
+            "personality": ["稳重"],
+            "speech_style": ["慢慢说"],
+            "comfort_style": ["唠家常"],
+        }
+    )
+    db.save_persona(
+        {
+            "role_label": "老伴刘叔",
+            "relation": "配偶",
+            "appellation": "桂兰",
+            "personality": ["温和"],
+            "speech_style": ["像老伴一样说家常话"],
+            "comfort_style": ["安慰式", "唠家常"],
+        }
+    )
+
+    captured_prompts: list[str] = []
+
+    def fake_chat(system_prompt: str, user_prompt: str, temperature: float = 0.7):
+        captured_prompts.append(system_prompt)
+        if len(captured_prompts) == 1:
+            return '{"intent":"思念家人","emotion":"思念","confidence":0.88,"keywords":[],"talk_to":"陪伴者","mentioned":[]}'
+        return "桂兰，我在这儿呢，慢慢跟我说。"
+
+    result = generate_chat_reply("我想和老伴说会儿话。", chat_fn=fake_chat)
+
+    assert result.text.startswith("桂兰，我在这儿")
+    assert "你是一个老年人的老伴刘叔" in captured_prompts[1]
+    assert result.debug["selected_persona"] == "老伴刘叔"
+    assert result.debug["persona_switch_reason"] == "relation_request"
+
+
+def test_chat_does_not_switch_persona_for_third_person_mention(tmp_path, monkeypatch):
+    from engine import db
+    from productization.chat_service import generate_chat_reply
+
+    monkeypatch.chdir(tmp_path)
+    db.init_db()
+    db.save_persona(
+        {
+            "role_label": "儿子小明",
+            "relation": "儿子",
+            "appellation": "妈",
+            "personality": ["稳重"],
+            "speech_style": ["慢慢说"],
+            "comfort_style": ["唠家常"],
+        }
+    )
+    db.save_persona(
+        {
+            "role_label": "女儿小红",
+            "relation": "女儿",
+            "appellation": "妈",
+            "personality": ["细心"],
+            "speech_style": ["温柔一点"],
+            "comfort_style": ["安慰式", "唠家常"],
+        }
+    )
+
+    captured_prompts: list[str] = []
+
+    def fake_chat(system_prompt: str, user_prompt: str, temperature: float = 0.7):
+        captured_prompts.append(system_prompt)
+        if len(captured_prompts) == 1:
+            return '{"intent":"日常闲聊","emotion":"平静","confidence":0.9,"keywords":[],"talk_to":"陪伴者","mentioned":["小红"]}'
+        return "妈，我在呢，小红最近也惦记您。"
+
+    result = generate_chat_reply("小红最近忙吗？", chat_fn=fake_chat)
+
+    assert result.text.startswith("妈，我在呢")
+    assert "你是一个老年人的儿子小明" in captured_prompts[1]
+    assert result.debug["selected_persona"] == "儿子小明"
+    assert result.debug["persona_switch_reason"] == "default"
+
+
 def test_fastapi_entrypoint_declares_parse_and_chat_routes():
     source = Path("api/main.py").read_text(encoding="utf-8")
 

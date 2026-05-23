@@ -42,6 +42,13 @@ class ChatResult:
     audio_url: str | None = None
 
 
+@dataclass
+class PersonaSelection:
+    role_label: str
+    reason: str
+    confidence: float
+
+
 def generate_chat_reply(
     user_input: str,
     *,
@@ -64,9 +71,15 @@ def generate_chat_reply(
     mentioned_names = intent_result.get("mentioned", []) or []
     talk_to = intent_result.get("talk_to", "")
 
-    matched_persona = _match_persona(talk_to, personas)
-    if matched_persona:
-        persona = personas[matched_persona]
+    selected = _select_persona_for_turn(
+        user_input=user_input,
+        talk_to=talk_to,
+        mentioned_names=mentioned_names,
+        personas=personas,
+        default_role_label=persona.role_label,
+    )
+    if selected.role_label in personas:
+        persona = personas[selected.role_label]
 
     relevant_memories = _filter_memories(memories, mentioned_names, persona)
     scored_list = score_memories(
@@ -85,7 +98,7 @@ def generate_chat_reply(
         mentioned_names,
         personas,
         persona,
-        matched_persona,
+        selected.role_label if selected.reason != "default" else None,
     )
     family_context = _build_family_context(elder, families, mentioned_names)
 
@@ -106,7 +119,10 @@ def generate_chat_reply(
     debug = {
         "intent": intent,
         "emotion": emotion,
-        "talk_to": matched_persona or talk_to,
+        "talk_to": selected.role_label if selected.reason != "default" else talk_to,
+        "selected_persona": persona.role_label or "家人",
+        "persona_switch_reason": selected.reason,
+        "persona_switch_confidence": selected.confidence,
         "mentioned": mentioned_names,
         "strategy": strategy,
         "top_memories": [
@@ -267,6 +283,164 @@ def _match_persona(talk_to: str, personas: dict[str, PersonaProfile]) -> str | N
         if talk_to in role_label or role_label in talk_to:
             return role_label
     return None
+
+
+def _select_persona_for_turn(
+    *,
+    user_input: str,
+    talk_to: str,
+    mentioned_names: list[str],
+    personas: dict[str, PersonaProfile],
+    default_role_label: str,
+) -> PersonaSelection:
+    if not personas:
+        return PersonaSelection("", "default", 0.0)
+
+    direct_matches = _match_direct_address(user_input, personas)
+    if len(direct_matches) == 1:
+        return PersonaSelection(direct_matches[0], "direct_name", 0.95)
+    if len(direct_matches) > 1:
+        return PersonaSelection(default_role_label, "ambiguous", 0.3)
+
+    relation_matches = _match_relation_request(user_input, personas)
+    if len(relation_matches) == 1:
+        return PersonaSelection(relation_matches[0], "relation_request", 0.9)
+    if len(relation_matches) > 1:
+        return PersonaSelection(default_role_label, "ambiguous", 0.3)
+
+    matched_by_talk_to = _match_persona_by_text(talk_to, personas)
+    if matched_by_talk_to:
+        return PersonaSelection(matched_by_talk_to, "talk_to", 0.8)
+
+    if _looks_like_direct_mentioned_address(user_input, mentioned_names):
+        mentioned_matches = _match_mentioned_names(mentioned_names, personas)
+        if len(mentioned_matches) == 1:
+            return PersonaSelection(mentioned_matches[0], "direct_name", 0.85)
+        if len(mentioned_matches) > 1:
+            return PersonaSelection(default_role_label, "ambiguous", 0.3)
+
+    return PersonaSelection(default_role_label, "default", 0.0)
+
+
+def _match_direct_address(
+    user_input: str,
+    personas: dict[str, PersonaProfile],
+) -> list[str]:
+    matches = []
+    for role_label, persona in personas.items():
+        for token in _persona_address_tokens(persona):
+            if not token:
+                continue
+            if _starts_with_address(user_input, token) or _contains_talk_request(user_input, token):
+                matches.append(role_label)
+                break
+    return _unique(matches)
+
+
+def _match_relation_request(
+    user_input: str,
+    personas: dict[str, PersonaProfile],
+) -> list[str]:
+    relation_term = _requested_relation_term(user_input)
+    if not relation_term:
+        return []
+
+    matches = []
+    for role_label, persona in personas.items():
+        relation_tokens = _relation_tokens(persona)
+        if relation_term in relation_tokens:
+            matches.append(role_label)
+    return _unique(matches)
+
+
+def _match_persona_by_text(
+    text: str,
+    personas: dict[str, PersonaProfile],
+) -> str | None:
+    if not text or text in {"陪伴者", "家人", "亲人", "不知道", "无"}:
+        return None
+    if text in personas:
+        return text
+
+    matches = []
+    for role_label, persona in personas.items():
+        tokens = _persona_address_tokens(persona) + _relation_tokens(persona)
+        if any(token and (text in token or token in text) for token in tokens):
+            matches.append(role_label)
+
+    unique_matches = _unique(matches)
+    return unique_matches[0] if len(unique_matches) == 1 else None
+
+
+def _match_mentioned_names(
+    mentioned_names: list[str],
+    personas: dict[str, PersonaProfile],
+) -> list[str]:
+    matches = []
+    for name in mentioned_names:
+        for role_label, persona in personas.items():
+            if name in _persona_address_tokens(persona):
+                matches.append(role_label)
+    return _unique(matches)
+
+
+def _persona_address_tokens(persona: PersonaProfile) -> list[str]:
+    tokens = [persona.role_label]
+    if persona.relation and persona.role_label.startswith(persona.relation):
+        tokens.append(persona.role_label.removeprefix(persona.relation))
+    for relation_alias in _relation_tokens(persona):
+        if persona.role_label.startswith(relation_alias):
+            tokens.append(persona.role_label.removeprefix(relation_alias))
+    return [token for token in _unique(tokens) if token]
+
+
+def _relation_tokens(persona: PersonaProfile) -> list[str]:
+    relation = persona.relation
+    tokens = [relation]
+    relation_aliases = {
+        "配偶": ["老伴", "爱人", "丈夫", "妻子", "老公", "老婆"],
+        "老伴": ["配偶", "爱人", "丈夫", "妻子", "老公", "老婆"],
+        "儿子": ["儿子", "孩子"],
+        "女儿": ["女儿", "孩子"],
+        "子女": ["儿子", "女儿", "孩子"],
+    }
+    tokens.extend(relation_aliases.get(relation, []))
+    for alias in relation_aliases.get("配偶", []):
+        if persona.role_label.startswith(alias):
+            tokens.append(alias)
+    return [token for token in _unique(tokens) if token]
+
+
+def _starts_with_address(user_input: str, token: str) -> bool:
+    return bool(re.match(rf"^\s*{re.escape(token)}[\s,，。！!、：:]", user_input))
+
+
+def _contains_talk_request(user_input: str, token: str) -> bool:
+    return bool(
+        re.search(
+            rf"(想|要|帮我|让我)?(和|跟|同|找|叫){re.escape(token)}(说|聊|讲话|通话|说会儿话)",
+            user_input,
+        )
+    )
+
+
+def _requested_relation_term(user_input: str) -> str:
+    relation_terms = ["老伴", "配偶", "爱人", "丈夫", "妻子", "老公", "老婆", "儿子", "女儿"]
+    for term in relation_terms:
+        if _contains_talk_request(user_input, term):
+            return term
+    return ""
+
+
+def _looks_like_direct_mentioned_address(
+    user_input: str,
+    mentioned_names: list[str],
+) -> bool:
+    return any(_starts_with_address(user_input, name) for name in mentioned_names)
+
+
+def _unique(values: list[str]) -> list[str]:
+    return list(dict.fromkeys(values))
 
 
 def _filter_memories(
