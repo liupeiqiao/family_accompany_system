@@ -238,6 +238,107 @@ def test_fastapi_import_endpoint_saves_payload(tmp_path, monkeypatch):
     assert db.load_all_memories()[0]["content"] == "去年中秋小明陪妈妈在院子里赏月。"
 
 
+def test_imported_data_is_used_by_chat_endpoint_prompt(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from api.main import app
+
+    monkeypatch.chdir(tmp_path)
+    captured_prompts: list[str] = []
+
+    def fake_chat(system_prompt: str, user_prompt: str, temperature: float = 0.7):
+        captured_prompts.append(system_prompt)
+        if len(captured_prompts) == 1:
+            return '{"intent":"怀念","emotion":"思念","confidence":0.95,"keywords":["中秋"],"talk_to":"儿子小明","mentioned":["小明"]}'
+        return "妈，我也记得去年中秋咱们在院子里赏月，您那天还说桂花香。"
+
+    monkeypatch.setattr("productization.chat_service.llm_client.chat", fake_chat)
+
+    client = TestClient(app)
+    import_response = client.post(
+        "/api/import",
+        json={
+            "family_id": "local",
+            "persona": {
+                "role_label": "儿子小明",
+                "relation": "儿子",
+                "appellation": "妈",
+                "personality": ["细心"],
+                "speech_style": ["说话慢一点"],
+                "comfort_style": ["分享式", "安慰式", "唠家常"],
+            },
+            "elder_profile": {
+                "full_name": "宋桂兰",
+                "gender": "女",
+                "personality": ["温和"],
+                "preferences": ["听秦腔"],
+                "health_notes": ["血压偏高"],
+                "speech_traits": ["喜欢讲庆阳老家的事"],
+            },
+            "family_profiles": [
+                {
+                    "name": "小明",
+                    "relation": "儿子",
+                    "personality": ["稳重"],
+                    "preferences": ["做饭"],
+                    "habits": ["周末回家看妈妈"],
+                }
+            ],
+            "memories": [
+                {
+                    "content": "去年中秋小明陪妈妈在院子里赏月，妈妈说桂花香。",
+                    "memory_type": "节日",
+                    "subject": "小明",
+                    "family_members": ["小明"],
+                    "emotion_tags": ["温馨"],
+                    "topic_tags": ["中秋"],
+                    "intimacy_weight": 0.9,
+                }
+            ],
+        },
+    )
+    assert import_response.status_code == 200
+
+    chat_response = client.post(
+        "/api/chat",
+        json={
+            "family_id": "local",
+            "elder_id": "elder-1",
+            "persona_id": "persona-1",
+            "text": "小明，你还记得去年中秋吗？",
+        },
+    )
+
+    assert chat_response.status_code == 200
+    response_json = chat_response.json()
+    assert response_json["text"].startswith("妈，我也记得")
+    assert response_json["debug"]["top_memories"][0]["content"].startswith("去年中秋")
+
+    response_prompt = captured_prompts[1]
+    assert "宋桂兰" in response_prompt
+    assert "听秦腔" in response_prompt
+    assert "小明是老人的儿子" in response_prompt
+    assert "去年中秋小明陪妈妈在院子里赏月" in response_prompt
+
+
+def test_response_prompt_guides_family_like_memory_expression():
+    from llm.prompts import build_response_system
+
+    prompt = build_response_system(
+        role_label="儿子小明",
+        appellation="妈",
+        personality=["细心"],
+        speech_style=["说话慢一点"],
+        comfort_style=["分享式"],
+        strategy="分享式",
+        memory_context="主语：小明\n类型：节日\n内容：去年中秋小明陪妈妈赏月。",
+    )
+
+    assert "像家人一起回忆" in prompt
+    assert "先安慰，再提一条温暖记忆" in prompt
+    assert "不要每次强行回忆" in prompt
+
+
 def test_fastapi_entrypoint_declares_parse_and_chat_routes():
     source = Path("api/main.py").read_text(encoding="utf-8")
 
