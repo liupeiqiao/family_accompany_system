@@ -117,6 +117,7 @@ function hasDraft(draft: ParsedDraft): boolean {
 
 export default function RecordsPage() {
   const [sourceText, setSourceText] = useState("");
+  const [perspective, setPerspective] = useState<"family" | "elder">("family");
   const [draft, setDraft] = useState<ParsedDraft>(emptyDraft);
   const [isParsing, setIsParsing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -137,7 +138,7 @@ export default function RecordsPage() {
       const parsed = await parseProfileText({
         family_id: "local",
         text: sourceText,
-        perspective: "family",
+        perspective,
       });
       setDraft(parsed);
       if (!hasDraft(parsed)) {
@@ -227,6 +228,22 @@ export default function RecordsPage() {
       <section className="importWorkspace">
         <div className="importSource">
           <label htmlFor="sourceText">家庭资料</label>
+          <div className="segmentedControl" aria-label="描述视角">
+            <button
+              className={perspective === "family" ? "segmentActive" : ""}
+              type="button"
+              onClick={() => setPerspective("family")}
+            >
+              家人视角
+            </button>
+            <button
+              className={perspective === "elder" ? "segmentActive" : ""}
+              type="button"
+              onClick={() => setPerspective("elder")}
+            >
+              老人视角
+            </button>
+          </div>
           <textarea
             id="sourceText"
             value={sourceText}

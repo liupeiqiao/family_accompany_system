@@ -175,6 +175,28 @@ button:disabled {
   gap: 6px;
 }
 
+.segmentedControl {
+  border: 1px solid #2f241c;
+  border-radius: 8px;
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(112px, 1fr));
+  overflow: hidden;
+  width: fit-content;
+}
+
+.segmentedControl button {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  color: #2f241c;
+  min-height: 40px;
+}
+
+.segmentedControl .segmentActive {
+  background: #2f241c;
+  color: #fffaf3;
+}
+
 .importSource span,
 .fieldGrid span {
   font-weight: 700;

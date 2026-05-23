@@ -181,6 +181,10 @@ def test_records_page_supports_profile_memory_import_flow():
     assert "一键保存" in records_source
     assert "后端保存接口未加载" in records_source
     assert '["gender", "性别"]' in records_source
+    assert 'useState<"family" | "elder">' in records_source
+    assert "家人视角" in records_source
+    assert "老人视角" in records_source
+    assert "perspective," in records_source
 
 
 def test_web_app_has_supabase_and_backend_api_boundaries():
