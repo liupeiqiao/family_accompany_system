@@ -34,6 +34,7 @@ python -m streamlit run app.py --server.port 8501
 - 安全逻辑涉及适老表达、医疗边界、敏感话题和虚假承诺，改动后要运行相关测试。
 - 数据库迁移逻辑在 `engine/db.py` 的 `init_db()` 中，新增字段时要兼容旧库。
 
+
 ## 对话收尾与 Git 提交规范
 - **自动生成提交信息**：每次对话及完成一个阶段性任务后，请主动根据本次的代码变更，为我生成一条清晰、符合 Conventional Commits 规范的 Commit Message。
 - **格式要求**：
