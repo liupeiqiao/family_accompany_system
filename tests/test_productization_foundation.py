@@ -92,6 +92,7 @@ def test_python_api_contracts_match_productization_plan():
 
     assert API_ENDPOINTS == {
         "parse": "POST /api/parse",
+        "import": "POST /api/import",
         "chat": "POST /api/chat",
         "voice_clone": "POST /api/voices/clone",
         "tts": "POST /api/tts",
@@ -161,6 +162,23 @@ def test_home_feature_cards_are_clickable_routes():
 
     for route in ["family", "records", "voices", "elder"]:
         assert (ROOT / "web" / "src" / "app" / route / "page.tsx").exists()
+
+
+def test_records_page_supports_profile_memory_import_flow():
+    records_source = (ROOT / "web" / "src" / "app" / "records" / "page.tsx").read_text(
+        encoding="utf-8"
+    )
+
+    assert '"use client";' in records_source
+    assert "parseProfileText" in records_source
+    assert "importParsedData" in records_source
+    assert "onParse" in records_source
+    assert "onSave" in records_source
+    assert "<textarea" in records_source
+    assert "onChange" in records_source
+    assert "deleteFamilyProfile" in records_source
+    assert "deleteMemory" in records_source
+    assert "一键保存" in records_source
 
 
 def test_web_app_has_supabase_and_backend_api_boundaries():

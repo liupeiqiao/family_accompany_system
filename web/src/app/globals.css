@@ -112,11 +112,17 @@ a {
   margin: 0;
 }
 
+.successText {
+  color: #23613a;
+  margin: 0;
+}
+
 form {
   display: grid;
   gap: 10px;
 }
 
+input,
 textarea {
   border: 1px solid #d3c3ae;
   border-radius: 8px;
@@ -124,6 +130,14 @@ textarea {
   line-height: 1.6;
   min-height: 112px;
   padding: 12px;
+}
+
+input {
+  min-height: 42px;
+  width: 100%;
+}
+
+textarea {
   resize: vertical;
 }
 
@@ -141,4 +155,86 @@ button {
 button:disabled {
   cursor: not-allowed;
   opacity: 0.65;
+}
+
+.importWorkspace {
+  display: grid;
+  gap: 24px;
+  max-width: 1120px;
+}
+
+.importSource {
+  display: grid;
+  gap: 12px;
+  max-width: 860px;
+}
+
+.importSource > label,
+.fieldGrid label {
+  display: grid;
+  gap: 6px;
+}
+
+.importSource span,
+.fieldGrid span {
+  font-weight: 700;
+}
+
+.previewGrid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+
+.importSection {
+  background: #fffaf3;
+  border: 1px solid #e3d6c5;
+  border-radius: 8px;
+  padding: 18px;
+}
+
+.importSection h2 {
+  font-size: 22px;
+  margin: 0 0 14px;
+}
+
+.importSection.wide {
+  grid-column: 1 / -1;
+}
+
+.fieldGrid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.importList {
+  display: grid;
+  gap: 12px;
+}
+
+.importListItem {
+  border: 1px solid #e3d6c5;
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.itemHeader {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.buttonDanger {
+  background: transparent;
+  border-color: #9b241f;
+  color: #9b241f;
+}
+
+.emptyState {
+  color: #6b5b4d;
+  line-height: 1.7;
+  margin: 0;
 }
