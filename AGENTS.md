@@ -22,9 +22,15 @@ python -m pytest tests/ -v
 PowerShell 配置运行环境：
 
 ```powershell
+后端：
 $env:DEEPSEEK_API_KEY="your-key"
-python -m streamlit run app.py --server.port 8501
+$env:DEEPSEEK_BASE_URL="https://api.deepseek.com"
+python -m uvicorn api.main:app --host 127.0.0.1 --port 8000
+前端：cd web
+$env:NEXT_PUBLIC_COMPANION_API_URL="http://localhost:8000"
+npm run dev -- --hostname 127.0.0.1 --port 3000
 ```
+
 
 ## 开发注意事项
 
