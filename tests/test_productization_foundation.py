@@ -136,7 +136,17 @@ def test_nextjs_web_app_scaffold_exists():
     assert "家庭空间" in app_source
     assert "声音克隆" in app_source
     assert "老人端" in elder_source
-    assert "<audio" in elder_source
+    assert "sendChat" in elder_source
+    assert "onSubmit" in elder_source
+    assert "useState" in elder_source
+
+
+def test_api_allows_local_nextjs_frontend_origin():
+    main_source = (ROOT / "api" / "main.py").read_text(encoding="utf-8")
+
+    assert "CORSMiddleware" in main_source
+    assert "http://localhost:3000" in main_source
+    assert "http://127.0.0.1:3000" in main_source
 
 
 def test_home_feature_cards_are_clickable_routes():

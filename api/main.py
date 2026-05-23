@@ -1,12 +1,21 @@
 from __future__ import annotations
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 
 from .handlers import handle_chat, handle_parse
 from .schemas import ChatRequest, ChatResponse, ParseRequest, ParseResponse
 
 app = FastAPI(title="亲情陪伴系统 API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/", include_in_schema=False)

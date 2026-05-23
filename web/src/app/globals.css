@@ -85,10 +85,60 @@ a {
   max-width: 760px;
 }
 
+.conversation {
+  display: grid;
+  gap: 12px;
+}
+
 .message {
   background: #fffaf3;
   border: 1px solid #e3d6c5;
   border-radius: 8px;
   padding: 16px;
   line-height: 1.7;
+}
+
+.message.user {
+  background: #f1f5f2;
+  border-color: #c7d4c7;
+}
+
+.message.assistant {
+  background: #fffaf3;
+}
+
+.errorText {
+  color: #9b241f;
+  margin: 0;
+}
+
+form {
+  display: grid;
+  gap: 10px;
+}
+
+textarea {
+  border: 1px solid #d3c3ae;
+  border-radius: 8px;
+  font: inherit;
+  line-height: 1.6;
+  min-height: 112px;
+  padding: 12px;
+  resize: vertical;
+}
+
+button {
+  background: #2f241c;
+  border: 1px solid #2f241c;
+  border-radius: 8px;
+  color: #fffaf3;
+  cursor: pointer;
+  font: inherit;
+  min-height: 44px;
+  padding: 10px 16px;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
 }
