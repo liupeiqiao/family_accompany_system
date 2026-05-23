@@ -31,7 +31,6 @@ $env:NEXT_PUBLIC_COMPANION_API_URL="http://localhost:8000"
 npm run dev -- --hostname 127.0.0.1 --port 3000
 ```
 
-
 ## 开发注意事项
 
 - `app.py` 较大，修改前先用 `rg` 定位相关区块，避免无关重构。
