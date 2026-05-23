@@ -1,5 +1,0 @@
-#!/usr/bin/env sh
-set -e
-
-python scripts/dev_journal.py
-git add docs/dev-journal/*.md
