@@ -40,6 +40,8 @@ ENV/
 # Local Python packages (accidental pip install in project dir)
 Lib/
 Scripts/
+!scripts/
+!scripts/*.py
 Include/
 etc/
 share/
