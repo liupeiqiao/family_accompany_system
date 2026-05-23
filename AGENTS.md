@@ -84,3 +84,11 @@ python -m streamlit run app.py --server.port 8501
 - 安全相关逻辑涉及老年适配、医疗边界、敏感话题和虚假承诺，改动后要补充或运行相关测试。
 - 数据库迁移逻辑在 `engine/db.py` 的 `init_db()` 中，新增字段时要兼容旧库。
 
+
+## 对话收尾与 Git 提交规范
+- **自动生成提交信息**：每次对话或完成一个阶段性任务后，请主动根据本次的代码变更，为我生成一条清晰、符合 Conventional Commits 规范的 Commit Message。
+- **格式要求**：
+  - 格式：`<type>(<scope>): <subject>`
+  - type 常用类型：`feat` (新功能), `fix` (修复bug), `refactor` (重构), `docs` (文档), `chore` (杂项/配置) 等。
+  - 示例：`feat(auth): 实现用户 JWT 登录功能`
+- **提供复制命令**：生成信息后，请直接给我提供一条完整的、我可以直接复制粘贴到终端执行的 Git 提交命令。
