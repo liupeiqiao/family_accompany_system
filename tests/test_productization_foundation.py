@@ -179,6 +179,7 @@ def test_records_page_supports_profile_memory_import_flow():
     assert "deleteFamilyProfile" in records_source
     assert "deleteMemory" in records_source
     assert "一键保存" in records_source
+    assert "后端保存接口未加载" in records_source
 
 
 def test_web_app_has_supabase_and_backend_api_boundaries():
@@ -200,3 +201,5 @@ def test_web_app_has_supabase_and_backend_api_boundaries():
     assert "/api/tts" in backend_source
     assert "parseProfileText" in backend_source
     assert "importParsedData" in backend_source
+    assert "response.status" in backend_source
+    assert "status" in backend_source

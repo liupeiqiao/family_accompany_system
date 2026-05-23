@@ -167,8 +167,12 @@ export default function RecordsPage() {
       setSuccess(
         `已保存：角色 ${result.imported.persona} 个，老人画像 ${result.imported.elder_profile} 个，家人档案 ${result.imported.family_profiles} 条，记忆 ${result.imported.memories} 条。`,
       );
-    } catch {
-      setError("保存失败，请稍后重试。");
+    } catch (saveError) {
+      if (saveError instanceof Error && saveError.message.includes("404")) {
+        setError("后端保存接口未加载，请重启 API 服务后再点一键保存。");
+      } else {
+        setError("保存失败，请稍后重试。");
+      }
     } finally {
       setIsSaving(false);
     }
