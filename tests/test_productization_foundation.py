@@ -176,6 +176,9 @@ def test_web_app_has_supabase_and_backend_api_boundaries():
     assert "NEXT_PUBLIC_SUPABASE_ANON_KEY" in supabase_source
 
     assert "/api/parse" in backend_source
+    assert "/api/import" in backend_source
     assert "/api/chat" in backend_source
     assert "/api/voices/clone" in backend_source
     assert "/api/tts" in backend_source
+    assert "parseProfileText" in backend_source
+    assert "importParsedData" in backend_source

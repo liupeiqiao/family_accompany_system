@@ -117,11 +117,93 @@ def test_chat_handler_returns_text_and_debug(monkeypatch):
     assert result.debug == {"intent": "思念家人"}
 
 
+def test_import_handler_saves_profile_and_memory_data(tmp_path, monkeypatch):
+    from api.handlers import handle_import
+    from api.schemas import ImportRequest
+    from engine import db
+
+    monkeypatch.chdir(tmp_path)
+
+    result = handle_import(
+        ImportRequest(
+            family_id="local",
+            persona={
+                "role_label": "儿子小明",
+                "relation": "子女",
+                "appellation": "妈",
+                "personality": ["细心"],
+                "speech_style": ["慢慢说"],
+                "comfort_style": ["唠家常"],
+            },
+            elder_profile={
+                "full_name": "宋桂兰",
+                "gender": "女",
+                "personality": ["温和"],
+                "preferences": ["听戏曲"],
+                "habits": ["早起"],
+                "health_notes": ["血压偏高"],
+                "speech_traits": ["喜欢讲老家故事"],
+                "life_experiences": ["年轻时在纺织厂工作"],
+                "important_memories": ["去年中秋全家团圆"],
+                "notes": "怕冷",
+            },
+            family_profiles=[
+                {
+                    "name": "小明",
+                    "relation": "儿子",
+                    "personality": ["稳重"],
+                    "preferences": ["做饭"],
+                    "habits": ["周末来看望"],
+                    "relations": ["宋桂兰的儿子"],
+                    "notes": "住得近",
+                }
+            ],
+            memories=[
+                {
+                    "content": "去年中秋小明陪妈妈在院子里赏月。",
+                    "memory_type": "事件",
+                    "subject": "小明",
+                    "family_members": ["小明(儿子)"],
+                    "emotion_tags": ["温馨"],
+                    "topic_tags": ["节日"],
+                    "intimacy_weight": 0.9,
+                }
+            ],
+        )
+    )
+
+    assert result.ok is True
+    assert result.imported.persona == 1
+    assert result.imported.elder_profile == 1
+    assert result.imported.family_profiles == 1
+    assert result.imported.memories == 1
+    assert db.load_persona()["role_label"] == "儿子小明"
+    assert db.load_elder()["full_name"] == "宋桂兰"
+    assert db.load_all_family_profiles()[0]["name"] == "小明"
+    assert db.load_all_memories()[0]["content"] == "去年中秋小明陪妈妈在院子里赏月。"
+
+
+def test_import_handler_allows_empty_payload(tmp_path, monkeypatch):
+    from api.handlers import handle_import
+    from api.schemas import ImportRequest
+
+    monkeypatch.chdir(tmp_path)
+
+    result = handle_import(ImportRequest(family_id="local"))
+
+    assert result.ok is True
+    assert result.imported.persona == 0
+    assert result.imported.elder_profile == 0
+    assert result.imported.family_profiles == 0
+    assert result.imported.memories == 0
+
+
 def test_fastapi_entrypoint_declares_parse_and_chat_routes():
     source = Path("api/main.py").read_text(encoding="utf-8")
 
     assert '@app.post("/api/parse"' in source
     assert '@app.post("/api/chat"' in source
+    assert '@app.post("/api/import"' in source
 
 
 def test_fastapi_root_redirects_to_docs():

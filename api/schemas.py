@@ -18,6 +18,26 @@ class ParseResponse(BaseModel):
     elder_profile: dict = Field(default_factory=dict)
 
 
+class ImportRequest(BaseModel):
+    family_id: str = Field(default="local")
+    persona: dict = Field(default_factory=dict)
+    memories: list[dict] = Field(default_factory=list)
+    family_profiles: list[dict] = Field(default_factory=list)
+    elder_profile: dict = Field(default_factory=dict)
+
+
+class ImportCounts(BaseModel):
+    persona: int = 0
+    elder_profile: int = 0
+    family_profiles: int = 0
+    memories: int = 0
+
+
+class ImportResponse(BaseModel):
+    ok: bool = True
+    imported: ImportCounts = Field(default_factory=ImportCounts)
+
+
 class ChatRequest(BaseModel):
     family_id: str = Field(default="local")
     elder_id: str = ""

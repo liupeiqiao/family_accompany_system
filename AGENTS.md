@@ -92,4 +92,4 @@ python -m streamlit run app.py --server.port 8501
   - type 常用类型：`feat` (新功能), `fix` (修复bug), `refactor` (重构), `docs` (文档), `chore` (杂项/配置) 等。
   - 示例：`feat(auth): 实现用户 JWT 登录功能`
 - **提供复制命令**：生成信息后，请直接给我提供一条完整的、我可以直接复制粘贴到终端执行的 Git 提交命令。
--禁止自主执行git commit，所有提交都要经过允许。
+- **禁止自主执行git commit，所有提交都要经过允许。**

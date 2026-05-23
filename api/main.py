@@ -4,8 +4,15 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 
-from .handlers import handle_chat, handle_parse
-from .schemas import ChatRequest, ChatResponse, ParseRequest, ParseResponse
+from .handlers import handle_chat, handle_import, handle_parse
+from .schemas import (
+    ChatRequest,
+    ChatResponse,
+    ImportRequest,
+    ImportResponse,
+    ParseRequest,
+    ParseResponse,
+)
 
 app = FastAPI(title="亲情陪伴系统 API")
 
@@ -31,3 +38,8 @@ def parse_endpoint(request: ParseRequest) -> ParseResponse:
 @app.post("/api/chat", response_model=ChatResponse)
 def chat_endpoint(request: ChatRequest) -> ChatResponse:
     return handle_chat(request)
+
+
+@app.post("/api/import", response_model=ImportResponse)
+def import_endpoint(request: ImportRequest) -> ImportResponse:
+    return handle_import(request)
