@@ -139,6 +139,20 @@ def test_nextjs_web_app_scaffold_exists():
     assert "<audio" in elder_source
 
 
+def test_home_feature_cards_are_clickable_routes():
+    app_path = ROOT / "web" / "src" / "app" / "page.tsx"
+    app_source = app_path.read_text(encoding="utf-8")
+
+    assert '<a className="panel panelLink" href={panel.href}' in app_source
+    assert 'href: "/family"' in app_source
+    assert 'href: "/records"' in app_source
+    assert 'href: "/voices"' in app_source
+    assert 'href: "/elder"' in app_source
+
+    for route in ["family", "records", "voices", "elder"]:
+        assert (ROOT / "web" / "src" / "app" / route / "page.tsx").exists()
+
+
 def test_web_app_has_supabase_and_backend_api_boundaries():
     supabase_source = (ROOT / "web" / "src" / "lib" / "supabase.ts").read_text(
         encoding="utf-8"

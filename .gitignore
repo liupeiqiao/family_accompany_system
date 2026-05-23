@@ -34,8 +34,31 @@ coverage.xml
 venv/
 .venv/
 env/
-.env/
 ENV/
+
+# IDE
+.vscode/
+.idea/
+
+# Sensitive / local
+companion.db
+.claude/
+api-server.log
+api-server.err
+.pytest_tmp/
+
+# Superpowers
+.superpowers/
+
+# Streamlit
+.streamlit/
+
+# Frontend build output
+web/.next/
+
+# Large binary files
+*.docx
+*.txt
 
 # Local Python packages (accidental pip install in project dir)
 Lib/

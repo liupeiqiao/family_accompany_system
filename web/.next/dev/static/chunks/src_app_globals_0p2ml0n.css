@@ -34,6 +34,51 @@ a {
   padding: 20px;
 }
 
+.panelLink {
+  min-height: 160px;
+  transition: border-color .12s, box-shadow .12s, transform .12s;
+  display: block;
+}
+
+.panelLink:hover, .panelLink:focus-visible {
+  border-color: #8d5a2b;
+  outline: none;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px #53371d1f;
+}
+
+.sectionHeader {
+  max-width: 760px;
+}
+
+.actions {
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 24px 0;
+  display: flex;
+}
+
+.button {
+  color: #fffaf3;
+  background: #2f241c;
+  border: 1px solid #2f241c;
+  border-radius: 8px;
+  align-items: center;
+  min-height: 42px;
+  padding: 10px 14px;
+  display: inline-flex;
+}
+
+.buttonSecondary {
+  color: #2f241c;
+  background: none;
+}
+
+.placeholderList {
+  max-width: 760px;
+  line-height: 1.8;
+}
+
 .chat {
   gap: 16px;
   max-width: 760px;

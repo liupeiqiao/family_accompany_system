@@ -33,6 +33,52 @@ a {
   padding: 20px;
 }
 
+.panelLink {
+  display: block;
+  min-height: 160px;
+  transition: border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
+}
+
+.panelLink:hover,
+.panelLink:focus-visible {
+  border-color: #8d5a2b;
+  box-shadow: 0 8px 18px rgba(83, 55, 29, 0.12);
+  outline: none;
+  transform: translateY(-1px);
+}
+
+.sectionHeader {
+  max-width: 760px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 24px 0;
+}
+
+.button {
+  align-items: center;
+  background: #2f241c;
+  border: 1px solid #2f241c;
+  border-radius: 8px;
+  color: #fffaf3;
+  display: inline-flex;
+  min-height: 42px;
+  padding: 10px 14px;
+}
+
+.buttonSecondary {
+  background: transparent;
+  color: #2f241c;
+}
+
+.placeholderList {
+  line-height: 1.8;
+  max-width: 760px;
+}
+
 .chat {
   display: grid;
   gap: 16px;

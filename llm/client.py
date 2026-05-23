@@ -6,7 +6,9 @@ from openai import OpenAI
 
 
 def get_client() -> OpenAI:
-    api_key = os.environ.get("DEEPSEEK_API_KEY", "sk-032e2e8065ae4e66a64a95d8fea81dd7")
+    api_key = os.environ.get("DEEPSEEK_API_KEY")
+    if not api_key:
+        raise RuntimeError("DEEPSEEK_API_KEY environment variable is required")
     base_url = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
     return OpenAI(api_key=api_key, base_url=base_url)
 

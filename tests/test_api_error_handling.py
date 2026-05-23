@@ -46,12 +46,11 @@ def test_run_pipeline_handles_auth_error():
     assert "信号不太好" in fallback or "再说一遍" in fallback
 
 
-def test_client_uses_default_key():
-    """即使未设置环境变量，也应使用内置默认 key 正常创建客户端。"""
-    import os
-    try:
-        from llm.client import get_client
-        client = get_client()
-        assert client.api_key == "sk-032e2e8065ae4e66a64a95d8fea81dd7"
-    finally:
-        pass
+def test_client_requires_api_key_from_environment(monkeypatch):
+    """DeepSeek API Key 必须通过环境变量提供，不能使用代码内置 key。"""
+    from llm.client import get_client
+
+    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+
+    with pytest.raises(RuntimeError, match="DEEPSEEK_API_KEY"):
+        get_client()
