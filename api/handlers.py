@@ -16,11 +16,11 @@ from productization.cloud_repository import (
 )
 from productization.family_context_service import build_family_chat_context
 from productization.voice import (
-    MockVoiceProvider,
     TextToSpeechRequest,
     VoiceCloneRequest,
     VoiceConsentError,
     VoiceProvider,
+    get_voice_provider_from_env,
 )
 
 from .schemas import (
@@ -60,7 +60,7 @@ _voice_provider: VoiceProvider | None = None
 def get_voice_provider() -> VoiceProvider:
     global _voice_provider
     if _voice_provider is None:
-        _voice_provider = MockVoiceProvider()
+        _voice_provider = get_voice_provider_from_env()
     return _voice_provider
 
 
@@ -392,7 +392,7 @@ def _synthesize_with_profile(*, family_id: str, user_id: str, voice_profile_id: 
     result = get_voice_provider().synthesize(
         TextToSpeechRequest(
             family_id=family_id,
-            voice_profile_id=str(profile.get("provider_voice_id") or profile["id"]),
+            voice_profile_id=str(profile.get("provider_voice_id") or ""),
             text=text,
         )
     )
