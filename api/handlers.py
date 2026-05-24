@@ -172,7 +172,10 @@ def _save_elder_payload(elder_payload: dict, *, merge_into_existing: bool) -> bo
     if not elder_payload or not _has_importable_value(elder_payload):
         return False
     elder_profile = dict(elder_payload)
-    existing = db.load_elder() if merge_into_existing else None
+    existing = None
+    if merge_into_existing:
+        all_elders = {e.get("full_name"): e for e in db.load_all_elders()}
+        existing = all_elders.get(elder_profile.get("full_name"))
     db.save_elder(_merge_elder(existing, elder_profile) if existing else elder_profile)
     return True
 
