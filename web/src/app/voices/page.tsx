@@ -26,6 +26,9 @@ export default function VoicesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isCreatingSample, setIsCreatingSample] = useState(false);
   const [isCloning, setIsCloning] = useState(false);
+  const [isCreatingPreset, setIsCreatingPreset] = useState(false);
+  const [presetDisplayName, setPresetDisplayName] = useState("预置音色");
+  const [presetConsentConfirmed, setPresetConsentConfirmed] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
@@ -111,6 +114,31 @@ export default function VoicesPage() {
     }
   }
 
+  async function onCreatePresetVoice(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!familyContext) {
+      return;
+    }
+    setIsCreatingPreset(true);
+    setError("");
+    setMessage("");
+    try {
+      const profile = await cloneVoice({
+        family_id: familyContext.family.id,
+        display_name: presetDisplayName.trim() || "预置音色",
+        sample_ids: [],
+        consent_confirmed: presetConsentConfirmed,
+        sample_source: "preset",
+      });
+      setProfiles((current) => [profile, ...current]);
+      setMessage("预置音色档案已创建，可用于语音回复。");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "创建预置音色失败");
+    } finally {
+      setIsCreatingPreset(false);
+    }
+  }
+
   const canWrite = familyContext?.membership.role === "owner" || familyContext?.membership.role === "editor";
 
   return (
@@ -173,6 +201,29 @@ export default function VoicesPage() {
             </div>
             <button type="submit" disabled={!canWrite || isCreatingSample || !filename.trim()}>
               {isCreatingSample ? "上传中..." : "创建上传路径"}
+            </button>
+          </form>
+
+          <form className="importSection" onSubmit={onCreatePresetVoice}>
+            <h2>预置音色</h2>
+            <p className="helperText">无需上传样本，直接使用豆包内置音色创建声音档案，立即体验语音回复。</p>
+            <label>
+              <span>声音档案名</span>
+              <input
+                value={presetDisplayName}
+                onChange={(event) => setPresetDisplayName(event.target.value)}
+              />
+            </label>
+            <label className="voiceConsent">
+              <input
+                checked={presetConsentConfirmed}
+                onChange={(event) => setPresetConsentConfirmed(event.target.checked)}
+                type="checkbox"
+              />
+              <span>我确认此声音将用于本家庭空间的语音陪伴。</span>
+            </label>
+            <button type="submit" disabled={!canWrite || isCreatingPreset || !presetConsentConfirmed}>
+              {isCreatingPreset ? "创建中..." : "创建预置音色档案"}
             </button>
           </form>
 

@@ -58,8 +58,6 @@ class MockVoiceProvider:
     def create_clone(self, request: VoiceCloneRequest) -> VoiceCloneResult:
         if not request.consent_confirmed:
             raise VoiceConsentError("Voice cloning requires consent confirmation.")
-        if not request.sample_paths:
-            raise ValueError("At least one voice sample is required.")
 
         return VoiceCloneResult(
             provider=self.provider_name,
@@ -82,38 +80,31 @@ class MockVoiceProvider:
 
 @dataclass(frozen=True)
 class DoubaoTTSConfig:
-    app_id: str
-    access_token: str
+    api_key: str
     default_voice_type: str
-    cluster: str = "volcano_tts"
-    resource_id: str = "volc.service_type.10029"
-    model: str = "seed-tts-1.1"
+    resource_id: str = "seed-tts-2.0"
     endpoint: str = "https://openspeech.bytedance.com/api/v3/tts/unidirectional/sse"
     encoding: str = "mp3"
-    speed_ratio: float = 1.0
-    rate: int = 24000
+    sample_rate: int = 24000
+    speech_rate: int = 0
 
     @classmethod
     def from_env(cls) -> "DoubaoTTSConfig | None":
-        app_id = os.getenv("DOUBAO_TTS_APP_ID")
-        access_token = os.getenv("DOUBAO_TTS_ACCESS_TOKEN")
+        api_key = os.getenv("DOUBAO_TTS_API_KEY")
         voice_type = os.getenv("DOUBAO_TTS_DEFAULT_VOICE_TYPE")
-        if not app_id or not access_token or not voice_type:
+        if not api_key or not voice_type:
             return None
         return cls(
-            app_id=app_id,
-            access_token=access_token,
+            api_key=api_key,
             default_voice_type=voice_type,
-            cluster=os.getenv("DOUBAO_TTS_CLUSTER", "volcano_tts"),
-            resource_id=os.getenv("DOUBAO_TTS_RESOURCE_ID", "volc.service_type.10029"),
-            model=os.getenv("DOUBAO_TTS_MODEL", "seed-tts-1.1"),
+            resource_id=os.getenv("DOUBAO_TTS_RESOURCE_ID", "seed-tts-2.0"),
             endpoint=os.getenv(
                 "DOUBAO_TTS_ENDPOINT",
                 "https://openspeech.bytedance.com/api/v3/tts/unidirectional/sse",
             ).rstrip(),
             encoding=os.getenv("DOUBAO_TTS_ENCODING", "mp3"),
-            speed_ratio=float(os.getenv("DOUBAO_TTS_SPEED_RATIO", "1.0")),
-            rate=int(os.getenv("DOUBAO_TTS_RATE", "24000")),
+            sample_rate=int(os.getenv("DOUBAO_TTS_SAMPLE_RATE", "24000")),
+            speech_rate=int(os.getenv("DOUBAO_TTS_SPEECH_RATE", "0")),
         )
 
 
@@ -131,8 +122,20 @@ class DoubaoVoiceProvider:
         self._reqid_factory = reqid_factory
 
     def create_clone(self, request: VoiceCloneRequest) -> VoiceCloneResult:
-        raise NotImplementedError(
-            "Doubao voice cloning requires the voice-clone API and sample file upload flow."
+        if not request.consent_confirmed:
+            raise VoiceConsentError("Voice cloning requires consent confirmation.")
+        if request.sample_paths:
+            raise NotImplementedError(
+                "Doubao voice cloning with real samples requires the voice-clone API and sample file upload flow."
+            )
+        return VoiceCloneResult(
+            provider=self.provider_name,
+            provider_voice_id=self._config.default_voice_type,
+            audit={
+                "family_id": request.family_id,
+                "created_by": request.created_by,
+                "sample_source": "preset",
+            },
         )
 
     def synthesize(self, request: TextToSpeechRequest) -> TextToSpeechResult:
@@ -141,32 +144,30 @@ class DoubaoVoiceProvider:
             raise ValueError("TTS text cannot be empty.")
 
         reqid = self._reqid_factory()
+        audio_params = {
+            "format": self._config.encoding,
+            "sample_rate": self._config.sample_rate,
+        }
+        if self._config.speech_rate:
+            audio_params["speech_rate"] = self._config.speech_rate
+
         payload = {
             "user": {
                 "uid": request.family_id or "family-companion",
             },
-            "audio": {
-                "voice_type": request.voice_profile_id or self._config.default_voice_type,
-                "encoding": self._config.encoding,
-                "speed_ratio": self._config.speed_ratio,
-                "rate": self._config.rate,
-            },
-            "request": {
-                "reqid": reqid,
+            "req_params": {
                 "text": text,
-                "operation": "submit",
+                "speaker": request.voice_profile_id or self._config.default_voice_type,
+                "audio_params": audio_params,
             },
         }
-        if self._config.model:
-            payload["request"]["model"] = self._config.model
 
         http_request = urlrequest.Request(
             self._config.endpoint,
             data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
             method="POST",
             headers={
-                "X-Api-App-Key": self._config.app_id,
-                "X-Api-Access-Key": self._config.access_token,
+                "X-Api-Key": self._config.api_key,
                 "X-Api-Resource-Id": self._config.resource_id,
                 "X-Api-Request-Id": reqid,
                 "Content-Type": "application/json",
@@ -188,7 +189,7 @@ def get_voice_provider_from_env() -> VoiceProvider:
         config = DoubaoTTSConfig.from_env()
         if config is None:
             raise ValueError(
-                "DOUBAO_TTS_APP_ID, DOUBAO_TTS_ACCESS_TOKEN, and "
+                "DOUBAO_TTS_API_KEY and "
                 "DOUBAO_TTS_DEFAULT_VOICE_TYPE are required when VOICE_PROVIDER=doubao."
             )
         return DoubaoVoiceProvider(config)
@@ -216,7 +217,10 @@ def _parse_doubao_sse_audio(raw: str) -> str:
         if not data or data == "[DONE]":
             continue
         payload = json.loads(data)
-        if payload.get("code") != 3000:
+        code = payload.get("code")
+        if code in {20000000, "20000000"}:
+            continue
+        if code not in {0, "0", 3000, "3000"}:
             last_error = payload
             continue
         audio = payload.get("data")

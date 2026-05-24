@@ -304,7 +304,7 @@ export function cloneVoice(payload: {
   display_name: string;
   sample_ids: string[];
   consent_confirmed: boolean;
-  sample_source?: "upload" | "recording";
+  sample_source?: "upload" | "recording" | "preset";
 }): Promise<VoiceProfile> {
   return requestJson<VoiceProfile>(
     "/api/voices/clone",

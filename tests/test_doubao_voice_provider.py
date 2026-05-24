@@ -32,19 +32,18 @@ def test_doubao_provider_synthesizes_audio_data_url():
         captured["timeout"] = timeout
         return FakeResponse(
             b'event: message\n'
-            b'data: {"code":3000,"message":"Success","sequence":1,"data":"ZmFrZQ=="}\n\n'
+            b'data: {"code":0,"message":"","data":"ZmFrZQ=="}\n\n'
             b'event: message\n'
-            b'data: {"code":3000,"message":"Success","sequence":-1,"data":"LW1wMw=="}\n\n'
+            b'data: {"code":0,"message":"","data":"LW1wMw=="}\n\n'
+            b'event: message\n'
+            b'data: {"code":20000000,"message":"OK","data":null}\n\n'
         )
 
     provider = DoubaoVoiceProvider(
         DoubaoTTSConfig(
-            app_id="app-id",
-            access_token="access-token",
-            cluster="volcano_tts",
-            resource_id="volc.service_type.10029",
+            api_key="api-key",
+            resource_id="seed-tts-2.0",
             default_voice_type="zh_female_vv_uranus_bigtts",
-            model="seed-tts-1.1",
         ),
         opener=fake_urlopen,
         reqid_factory=lambda: "local-reqid",
@@ -61,17 +60,19 @@ def test_doubao_provider_synthesizes_audio_data_url():
     normalized_headers = {key.lower(): value for key, value in captured["headers"].items()}
     assert captured["url"] == "https://openspeech.bytedance.com/api/v3/tts/unidirectional/sse"
     assert captured["method"] == "POST"
-    assert normalized_headers["x-api-app-key"] == "app-id"
-    assert normalized_headers["x-api-access-key"] == "access-token"
-    assert normalized_headers["x-api-resource-id"] == "volc.service_type.10029"
+    assert normalized_headers["x-api-key"] == "api-key"
+    assert "x-api-app-key" not in normalized_headers
+    assert "x-api-app-id" not in normalized_headers
+    assert "x-api-access-key" not in normalized_headers
+    assert normalized_headers["x-api-resource-id"] == "seed-tts-2.0"
     assert normalized_headers["accept"] == "text/event-stream"
     assert captured["body"]["user"]["uid"] == "family-1"
-    assert captured["body"]["audio"]["voice_type"] == "zh_female_vv_uranus_bigtts"
-    assert captured["body"]["audio"]["encoding"] == "mp3"
-    assert captured["body"]["request"]["reqid"] == "local-reqid"
-    assert captured["body"]["request"]["text"] == "妈，我在呢。"
-    assert captured["body"]["request"]["operation"] == "submit"
-    assert captured["body"]["request"]["model"] == "seed-tts-1.1"
+    assert captured["body"]["req_params"]["speaker"] == "zh_female_vv_uranus_bigtts"
+    assert captured["body"]["req_params"]["audio_params"]["format"] == "mp3"
+    assert captured["body"]["req_params"]["audio_params"]["sample_rate"] == 24000
+    assert captured["body"]["req_params"]["text"] == "妈，我在呢。"
+    assert "audio" not in captured["body"]
+    assert "request" not in captured["body"]
     assert captured["timeout"] == 30
     assert result.provider == "doubao"
     assert result.audio_path == "data:audio/mpeg;base64,ZmFrZS1tcDM="
@@ -88,8 +89,7 @@ def test_doubao_provider_rejects_failed_response():
 
     provider = DoubaoVoiceProvider(
         DoubaoTTSConfig(
-            app_id="app-id",
-            access_token="access-token",
+            api_key="api-key",
             default_voice_type="voice-type",
         ),
         opener=fake_urlopen,
@@ -109,8 +109,7 @@ def test_voice_provider_factory_uses_mock_by_default(monkeypatch):
     from productization.voice import MockVoiceProvider, get_voice_provider_from_env
 
     monkeypatch.delenv("VOICE_PROVIDER", raising=False)
-    monkeypatch.delenv("DOUBAO_TTS_APP_ID", raising=False)
-    monkeypatch.delenv("DOUBAO_TTS_ACCESS_TOKEN", raising=False)
+    monkeypatch.delenv("DOUBAO_TTS_API_KEY", raising=False)
 
     assert isinstance(get_voice_provider_from_env(), MockVoiceProvider)
 
@@ -119,8 +118,7 @@ def test_voice_provider_factory_uses_doubao_when_configured(monkeypatch):
     from productization.voice import DoubaoVoiceProvider, get_voice_provider_from_env
 
     monkeypatch.setenv("VOICE_PROVIDER", "doubao")
-    monkeypatch.setenv("DOUBAO_TTS_APP_ID", "app-id")
-    monkeypatch.setenv("DOUBAO_TTS_ACCESS_TOKEN", "access-token")
+    monkeypatch.setenv("DOUBAO_TTS_API_KEY", "api-key")
     monkeypatch.setenv("DOUBAO_TTS_DEFAULT_VOICE_TYPE", "voice-type")
 
     assert isinstance(get_voice_provider_from_env(), DoubaoVoiceProvider)

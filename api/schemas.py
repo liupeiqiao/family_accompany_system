@@ -68,7 +68,7 @@ class FamilyCurrentResponse(BaseModel):
 class VoiceUploadIntentRequest(BaseModel):
     family_id: str
     filename: str
-    sample_source: str = "upload"
+    sample_source: str = "upload"  # upload / recording
 
 
 class VoiceCloneCreateRequest(BaseModel):
@@ -76,7 +76,7 @@ class VoiceCloneCreateRequest(BaseModel):
     display_name: str = "My voice"
     sample_ids: list[str] = Field(default_factory=list)
     consent_confirmed: bool = False
-    sample_source: str = "upload"
+    sample_source: str = "upload"  # upload / recording / preset
 
 
 class TextToSpeechCreateRequest(BaseModel):

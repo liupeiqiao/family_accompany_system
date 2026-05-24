@@ -12,22 +12,19 @@ https://openspeech.bytedance.com/api/v3/tts/unidirectional/sse
 
 需要你在火山引擎控制台准备：
 
-- `appid`
-- `access_token`
-- `cluster`，通常为 `volcano_tts`
-- `resource_id`，默认配置为 `volc.service_type.10029`，以控制台实际值为准
-- 默认 `voice_type`
+- 新版控制台的 `API Key`
+- `resource_id`，用于选择 TTS/ICL 模型版本与计费方式，默认配置为 `seed-tts-2.0`
+- 默认 `speaker`，也就是音色列表里的发音人 ID
 
 PowerShell 示例：
 
 ```powershell
 $env:VOICE_PROVIDER="doubao"
-$env:DOUBAO_TTS_APP_ID="your-appid"
-$env:DOUBAO_TTS_ACCESS_TOKEN="your-access-token"
-$env:DOUBAO_TTS_CLUSTER="volcano_tts"
-$env:DOUBAO_TTS_RESOURCE_ID="volc.service_type.10029"
-$env:DOUBAO_TTS_DEFAULT_VOICE_TYPE="your-voice-type"
-$env:DOUBAO_TTS_MODEL="seed-tts-1.1"
+$env:DOUBAO_TTS_API_KEY="your-api-key"
+$env:DOUBAO_TTS_RESOURCE_ID="seed-tts-2.0"
+$env:DOUBAO_TTS_DEFAULT_VOICE_TYPE="your-speaker-id"
+$env:DOUBAO_TTS_ENCODING="mp3"
+$env:DOUBAO_TTS_SAMPLE_RATE="24000"
 python -m uvicorn api.main:app --host 127.0.0.1 --port 8000
 ```
 
@@ -36,7 +33,8 @@ python -m uvicorn api.main:app --host 127.0.0.1 --port 8000
 ## 运行方式
 
 - `/api/tts` 和 `/api/chat` 的语音回复会在 `VOICE_PROVIDER=doubao` 时调用豆包 TTS。
-- 数据库里的 `voice_profiles.provider_voice_id` 会作为豆包 `voice_type` 使用。
+- 后端使用新版控制台鉴权 Header：`X-Api-Key`、`X-Api-Resource-Id`、`X-Api-Request-Id`。
+- 后端请求体使用 V3 `req_params` 结构，数据库里的 `voice_profiles.provider_voice_id` 会作为豆包 `speaker` 使用。
 - 如果 `provider_voice_id` 为空，后端会使用 `DOUBAO_TTS_DEFAULT_VOICE_TYPE`。
 - 后端当前会读取完整 SSE 响应并合并音频分片，再返回浏览器可播放的 `data:audio/mpeg;base64,...`。前端真正边播边收可以后续再做。
 

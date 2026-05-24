@@ -339,15 +339,19 @@ def handle_clone_voice(request: VoiceCloneCreateRequest, user_id: str) -> dict:
     repo = get_cloud_repository()
 
     def operation() -> dict:
-        samples = repo.list_voice_samples(family_id=request.family_id, user_id=user_id)
-        selected_samples = [sample for sample in samples if sample.get("id") in request.sample_ids]
-        if len(selected_samples) != len(request.sample_ids):
-            raise FamilyNotFoundError("Voice sample not found.")
-        if any(sample.get("created_by") != user_id for sample in selected_samples):
-            raise FamilyPermissionError("Users can only clone their own voice samples.")
+        if request.sample_ids:
+            samples = repo.list_voice_samples(family_id=request.family_id, user_id=user_id)
+            selected_samples = [sample for sample in samples if sample.get("id") in request.sample_ids]
+            if len(selected_samples) != len(request.sample_ids):
+                raise FamilyNotFoundError("Voice sample not found.")
+            if any(sample.get("created_by") != user_id for sample in selected_samples):
+                raise FamilyPermissionError("Users can only clone their own voice samples.")
+            sample_paths = [str(sample.get("storage_path", "")) for sample in selected_samples]
+            sample_source = request.sample_source or str(selected_samples[0].get("sample_source", "upload"))
+        else:
+            sample_paths = []
+            sample_source = "preset"
 
-        sample_paths = [str(sample.get("storage_path", "")) for sample in selected_samples]
-        sample_source = request.sample_source or str(selected_samples[0].get("sample_source", "upload"))
         clone_result = get_voice_provider().create_clone(
             VoiceCloneRequest(
                 family_id=request.family_id,
