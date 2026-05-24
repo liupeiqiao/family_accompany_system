@@ -186,6 +186,9 @@ def test_records_page_supports_profile_memory_import_flow():
     assert "老人视角" in records_source
     assert "perspective," in records_source
     assert "子女/儿女/孩子" in records_source
+    assert "dedup" in records_source
+    assert "merge_into" in records_source
+    assert "将合并到已有家人" in records_source
 
 
 def test_web_app_has_supabase_and_backend_api_boundaries():
@@ -207,6 +210,7 @@ def test_web_app_has_supabase_and_backend_api_boundaries():
     assert "/api/tts" in backend_source
     assert "parseProfileText" in backend_source
     assert "importParsedData" in backend_source
+    assert "DedupSuggestion" in backend_source
     assert "response.status" in backend_source
     assert "status" in backend_source
 

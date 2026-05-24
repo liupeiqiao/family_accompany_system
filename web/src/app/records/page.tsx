@@ -16,6 +16,7 @@ const emptyDraft: ParsedDraft = {
   elder_profile: {},
   family_profiles: [],
   memories: [],
+  dedup: {},
 };
 
 const elderFields = [
@@ -285,6 +286,7 @@ export default function RecordsPage() {
               fields={personaFields}
               onChange={(key, value) => updateTopLevel("persona", key, value)}
             />
+            <DedupPreview dedup={draft.dedup} />
             <EditableList
               title="家人档案"
               items={draft.family_profiles}
@@ -307,6 +309,44 @@ export default function RecordsPage() {
         )}
       </section>
     </main>
+  );
+}
+
+function DedupPreview({ dedup }: { dedup: ParsedDraft["dedup"] }) {
+  if (!dedup) {
+    return null;
+  }
+
+  const familyActions = dedup.family_actions ?? [];
+  const hasPersonaMerge = dedup.persona_action === "merge" && dedup.persona_match;
+  const hasFamilyActions = familyActions.some((action) => action.action !== "skip");
+
+  if (!hasPersonaMerge && !hasFamilyActions) {
+    return null;
+  }
+
+  return (
+    <section className="importSection wide">
+      <h2>智能合并建议</h2>
+      <ul className="dedupList">
+        {hasPersonaMerge ? (
+          <li>角色将合并到已有画像：{dedup.persona_match}</li>
+        ) : null}
+        {familyActions.map((action) => {
+          if (action.action === "merge_into") {
+            return (
+              <li key={`${action.new_name}-${action.target}`}>
+                {action.new_name} 将合并到已有家人 {action.target}
+              </li>
+            );
+          }
+          if (action.action === "new") {
+            return <li key={action.new_name}>{action.new_name} 将作为新家人保存</li>;
+          }
+          return null;
+        })}
+      </ul>
+    </section>
   );
 }
 

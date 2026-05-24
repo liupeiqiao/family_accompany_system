@@ -16,6 +16,7 @@ class ParseResponse(BaseModel):
     memories: list[dict] = Field(default_factory=list)
     family_profiles: list[dict] = Field(default_factory=list)
     elder_profile: dict = Field(default_factory=dict)
+    dedup: dict = Field(default_factory=dict)
 
 
 class ImportRequest(BaseModel):
@@ -24,6 +25,7 @@ class ImportRequest(BaseModel):
     memories: list[dict] = Field(default_factory=list)
     family_profiles: list[dict] = Field(default_factory=list)
     elder_profile: dict = Field(default_factory=dict)
+    dedup: dict = Field(default_factory=dict)
 
 
 class ImportCounts(BaseModel):

@@ -3,9 +3,11 @@ from __future__ import annotations
 from pathlib import Path
 
 
-def test_parse_handler_uses_existing_parser(monkeypatch):
+def test_parse_handler_uses_existing_parser(tmp_path, monkeypatch):
     from api.handlers import handle_parse
     from api.schemas import ParseRequest
+
+    monkeypatch.chdir(tmp_path)
 
     def fake_parse_user_text(text: str, perspective: str, existing_families_text: str):
         assert text == "我儿子小明性格温和"
@@ -30,6 +32,59 @@ def test_parse_handler_uses_existing_parser(monkeypatch):
 
     assert result.persona["role_label"] == "儿子小明"
     assert result.memories == []
+    assert result.dedup == {}
+
+
+def test_parse_handler_returns_dedup_suggestions_from_existing_profiles(tmp_path, monkeypatch):
+    from api.handlers import handle_parse
+    from api.schemas import ParseRequest
+    from engine import db
+
+    monkeypatch.chdir(tmp_path)
+    db.init_db()
+    db.save_family_profile(
+        {
+            "name": "小明",
+            "gender": "男",
+            "relation": "儿子",
+            "personality": ["稳重"],
+            "preferences": [],
+            "habits": [],
+            "relations": [],
+            "notes": "",
+        }
+    )
+
+    def fake_parse_user_text(text: str, perspective: str, existing_families_text: str):
+        assert "小明" in existing_families_text
+        return {
+            "persona": {},
+            "memories": [],
+            "family_profiles": [{"name": "儿子小明", "gender": "男", "relation": "儿子"}],
+            "elder_profile": {},
+        }
+
+    def fake_dedup_check(new_parsed: dict, existing_personas: list[dict], existing_families: list[dict]):
+        assert existing_personas == []
+        assert existing_families[0]["name"] == "小明"
+        return {
+            "persona_action": "skip",
+            "persona_match": "",
+            "family_actions": [
+                {"new_name": "儿子小明", "action": "merge_into", "target": "小明"}
+            ],
+        }
+
+    monkeypatch.setattr("api.handlers.parse_user_text", fake_parse_user_text)
+    monkeypatch.setattr("api.handlers.dedup_check", fake_dedup_check)
+
+    result = handle_parse(
+        ParseRequest(family_id="local", text="儿子小明喜欢做饭", perspective="family")
+    )
+
+    assert result.family_profiles[0]["name"] == "儿子小明"
+    assert result.dedup["family_actions"][0]["action"] == "merge_into"
+    assert result.dedup["family_actions"][0]["target"] == "小明"
 
 
 def test_chat_service_generates_reply_from_sqlite_data(tmp_path, monkeypatch):
@@ -250,6 +305,113 @@ def test_family_profile_relation_is_normalized_by_gender_on_import(tmp_path, mon
     assert profiles["小明"]["relation"] == "儿子"
     assert profiles["小红"]["relation"] == "女儿"
     assert profiles["小刚"]["relation"] == "子女"
+
+
+def test_import_merges_family_profile_by_dedup_action(tmp_path, monkeypatch):
+    from api.handlers import handle_import
+    from api.schemas import ImportRequest
+    from engine import db
+
+    monkeypatch.chdir(tmp_path)
+    db.init_db()
+    db.save_family_profile(
+        {
+            "name": "小明",
+            "gender": "男",
+            "relation": "儿子",
+            "personality": ["稳重"],
+            "preferences": ["做饭"],
+            "habits": [],
+            "relations": [],
+            "notes": "住得近",
+        }
+    )
+
+    result = handle_import(
+        ImportRequest(
+            family_id="local",
+            family_profiles=[
+                {
+                    "name": "儿子小明",
+                    "gender": "男",
+                    "relation": "子女",
+                    "personality": ["细心"],
+                    "preferences": ["做饭", "钓鱼"],
+                    "habits": ["周末回家"],
+                    "relations": [],
+                    "notes": "常打电话",
+                }
+            ],
+            dedup={
+                "family_actions": [
+                    {"new_name": "儿子小明", "action": "merge_into", "target": "小明"}
+                ],
+                "persona_action": "skip",
+                "persona_match": "",
+            },
+        )
+    )
+
+    profiles = db.load_all_family_profiles()
+    profile = profiles[0]
+
+    assert result.imported.family_profiles == 1
+    assert len(profiles) == 1
+    assert profile["name"] == "小明"
+    assert profile["gender"] == "男"
+    assert profile["relation"] == "儿子"
+    assert profile["personality"] == ["稳重", "细心"]
+    assert profile["preferences"] == ["做饭", "钓鱼"]
+    assert profile["habits"] == ["周末回家"]
+    assert profile["notes"] == "常打电话"
+
+
+def test_import_merges_persona_by_dedup_action(tmp_path, monkeypatch):
+    from api.handlers import handle_import
+    from api.schemas import ImportRequest
+    from engine import db
+
+    monkeypatch.chdir(tmp_path)
+    db.init_db()
+    db.save_persona(
+        {
+            "role_label": "儿子小明",
+            "relation": "儿子",
+            "appellation": "妈",
+            "personality": ["稳重"],
+            "speech_style": ["慢慢说"],
+            "comfort_style": ["唠家常"],
+        }
+    )
+
+    result = handle_import(
+        ImportRequest(
+            family_id="local",
+            persona={
+                "role_label": "小明",
+                "relation": "儿子",
+                "appellation": "妈",
+                "personality": ["细心"],
+                "speech_style": ["多问候"],
+                "comfort_style": ["安慰式"],
+            },
+            dedup={
+                "persona_action": "merge",
+                "persona_match": "儿子小明",
+                "family_actions": [],
+            },
+        )
+    )
+
+    personas = db.load_all_personas()
+    persona = personas[0]
+
+    assert result.imported.persona == 1
+    assert len(personas) == 1
+    assert persona["role_label"] == "儿子小明"
+    assert persona["personality"] == ["稳重", "细心"]
+    assert persona["speech_style"] == ["慢慢说", "多问候"]
+    assert persona["comfort_style"] == ["唠家常", "安慰式"]
 
 
 def test_fastapi_import_endpoint_saves_payload(tmp_path, monkeypatch):

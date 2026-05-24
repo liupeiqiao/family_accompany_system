@@ -230,6 +230,15 @@ button:disabled {
   grid-column: 1 / -1;
 }
 
+.dedupList {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.dedupList li + li {
+  margin-top: 6px;
+}
+
 .fieldGrid {
   display: grid;
   gap: 12px;
