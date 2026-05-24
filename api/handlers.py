@@ -9,11 +9,13 @@ from productization.chat_service import generate_chat_reply
 from .schemas import (
     ChatRequest,
     ChatResponse,
+    DeleteResponse,
     ImportCounts,
     ImportRequest,
     ImportResponse,
     ParseRequest,
     ParseResponse,
+    RecordsResponse,
 )
 
 
@@ -62,6 +64,28 @@ def handle_import(request: ImportRequest) -> ImportResponse:
         counts.memories += 1
 
     return ImportResponse(ok=True, imported=counts)
+
+
+def handle_records() -> RecordsResponse:
+    db.init_db()
+    return RecordsResponse(
+        persona=db.load_persona() or {},
+        elder_profile=db.load_elder() or {},
+        family_profiles=db.load_all_family_profiles(),
+        memories=db.load_all_memories(),
+    )
+
+
+def handle_delete_memory(memory_id: str) -> DeleteResponse:
+    db.init_db()
+    db.delete_memory(memory_id)
+    return DeleteResponse(ok=True)
+
+
+def handle_delete_family_profile(name: str) -> DeleteResponse:
+    db.init_db()
+    db.delete_family_profile(name)
+    return DeleteResponse(ok=True)
 
 
 def handle_chat(request: ChatRequest) -> ChatResponse:

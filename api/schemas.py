@@ -38,6 +38,17 @@ class ImportResponse(BaseModel):
     imported: ImportCounts = Field(default_factory=ImportCounts)
 
 
+class RecordsResponse(BaseModel):
+    persona: dict = Field(default_factory=dict)
+    elder_profile: dict = Field(default_factory=dict)
+    family_profiles: list[dict] = Field(default_factory=list)
+    memories: list[dict] = Field(default_factory=list)
+
+
+class DeleteResponse(BaseModel):
+    ok: bool = True
+
+
 class ChatRequest(BaseModel):
     family_id: str = Field(default="local")
     elder_id: str = ""

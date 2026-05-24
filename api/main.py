@@ -4,14 +4,23 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 
-from .handlers import handle_chat, handle_import, handle_parse
+from .handlers import (
+    handle_chat,
+    handle_delete_family_profile,
+    handle_delete_memory,
+    handle_import,
+    handle_parse,
+    handle_records,
+)
 from .schemas import (
     ChatRequest,
     ChatResponse,
+    DeleteResponse,
     ImportRequest,
     ImportResponse,
     ParseRequest,
     ParseResponse,
+    RecordsResponse,
 )
 
 app = FastAPI(title="亲情陪伴系统 API")
@@ -43,3 +52,18 @@ def chat_endpoint(request: ChatRequest) -> ChatResponse:
 @app.post("/api/import", response_model=ImportResponse)
 def import_endpoint(request: ImportRequest) -> ImportResponse:
     return handle_import(request)
+
+
+@app.get("/api/records", response_model=RecordsResponse)
+def records_endpoint() -> RecordsResponse:
+    return handle_records()
+
+
+@app.delete("/api/memories/{memory_id}", response_model=DeleteResponse)
+def delete_memory_endpoint(memory_id: str) -> DeleteResponse:
+    return handle_delete_memory(memory_id)
+
+
+@app.delete("/api/family-profiles/{name}", response_model=DeleteResponse)
+def delete_family_profile_endpoint(name: str) -> DeleteResponse:
+    return handle_delete_family_profile(name)
