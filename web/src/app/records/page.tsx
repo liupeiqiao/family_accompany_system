@@ -135,6 +135,7 @@ export default function RecordsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingRecords, setIsLoadingRecords] = useState(true);
   const [isSavingRecords, setIsSavingRecords] = useState(false);
+  const [expandedMemoryIndex, setExpandedMemoryIndex] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [recordsError, setRecordsError] = useState("");
@@ -147,6 +148,7 @@ export default function RecordsPage() {
     try {
       const records = await fetchRecords();
       setSavedDraft(cloneDraft(records));
+      setExpandedMemoryIndex(null);
     } catch {
       setRecordsError("无法加载已保存数据，请确认 API 服务已启动。");
     } finally {
@@ -324,6 +326,7 @@ export default function RecordsPage() {
         ...current,
         memories: current.memories.filter((_, itemIndex) => itemIndex !== index),
       }));
+      setExpandedMemoryIndex(null);
       setRecordsSuccess("已删除记忆。");
     } catch {
       setRecordsError("删除记忆失败，请稍后重试。");
@@ -471,10 +474,14 @@ export default function RecordsPage() {
               }
               onDelete={deleteFamilyProfile}
             />
-            <EditableList
+            <SavedMemoryList
               title="家庭记忆"
               items={savedDraft.memories}
               fields={memoryFields}
+              expandedIndex={expandedMemoryIndex}
+              onToggle={(index) =>
+                setExpandedMemoryIndex((current) => (current === index ? null : index))
+              }
               onChange={(index, key, value) =>
                 updateListItem("saved", "memories", index, key, value)
               }
@@ -559,6 +566,94 @@ function EditableList({
             </div>
           </article>
         ))}
+      </div>
+    </section>
+  );
+}
+
+function memoryMeta(item: DraftObject): string[] {
+  return [
+    valueToText(item.subject),
+    valueToText(item.memory_type),
+    valueToText(item.topic_tags),
+    valueToText(item.emotion_tags),
+  ].filter(Boolean);
+}
+
+function SavedMemoryList({
+  title,
+  items,
+  fields,
+  expandedIndex,
+  onToggle,
+  onChange,
+  onDelete,
+}: {
+  title: string;
+  items: DraftObject[];
+  fields: readonly (readonly [string, string])[];
+  expandedIndex: number | null;
+  onToggle: (index: number) => void;
+  onChange: (index: number, key: string, value: string) => void;
+  onDelete: (index: number) => void;
+}) {
+  return (
+    <section className="importSection wide">
+      <h2>{title}</h2>
+      {items.length === 0 ? <p className="emptyState">暂无内容。</p> : null}
+      <div className="memoryList">
+        {items.map((item, index) => {
+          const isExpanded = expandedIndex === index;
+          const summary = valueToText(item.content) || "未填写记忆内容";
+          const meta = memoryMeta(item);
+
+          return (
+            <article className="memorySummary" key={`${title}-${index}`}>
+              <div className="memorySummaryHeader">
+                <div>
+                  <strong>
+                    {title} {index + 1}
+                  </strong>
+                  <p>{summary}</p>
+                </div>
+                <div className="memoryActions">
+                  <button
+                    className="button buttonSecondary"
+                    type="button"
+                    onClick={() => onToggle(index)}
+                  >
+                    {isExpanded ? "收起" : "展开编辑"}
+                  </button>
+                  <button className="button buttonDanger" type="button" onClick={() => onDelete(index)}>
+                    删除
+                  </button>
+                </div>
+              </div>
+
+              {meta.length > 0 ? (
+                <div className="memoryMeta">
+                  {meta.map((text) => (
+                    <span key={text}>{text}</span>
+                  ))}
+                </div>
+              ) : null}
+
+              {isExpanded ? (
+                <div className="fieldGrid memoryEditor">
+                  {fields.map(([key, label]) => (
+                    <label key={key}>
+                      <span>{label}</span>
+                      <input
+                        value={valueToText(item[key])}
+                        onChange={(event) => onChange(index, key, event.target.value)}
+                      />
+                    </label>
+                  ))}
+                </div>
+              ) : null}
+            </article>
+          );
+        })}
       </div>
     </section>
   );

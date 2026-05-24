@@ -188,6 +188,22 @@ def test_records_page_supports_profile_memory_import_flow():
     assert "子女/儿女/孩子" in records_source
 
 
+def test_saved_memories_use_collapsed_summary_cards():
+    records_source = (ROOT / "web" / "src" / "app" / "records" / "page.tsx").read_text(
+        encoding="utf-8"
+    )
+    css_source = (ROOT / "web" / "src" / "app" / "globals.css").read_text(encoding="utf-8")
+
+    assert "function SavedMemoryList" in records_source
+    assert "expandedMemoryIndex" in records_source
+    assert "memorySummary" in records_source
+    assert "memoryMeta" in records_source
+    assert "展开编辑" in records_source
+    assert "收起" in records_source
+    assert ".memorySummary" in css_source
+    assert ".memoryMeta" in css_source
+
+
 def test_web_app_has_supabase_and_backend_api_boundaries():
     supabase_source = (ROOT / "web" / "src" / "lib" / "supabase.ts").read_text(
         encoding="utf-8"
