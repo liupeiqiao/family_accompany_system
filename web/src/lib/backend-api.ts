@@ -79,6 +79,18 @@ export function deleteFamilyProfile(name: string): Promise<{ ok: boolean }> {
   });
 }
 
+export function deleteElderProfile(fullName: string): Promise<{ ok: boolean }> {
+  return requestJson<{ ok: boolean }>(`/api/elders/${encodeURIComponent(fullName)}`, {
+    method: "DELETE",
+  });
+}
+
+export function deletePersona(roleLabel: string): Promise<{ ok: boolean }> {
+  return requestJson<{ ok: boolean }>(`/api/personas/${encodeURIComponent(roleLabel)}`, {
+    method: "DELETE",
+  });
+}
+
 export function sendChat(payload: {
   family_id: string;
   elder_id: string;
