@@ -12,7 +12,6 @@
 当前仓库处于原型验证到产品化拆分阶段：`app.py` 是 Streamlit 原型；`engine/` 和 `llm/` 承载核心对话能力；`api/`、`web/`、`supabase/`、`productization/` 是面向 Next.js + FastAPI + Supabase 产品化方向的基础。
 
 ## 常用命令
-
 ```bash
 python -m pip install -r requirements.txt
 python -m streamlit run app.py --server.port 8501
