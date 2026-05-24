@@ -318,10 +318,12 @@ function DedupPreview({ dedup }: { dedup: ParsedDraft["dedup"] }) {
   }
 
   const familyActions = dedup.family_actions ?? [];
+  const memoryActions = dedup.memory_actions ?? [];
   const hasPersonaMerge = dedup.persona_action === "merge" && dedup.persona_match;
   const hasFamilyActions = familyActions.some((action) => action.action !== "skip");
+  const hasMemoryActions = memoryActions.length > 0;
 
-  if (!hasPersonaMerge && !hasFamilyActions) {
+  if (!hasPersonaMerge && !hasFamilyActions && !hasMemoryActions) {
     return null;
   }
 
@@ -342,6 +344,19 @@ function DedupPreview({ dedup }: { dedup: ParsedDraft["dedup"] }) {
           }
           if (action.action === "new") {
             return <li key={action.new_name}>{action.new_name} 将作为新家人保存</li>;
+          }
+          return null;
+        })}
+        {memoryActions.map((action) => {
+          const preview =
+            action.new_content.length > 48
+              ? `${action.new_content.slice(0, 48)}...`
+              : action.new_content;
+          if (action.action === "skip") {
+            return <li key={`${action.new_content}-${action.target}`}>疑似重复记忆：{preview}，将跳过保存</li>;
+          }
+          if (action.action === "new") {
+            return <li key={action.new_content}>新记忆将保存：{preview}</li>;
           }
           return null;
         })}

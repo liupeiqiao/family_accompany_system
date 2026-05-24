@@ -189,6 +189,8 @@ def test_records_page_supports_profile_memory_import_flow():
     assert "dedup" in records_source
     assert "merge_into" in records_source
     assert "将合并到已有家人" in records_source
+    assert "memory_actions" in records_source
+    assert "疑似重复记忆" in records_source
 
 
 def test_web_app_has_supabase_and_backend_api_boundaries():
@@ -211,6 +213,7 @@ def test_web_app_has_supabase_and_backend_api_boundaries():
     assert "parseProfileText" in backend_source
     assert "importParsedData" in backend_source
     assert "DedupSuggestion" in backend_source
+    assert "memory_actions" in backend_source
     assert "response.status" in backend_source
     assert "status" in backend_source
 

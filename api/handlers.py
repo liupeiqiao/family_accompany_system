@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from uuid import uuid4
 
 from engine import db
@@ -21,6 +22,7 @@ def handle_parse(request: ParseRequest) -> ParseResponse:
     db.init_db()
     existing_personas = db.load_all_personas()
     existing_families = db.load_all_family_profiles()
+    existing_memories = db.load_all_memories()
     existing_families_text = _build_existing_families_text(existing_families)
 
     parsed = parse_user_text(
@@ -33,6 +35,10 @@ def handle_parse(request: ParseRequest) -> ParseResponse:
         if existing_personas or existing_families
         else {}
     )
+    memory_actions = _build_memory_actions(parsed.get("memories", []), existing_memories)
+    if memory_actions:
+        dedup = dict(dedup)
+        dedup["memory_actions"] = memory_actions
     return ParseResponse(
         persona=parsed.get("persona", {}),
         memories=parsed.get("memories", []),
@@ -106,8 +112,12 @@ def handle_import(request: ImportRequest) -> ImportResponse:
         existing_families[profile.get("name", "")] = profile
         counts.family_profiles += 1
 
+    memory_actions = _memory_actions_by_content(request.dedup)
     for memory in request.memories:
         if not memory or not memory.get("content"):
+            continue
+        action = memory_actions.get(_normalize_memory_content(memory.get("content", "")), {})
+        if action.get("action") == "skip":
             continue
         memory_to_save = dict(memory)
         memory_to_save.setdefault("id", uuid4().hex)
@@ -123,6 +133,46 @@ def _family_actions_by_name(dedup: dict) -> dict[str, dict]:
         for action in dedup.get("family_actions", [])
         if action.get("new_name")
     }
+
+
+def _memory_actions_by_content(dedup: dict) -> dict[str, dict]:
+    return {
+        _normalize_memory_content(action.get("new_content", "")): action
+        for action in dedup.get("memory_actions", [])
+        if action.get("new_content")
+    }
+
+
+def _build_memory_actions(new_memories: list[dict], existing_memories: list[dict]) -> list[dict]:
+    if not new_memories or not existing_memories:
+        return []
+
+    existing_by_content = {
+        _normalize_memory_content(memory.get("content", "")): memory
+        for memory in existing_memories
+        if memory.get("content")
+    }
+    actions = []
+    for memory in new_memories:
+        content = memory.get("content", "") if memory else ""
+        normalized = _normalize_memory_content(content)
+        if not normalized:
+            continue
+        existing = existing_by_content.get(normalized)
+        if existing:
+            actions.append(
+                {
+                    "new_content": content,
+                    "action": "skip",
+                    "target": existing.get("id", ""),
+                }
+            )
+    return actions
+
+
+def _normalize_memory_content(content: str) -> str:
+    normalized = re.sub(r"[\s\-_，。,.！？!；;：:、\"“”'‘’（）()]+", "", content or "")
+    return normalized.casefold()
 
 
 def _families_by_name(profiles: list[dict]) -> dict[str, dict]:

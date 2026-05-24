@@ -87,6 +87,55 @@ def test_parse_handler_returns_dedup_suggestions_from_existing_profiles(tmp_path
     assert result.dedup["family_actions"][0]["target"] == "小明"
 
 
+def test_parse_handler_returns_memory_dedup_suggestions_from_existing_memories(
+    tmp_path, monkeypatch
+):
+    from api.handlers import handle_parse
+    from api.schemas import ParseRequest
+    from engine import db
+
+    monkeypatch.chdir(tmp_path)
+    db.init_db()
+    db.save_memory(
+        {
+            "id": "mem-existing",
+            "content": "mid autumn dinner with xiaoming",
+            "memory_type": "event",
+            "subject": "xiaoming",
+            "family_members": ["xiaoming"],
+            "emotion_tags": ["warm"],
+            "topic_tags": ["festival"],
+            "intimacy_weight": 0.9,
+        }
+    )
+
+    def fake_parse_user_text(text: str, perspective: str, existing_families_text: str):
+        return {
+            "persona": {},
+            "memories": [{"content": "mid-autumn dinner with xiaoming"}],
+            "family_profiles": [],
+            "elder_profile": {},
+        }
+
+    monkeypatch.setattr("api.handlers.parse_user_text", fake_parse_user_text)
+
+    result = handle_parse(
+        ParseRequest(
+            family_id="local",
+            text="mid-autumn dinner with xiaoming",
+            perspective="family",
+        )
+    )
+
+    assert result.dedup["memory_actions"] == [
+        {
+            "new_content": "mid-autumn dinner with xiaoming",
+            "action": "skip",
+            "target": "mem-existing",
+        }
+    ]
+
+
 def test_chat_service_generates_reply_from_sqlite_data(tmp_path, monkeypatch):
     from engine import db
     from productization.chat_service import generate_chat_reply
@@ -412,6 +461,49 @@ def test_import_merges_persona_by_dedup_action(tmp_path, monkeypatch):
     assert persona["personality"] == ["稳重", "细心"]
     assert persona["speech_style"] == ["慢慢说", "多问候"]
     assert persona["comfort_style"] == ["唠家常", "安慰式"]
+
+
+def test_import_skips_memory_by_dedup_action(tmp_path, monkeypatch):
+    from api.handlers import handle_import
+    from api.schemas import ImportRequest
+    from engine import db
+
+    monkeypatch.chdir(tmp_path)
+    db.init_db()
+    db.save_memory(
+        {
+            "id": "mem-existing",
+            "content": "mid autumn dinner with xiaoming",
+            "memory_type": "event",
+            "subject": "xiaoming",
+            "family_members": ["xiaoming"],
+            "emotion_tags": ["warm"],
+            "topic_tags": ["festival"],
+            "intimacy_weight": 0.9,
+        }
+    )
+
+    result = handle_import(
+        ImportRequest(
+            family_id="local",
+            memories=[{"content": "mid-autumn dinner with xiaoming"}],
+            dedup={
+                "memory_actions": [
+                    {
+                        "new_content": "mid-autumn dinner with xiaoming",
+                        "action": "skip",
+                        "target": "mem-existing",
+                    }
+                ]
+            },
+        )
+    )
+
+    memories = db.load_all_memories()
+
+    assert result.imported.memories == 0
+    assert len(memories) == 1
+    assert memories[0]["id"] == "mem-existing"
 
 
 def test_fastapi_import_endpoint_saves_payload(tmp_path, monkeypatch):
