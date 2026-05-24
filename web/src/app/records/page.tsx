@@ -6,8 +6,10 @@ import { useEffect, useState } from "react";
 import {
   DraftObject,
   ParsedDraft,
+  deleteElderProfile as deleteSavedElderProfile,
   deleteFamilyProfile as deleteSavedFamilyProfile,
   deleteMemory as deleteSavedMemory,
+  deletePersona as deleteSavedPersona,
   fetchRecords,
   importParsedData,
   parseProfileText,
@@ -349,6 +351,54 @@ export default function RecordsPage() {
     }
   }
 
+  async function deleteElderProfile(index: number) {
+    const profile = savedDraft.elder_profiles?.[index];
+    const fullName = valueToText(profile?.full_name).trim();
+    if (!fullName) {
+      setRecordsError("这条老人画像缺少姓名，暂时无法删除。");
+      return;
+    }
+
+    setRecordsError("");
+    setRecordsSuccess("");
+
+    try {
+      await deleteSavedElderProfile(fullName);
+      setSavedDraft((current) => ({
+        ...current,
+        elder_profiles: (current.elder_profiles ?? []).filter((_, itemIndex) => itemIndex !== index),
+      }));
+      setExpandedElderIndex(null);
+      setRecordsSuccess("已删除老人画像。");
+    } catch {
+      setRecordsError("删除老人画像失败，请稍后重试。");
+    }
+  }
+
+  async function deletePersona(index: number) {
+    const persona = savedDraft.personas?.[index];
+    const roleLabel = valueToText(persona?.role_label).trim();
+    if (!roleLabel) {
+      setRecordsError("这条角色缺少角色名，暂时无法删除。");
+      return;
+    }
+
+    setRecordsError("");
+    setRecordsSuccess("");
+
+    try {
+      await deleteSavedPersona(roleLabel);
+      setSavedDraft((current) => ({
+        ...current,
+        personas: (current.personas ?? []).filter((_, itemIndex) => itemIndex !== index),
+      }));
+      setExpandedPersonaIndex(null);
+      setRecordsSuccess("已删除 AI 角色。");
+    } catch {
+      setRecordsError("删除 AI 角色失败，请稍后重试。");
+    }
+  }
+
   return (
     <main className="shell">
       <section className="sectionHeader">
@@ -490,6 +540,7 @@ export default function RecordsPage() {
               onChange={(index, key, value) =>
                 updateListItem("saved", "elder_profiles", index, key, value)
               }
+              onDelete={deleteElderProfile}
             />
             <SavedProfileList
               title="AI 扮演角色"
@@ -502,6 +553,7 @@ export default function RecordsPage() {
               onChange={(index, key, value) =>
                 updateListItem("saved", "personas", index, key, value)
               }
+              onDelete={deletePersona}
             />
             <SavedProfileList
               title="家人档案"
