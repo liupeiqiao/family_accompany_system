@@ -64,6 +64,25 @@ export type CloudRecord = Record<string, unknown> & {
   family_id?: string;
 };
 
+export type VoiceSample = CloudRecord & {
+  id: string;
+  storage_path: string;
+  bucket?: string;
+  sample_source: string;
+  status: "pending_upload" | "ready" | "failed";
+  created_by?: string;
+  voice_profile_id?: string | null;
+};
+
+export type VoiceProfile = CloudRecord & {
+  id: string;
+  display_name: string;
+  provider: string;
+  provider_voice_id: string;
+  status: "creating" | "ready" | "failed";
+  consent_confirmed: boolean;
+};
+
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
@@ -185,6 +204,34 @@ export function createCloudPersona(payload: CloudRecord & { family_id: string })
   );
 }
 
+export function createVoiceUploadIntent(payload: {
+  family_id: string;
+  filename: string;
+  sample_source: "upload" | "recording";
+}): Promise<VoiceSample> {
+  return requestJson<VoiceSample>(
+    "/api/voices/upload-intent",
+    withUser({
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  );
+}
+
+export function fetchVoiceSamples(familyId: string): Promise<VoiceSample[]> {
+  return requestJson<VoiceSample[]>(
+    `/api/voices/samples?family_id=${encodeURIComponent(familyId)}`,
+    withUser(),
+  );
+}
+
+export function fetchVoiceProfiles(familyId: string): Promise<VoiceProfile[]> {
+  return requestJson<VoiceProfile[]>(
+    `/api/voices/profiles?family_id=${encodeURIComponent(familyId)}`,
+    withUser(),
+  );
+}
+
 export function parseProfileText(payload: {
   family_id: string;
   text: string;
@@ -244,11 +291,20 @@ export function sendChat(payload: {
   });
 }
 
-export function cloneVoice(payload: Record<string, unknown>): Promise<Record<string, unknown>> {
-  return requestJson<Record<string, unknown>>("/api/voices/clone", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
+export function cloneVoice(payload: {
+  family_id: string;
+  display_name: string;
+  sample_ids: string[];
+  consent_confirmed: boolean;
+  sample_source?: "upload" | "recording";
+}): Promise<VoiceProfile> {
+  return requestJson<VoiceProfile>(
+    "/api/voices/clone",
+    withUser({
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  );
 }
 
 export function synthesizeSpeech(payload: Record<string, unknown>): Promise<Record<string, unknown>> {

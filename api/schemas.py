@@ -65,6 +65,20 @@ class FamilyCurrentResponse(BaseModel):
     membership: dict = Field(default_factory=dict)
 
 
+class VoiceUploadIntentRequest(BaseModel):
+    family_id: str
+    filename: str
+    sample_source: str = "upload"
+
+
+class VoiceCloneCreateRequest(BaseModel):
+    family_id: str
+    display_name: str = "My voice"
+    sample_ids: list[str] = Field(default_factory=list)
+    consent_confirmed: bool = False
+    sample_source: str = "upload"
+
+
 class ChatRequest(BaseModel):
     family_id: str = Field(default="local")
     elder_id: str = ""

@@ -15,6 +15,7 @@ from productization.cloud_repository import (
     get_cloud_repository,
 )
 from productization.family_context_service import build_family_chat_context
+from productization.voice import MockVoiceProvider, VoiceCloneRequest, VoiceConsentError, VoiceProvider
 
 from .schemas import (
     ChatRequest,
@@ -28,6 +29,8 @@ from .schemas import (
     ParseRequest,
     ParseResponse,
     RecordsResponse,
+    VoiceCloneCreateRequest,
+    VoiceUploadIntentRequest,
 )
 
 GENERIC_CHILD_RELATIONS = {"子女", "儿女", "孩子"}
@@ -42,6 +45,15 @@ ELDER_LIST_FIELDS = (
     "life_experiences",
     "important_memories",
 )
+
+_voice_provider: VoiceProvider | None = None
+
+
+def get_voice_provider() -> VoiceProvider:
+    global _voice_provider
+    if _voice_provider is None:
+        _voice_provider = MockVoiceProvider()
+    return _voice_provider
 
 
 def handle_parse(request: ParseRequest) -> ParseResponse:
@@ -290,6 +302,71 @@ def handle_update_cloud_persona(persona_id: str, payload: dict, user_id: str) ->
             payload=data,
         )
     )
+
+
+def handle_create_voice_upload_intent(request: VoiceUploadIntentRequest, user_id: str) -> dict:
+    return _call_cloud(
+        lambda: get_cloud_repository().create_voice_sample_upload_intent(
+            family_id=request.family_id,
+            user_id=user_id,
+            filename=request.filename,
+            sample_source=request.sample_source,
+        )
+    )
+
+
+def handle_list_voice_samples(family_id: str, user_id: str) -> list[dict]:
+    return _call_cloud(
+        lambda: get_cloud_repository().list_voice_samples(family_id=family_id, user_id=user_id)
+    )
+
+
+def handle_list_voice_profiles(family_id: str, user_id: str) -> list[dict]:
+    return _call_cloud(
+        lambda: get_cloud_repository().list_voice_profiles(family_id=family_id, user_id=user_id)
+    )
+
+
+def handle_clone_voice(request: VoiceCloneCreateRequest, user_id: str) -> dict:
+    repo = get_cloud_repository()
+
+    def operation() -> dict:
+        samples = repo.list_voice_samples(family_id=request.family_id, user_id=user_id)
+        selected_samples = [sample for sample in samples if sample.get("id") in request.sample_ids]
+        if len(selected_samples) != len(request.sample_ids):
+            raise FamilyNotFoundError("Voice sample not found.")
+        if any(sample.get("created_by") != user_id for sample in selected_samples):
+            raise FamilyPermissionError("Users can only clone their own voice samples.")
+
+        sample_paths = [str(sample.get("storage_path", "")) for sample in selected_samples]
+        sample_source = request.sample_source or str(selected_samples[0].get("sample_source", "upload"))
+        clone_result = get_voice_provider().create_clone(
+            VoiceCloneRequest(
+                family_id=request.family_id,
+                created_by=user_id,
+                sample_paths=sample_paths,
+                consent_confirmed=request.consent_confirmed,
+                sample_source=sample_source,
+            )
+        )
+        return repo.create_voice_profile(
+            family_id=request.family_id,
+            user_id=user_id,
+            payload={
+                "display_name": request.display_name,
+                "provider": clone_result.provider,
+                "provider_voice_id": clone_result.provider_voice_id,
+                "status": "ready",
+                "consent_confirmed": request.consent_confirmed,
+                "sample_source": sample_source,
+                "sample_ids": request.sample_ids,
+            },
+        )
+
+    try:
+        return _call_cloud(operation)
+    except (VoiceConsentError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 def handle_delete_memory(memory_id: str) -> DeleteResponse:

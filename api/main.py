@@ -10,6 +10,7 @@ from .handlers import (
     handle_create_cloud_memory,
     handle_create_cloud_persona,
     handle_create_family,
+    handle_create_voice_upload_intent,
     handle_delete_cloud_family_profile,
     handle_delete_cloud_memory,
     handle_delete_elder,
@@ -19,9 +20,12 @@ from .handlers import (
     handle_get_cloud_elder_current,
     handle_get_current_family,
     handle_import,
+    handle_clone_voice,
     handle_list_cloud_family_profiles,
     handle_list_cloud_memories,
     handle_list_cloud_personas,
+    handle_list_voice_profiles,
+    handle_list_voice_samples,
     handle_parse,
     handle_records,
     handle_update_cloud_family_profile,
@@ -40,6 +44,8 @@ from .schemas import (
     ParseRequest,
     ParseResponse,
     RecordsResponse,
+    VoiceCloneCreateRequest,
+    VoiceUploadIntentRequest,
 )
 
 app = FastAPI(title="亲情陪伴系统 API")
@@ -162,6 +168,38 @@ def update_cloud_persona_endpoint(
     x_user_id: str = Header(default="demo-user", alias="X-User-Id"),
 ) -> dict:
     return handle_update_cloud_persona(persona_id, payload, x_user_id)
+
+
+@app.post("/api/voices/upload-intent", response_model=dict)
+def create_voice_upload_intent_endpoint(
+    request: VoiceUploadIntentRequest,
+    x_user_id: str = Header(default="demo-user", alias="X-User-Id"),
+) -> dict:
+    return handle_create_voice_upload_intent(request, x_user_id)
+
+
+@app.get("/api/voices/samples", response_model=list[dict])
+def voice_samples_endpoint(
+    family_id: str = Query(...),
+    x_user_id: str = Header(default="demo-user", alias="X-User-Id"),
+) -> list[dict]:
+    return handle_list_voice_samples(family_id, x_user_id)
+
+
+@app.get("/api/voices/profiles", response_model=list[dict])
+def voice_profiles_endpoint(
+    family_id: str = Query(...),
+    x_user_id: str = Header(default="demo-user", alias="X-User-Id"),
+) -> list[dict]:
+    return handle_list_voice_profiles(family_id, x_user_id)
+
+
+@app.post("/api/voices/clone", response_model=dict)
+def clone_voice_endpoint(
+    request: VoiceCloneCreateRequest,
+    x_user_id: str = Header(default="demo-user", alias="X-User-Id"),
+) -> dict:
+    return handle_clone_voice(request, x_user_id)
 
 
 @app.post("/api/parse", response_model=ParseResponse)

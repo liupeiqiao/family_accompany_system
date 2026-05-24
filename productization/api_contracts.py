@@ -14,6 +14,9 @@ API_ENDPOINTS = {
     "parse": "POST /api/parse",
     "import": "POST /api/import",
     "chat": "POST /api/chat",
+    "voice_upload_intent": "POST /api/voices/upload-intent",
+    "voice_samples": "GET /api/voices/samples",
+    "voice_profiles": "GET /api/voices/profiles",
     "voice_clone": "POST /api/voices/clone",
     "tts": "POST /api/tts",
 }

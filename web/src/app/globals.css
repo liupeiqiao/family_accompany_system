@@ -149,7 +149,8 @@ form {
 }
 
 input,
-textarea {
+textarea,
+select {
   border: 1px solid #d3c3ae;
   border-radius: 8px;
   font: inherit;
@@ -158,7 +159,8 @@ textarea {
   padding: 12px;
 }
 
-input {
+input,
+select {
   min-height: 42px;
   width: 100%;
 }
@@ -416,6 +418,31 @@ button:disabled {
   color: #6b5b4d;
   line-height: 1.7;
   margin: 0;
+}
+
+.voiceWorkspace {
+  display: grid;
+  gap: 16px;
+  max-width: 1040px;
+}
+
+.voiceGrid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.voiceConsent {
+  align-items: flex-start;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.voiceConsent input {
+  margin-top: 4px;
+  min-height: 18px;
+  width: 18px;
 }
 
 @media (max-width: 720px) {

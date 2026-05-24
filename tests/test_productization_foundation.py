@@ -103,6 +103,9 @@ def test_python_api_contracts_match_productization_plan():
         "parse": "POST /api/parse",
         "import": "POST /api/import",
         "chat": "POST /api/chat",
+        "voice_upload_intent": "POST /api/voices/upload-intent",
+        "voice_samples": "GET /api/voices/samples",
+        "voice_profiles": "GET /api/voices/profiles",
         "voice_clone": "POST /api/voices/clone",
         "tts": "POST /api/tts",
     }
@@ -287,6 +290,10 @@ def test_web_app_has_supabase_and_backend_api_boundaries():
     assert "createFamily" in backend_source
     assert "fetchCloudFamilyProfiles" in backend_source
     assert "/api/voices/clone" in backend_source
+    assert "/api/voices/upload-intent" in backend_source
+    assert "/api/voices/profiles" in backend_source
+    assert "createVoiceUploadIntent" in backend_source
+    assert "fetchVoiceProfiles" in backend_source
     assert "/api/tts" in backend_source
     assert "parseProfileText" in backend_source
     assert "importParsedData" in backend_source
@@ -310,6 +317,22 @@ def test_family_page_uses_cloud_family_api_states():
     assert "尚未创建家庭空间" in family_source
     assert "成员角色" in family_source
     assert "setFamilyName" in family_source
+
+
+def test_voices_page_uses_cloud_voice_api_states():
+    voices_source = (ROOT / "web" / "src" / "app" / "voices" / "page.tsx").read_text(
+        encoding="utf-8"
+    )
+
+    assert '"use client";' in voices_source
+    assert "fetchCurrentFamily" in voices_source
+    assert "createVoiceUploadIntent" in voices_source
+    assert "cloneVoice" in voices_source
+    assert "fetchVoiceProfiles" in voices_source
+    assert "consentConfirmed" in voices_source
+    assert "isCloning" in voices_source
+    assert "pending_upload" in voices_source
+    assert "尚未创建家庭空间" in voices_source
 
 
 def test_family_profile_gender_is_part_of_parse_and_context_contracts():

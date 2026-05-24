@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from dataclasses import dataclass
 from typing import Any, Literal, Protocol
 from urllib import request as urlrequest
@@ -77,6 +78,25 @@ class CloudRepository(Protocol):
     def update_persona(self, *, family_id: str, user_id: str, persona_id: str, payload: dict) -> dict:
         ...
 
+    def create_voice_sample_upload_intent(
+        self,
+        *,
+        family_id: str,
+        user_id: str,
+        filename: str,
+        sample_source: str,
+    ) -> dict:
+        ...
+
+    def list_voice_samples(self, *, family_id: str, user_id: str) -> list[dict]:
+        ...
+
+    def list_voice_profiles(self, *, family_id: str, user_id: str) -> list[dict]:
+        ...
+
+    def create_voice_profile(self, *, family_id: str, user_id: str, payload: dict) -> dict:
+        ...
+
 
 class InMemoryCloudRepository:
     """Deterministic cloud repository used for local API wiring and tests."""
@@ -88,6 +108,8 @@ class InMemoryCloudRepository:
         self._family_profiles: dict[str, dict] = {}
         self._memories: dict[str, dict] = {}
         self._personas: dict[str, dict] = {}
+        self._voice_samples: dict[str, dict] = {}
+        self._voice_profiles: dict[str, dict] = {}
 
     def create_family(self, *, name: str, user_id: str) -> dict:
         family = {"id": uuid4().hex, "name": name.strip() or "我的家庭", "created_by": user_id}
@@ -213,6 +235,60 @@ class InMemoryCloudRepository:
         updated["id"] = persona_id
         self._personas[persona_id] = updated
         return dict(updated)
+
+    def create_voice_sample_upload_intent(
+        self,
+        *,
+        family_id: str,
+        user_id: str,
+        filename: str,
+        sample_source: str,
+    ) -> dict:
+        self._require_editor(family_id, user_id)
+        sample_id = str(uuid4())
+        storage_path = f"voice-samples/{family_id}/{user_id}/{sample_id}{_safe_audio_extension(filename)}"
+        sample = {
+            "id": sample_id,
+            "family_id": family_id,
+            "voice_profile_id": None,
+            "storage_path": storage_path,
+            "bucket": "voice-samples",
+            "sample_source": sample_source or "upload",
+            "created_by": user_id,
+            "status": "pending_upload",
+        }
+        self._voice_samples[sample_id] = sample
+        return dict(sample)
+
+    def list_voice_samples(self, *, family_id: str, user_id: str) -> list[dict]:
+        self._require_member(family_id, user_id)
+        return self._list_family_records(self._voice_samples, family_id)
+
+    def list_voice_profiles(self, *, family_id: str, user_id: str) -> list[dict]:
+        self._require_member(family_id, user_id)
+        return self._list_family_records(self._voice_profiles, family_id)
+
+    def create_voice_profile(self, *, family_id: str, user_id: str, payload: dict) -> dict:
+        self._require_editor(family_id, user_id)
+        sample_ids = list(payload.get("sample_ids") or [])
+        samples = [self._get_family_record(self._voice_samples, family_id, sample_id) for sample_id in sample_ids]
+        if not samples:
+            raise FamilyNotFoundError("Voice sample not found.")
+        if any(sample.get("created_by") != user_id for sample in samples):
+            raise FamilyPermissionError("Users can only clone their own voice samples.")
+
+        profile_id = uuid4().hex
+        profile = self._with_family_fields(payload, family_id, user_id)
+        profile.pop("sample_ids", None)
+        profile["id"] = profile_id
+        profile["created_by"] = user_id
+        profile.setdefault("status", "ready")
+        self._voice_profiles[profile_id] = profile
+
+        for sample in samples:
+            sample["voice_profile_id"] = profile_id
+            sample["status"] = "ready"
+        return dict(profile)
 
     def _role_for(self, family_id: str, user_id: str) -> FamilyRole | None:
         membership = self._memberships.get(f"{family_id}:{user_id}")
@@ -386,6 +462,65 @@ class SupabaseCloudRepository:
             payload={**payload, "family_id": family_id, "updated_by": user_id},
         )[0]
 
+    def create_voice_sample_upload_intent(
+        self,
+        *,
+        family_id: str,
+        user_id: str,
+        filename: str,
+        sample_source: str,
+    ) -> dict:
+        self._require_editor(family_id, user_id)
+        sample_id = str(uuid4())
+        storage_path = f"voice-samples/{family_id}/{user_id}/{sample_id}{_safe_audio_extension(filename)}"
+        return self._request(
+            "voice_samples",
+            method="POST",
+            payload={
+                "id": sample_id,
+                "family_id": family_id,
+                "storage_path": storage_path,
+                "sample_source": sample_source or "upload",
+                "created_by": user_id,
+                "status": "pending_upload",
+            },
+        )[0] | {"bucket": "voice-samples"}
+
+    def list_voice_samples(self, *, family_id: str, user_id: str) -> list[dict]:
+        self._require_member(family_id, user_id)
+        return self._request(f"voice_samples?family_id=eq.{family_id}&select=*", method="GET")
+
+    def list_voice_profiles(self, *, family_id: str, user_id: str) -> list[dict]:
+        self._require_member(family_id, user_id)
+        return self._request(f"voice_profiles?family_id=eq.{family_id}&select=*", method="GET")
+
+    def create_voice_profile(self, *, family_id: str, user_id: str, payload: dict) -> dict:
+        self._require_editor(family_id, user_id)
+        sample_ids = list(payload.get("sample_ids") or [])
+        if not sample_ids:
+            raise FamilyNotFoundError("Voice sample not found.")
+        quoted_ids = ",".join(sample_ids)
+        samples = self._request(
+            f"voice_samples?family_id=eq.{family_id}&id=in.({quoted_ids})&select=*",
+            method="GET",
+        )
+        if len(samples) != len(sample_ids):
+            raise FamilyNotFoundError("Voice sample not found.")
+        if any(sample.get("created_by") != user_id for sample in samples):
+            raise FamilyPermissionError("Users can only clone their own voice samples.")
+
+        data = dict(payload)
+        data.pop("sample_ids", None)
+        data["family_id"] = family_id
+        data["created_by"] = user_id
+        profile = self._request("voice_profiles", method="POST", payload=data)[0]
+        self._request(
+            f"voice_samples?family_id=eq.{family_id}&id=in.({quoted_ids})",
+            method="PATCH",
+            payload={"voice_profile_id": profile["id"], "status": profile.get("status", "ready")},
+        )
+        return profile
+
     def _require_member(self, family_id: str, user_id: str) -> FamilyRole:
         rows = self._request(
             f"family_memberships?family_id=eq.{family_id}&user_id=eq.{user_id}&select=role",
@@ -437,3 +572,9 @@ def get_cloud_repository() -> CloudRepository:
     config = SupabaseConfig.from_env()
     _cloud_repository = SupabaseCloudRepository(config) if config else InMemoryCloudRepository()
     return _cloud_repository
+
+
+def _safe_audio_extension(filename: str) -> str:
+    match = re.search(r"\.([a-zA-Z0-9]+)$", filename or "")
+    extension = f".{match.group(1).lower()}" if match else ".webm"
+    return extension if extension in {".wav", ".mp3", ".m4a", ".webm", ".ogg"} else ".webm"

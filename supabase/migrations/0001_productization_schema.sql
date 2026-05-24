@@ -107,6 +107,7 @@ create table if not exists public.voice_samples (
   voice_profile_id uuid references public.voice_profiles(id) on delete cascade,
   storage_path text not null,
   sample_source text not null,
+  status text not null default 'pending_upload',
   created_by uuid not null references auth.users(id),
   created_at timestamptz not null default now()
 );
