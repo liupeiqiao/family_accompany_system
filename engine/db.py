@@ -322,8 +322,8 @@ def _row_to_elder_dict(row) -> dict:
     }
 
 
-def delete_elder() -> None:
+def delete_elder(full_name: str) -> None:
     conn = _connect()
-    conn.execute("DELETE FROM elder_profile")
+    conn.execute("DELETE FROM elder_profile WHERE full_name = ?", (full_name,))
     conn.commit()
     conn.close()
