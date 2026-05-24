@@ -15,7 +15,9 @@ import {
 
 const emptyDraft: ParsedDraft = {
   persona: {},
+  personas: [],
   elder_profile: {},
+  elder_profiles: [],
   family_profiles: [],
   memories: [],
 };
@@ -66,7 +68,9 @@ const memoryFields = [
 function cloneDraft(draft: ParsedDraft): ParsedDraft {
   return {
     persona: { ...draft.persona },
+    personas: (draft.personas ?? []).map((item) => ({ ...item })),
     elder_profile: { ...draft.elder_profile },
+    elder_profiles: (draft.elder_profiles ?? []).map((item) => ({ ...item })),
     family_profiles: draft.family_profiles.map((item) => ({ ...item })),
     memories: draft.memories.map((item) => ({ ...item })),
   };
@@ -120,7 +124,9 @@ function textToValue(key: string, value: string): unknown {
 function hasDraft(draft: ParsedDraft): boolean {
   return (
     Object.keys(draft.persona).length > 0 ||
+    (draft.personas ?? []).length > 0 ||
     Object.keys(draft.elder_profile).length > 0 ||
+    (draft.elder_profiles ?? []).length > 0 ||
     draft.family_profiles.length > 0 ||
     draft.memories.length > 0
   );
@@ -135,7 +141,8 @@ export default function RecordsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingRecords, setIsLoadingRecords] = useState(true);
   const [isSavingRecords, setIsSavingRecords] = useState(false);
-  const [expandedSavedSection, setExpandedSavedSection] = useState<"elder" | "persona" | null>(null);
+  const [expandedElderIndex, setExpandedElderIndex] = useState<number | null>(null);
+  const [expandedPersonaIndex, setExpandedPersonaIndex] = useState<number | null>(null);
   const [expandedFamilyIndex, setExpandedFamilyIndex] = useState<number | null>(null);
   const [expandedMemoryIndex, setExpandedMemoryIndex] = useState<number | null>(null);
   const [error, setError] = useState("");
@@ -151,7 +158,8 @@ export default function RecordsPage() {
     try {
       const records = await fetchRecords();
       setSavedDraft(cloneDraft(records));
-      setExpandedSavedSection(null);
+      setExpandedElderIndex(null);
+      setExpandedPersonaIndex(null);
       setExpandedFamilyIndex(null);
       setExpandedMemoryIndex(null);
     } catch {
@@ -266,7 +274,7 @@ export default function RecordsPage() {
 
   function updateListItem(
     target: "draft" | "saved",
-    section: "family_profiles" | "memories",
+    section: "personas" | "elder_profiles" | "family_profiles" | "memories",
     index: number,
     key: string,
     value: string,
@@ -274,7 +282,7 @@ export default function RecordsPage() {
     const updater = target === "draft" ? setDraft : setSavedDraft;
     updater((current) => ({
       ...current,
-      [section]: current[section].map((item, itemIndex) =>
+      [section]: (current[section] ?? []).map((item, itemIndex) =>
         itemIndex === index ? { ...item, [key]: textToValue(key, value) } : item,
       ),
     }));
@@ -471,29 +479,29 @@ export default function RecordsPage() {
           <p className="emptyState">正在加载已保存数据...</p>
         ) : hasDraft(savedDraft) ? (
           <div className="previewGrid">
-            <SavedProfileObject
+            <SavedProfileList
               title="老人画像"
-              data={savedDraft.elder_profile}
+              items={savedDraft.elder_profiles ?? []}
               fields={elderFields}
-              summaryKeys={["full_name", "gender", "personality", "preferences"]}
-              isExpanded={expandedSavedSection === "elder"}
-              onToggle={() =>
-                setExpandedSavedSection((current) => (current === "elder" ? null : "elder"))
+              expandedIndex={expandedElderIndex}
+              onToggle={(index) =>
+                setExpandedElderIndex((current) => (current === index ? null : index))
               }
-              onChange={(key, value) => updateTopLevel("saved", "elder_profile", key, value)}
+              onChange={(index, key, value) =>
+                updateListItem("saved", "elder_profiles", index, key, value)
+              }
             />
-            <SavedProfileObject
+            <SavedProfileList
               title="AI 扮演角色"
-              data={savedDraft.persona}
+              items={savedDraft.personas ?? []}
               fields={personaFields}
-              summaryKeys={["role_label", "relation", "appellation", "personality"]}
-              isExpanded={expandedSavedSection === "persona"}
-              onToggle={() =>
-                setExpandedSavedSection((current) =>
-                  current === "persona" ? null : "persona",
-                )
+              expandedIndex={expandedPersonaIndex}
+              onToggle={(index) =>
+                setExpandedPersonaIndex((current) => (current === index ? null : index))
               }
-              onChange={(key, value) => updateTopLevel("saved", "persona", key, value)}
+              onChange={(index, key, value) =>
+                updateListItem("saved", "personas", index, key, value)
+              }
             />
             <SavedProfileList
               title="家人档案"
@@ -677,7 +685,7 @@ function SavedProfileList({
   expandedIndex: number | null;
   onToggle: (index: number) => void;
   onChange: (index: number, key: string, value: string) => void;
-  onDelete: (index: number) => void;
+  onDelete?: (index: number) => void;
 }) {
   return (
     <section className="importSection wide">
@@ -686,7 +694,11 @@ function SavedProfileList({
       <div className="profileList">
         {items.map((item, index) => {
           const isExpanded = expandedIndex === index;
-          const name = valueToText(item.name) || `${title} ${index + 1}`;
+          const name =
+            valueToText(item.name) ||
+            valueToText(item.role_label) ||
+            valueToText(item.full_name) ||
+            `${title} ${index + 1}`;
           const meta = profileMeta(item, ["gender", "relation", "personality", "preferences"]);
 
           return (
@@ -710,9 +722,11 @@ function SavedProfileList({
                   >
                     {isExpanded ? "收起" : "展开编辑"}
                   </button>
-                  <button className="button buttonDanger" type="button" onClick={() => onDelete(index)}>
-                    删除
-                  </button>
+                  {onDelete ? (
+                    <button className="button buttonDanger" type="button" onClick={() => onDelete(index)}>
+                      删除
+                    </button>
+                  ) : null}
                 </div>
               </div>
 

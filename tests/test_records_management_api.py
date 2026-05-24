@@ -20,6 +20,50 @@ def test_records_handler_loads_saved_records(tmp_path, monkeypatch):
     assert result.memories[0]["id"] == "mem-1"
 
 
+def test_records_handler_loads_all_saved_personas_and_elder_profiles(tmp_path, monkeypatch):
+    from api.handlers import handle_records
+    from engine import db
+
+    monkeypatch.chdir(tmp_path)
+    db.init_db()
+    db.save_persona({"role_label": "daughter", "relation": "daughter", "appellation": "mom"})
+    db.save_persona({"role_label": "son", "relation": "son", "appellation": "mom"})
+    db.save_elder({"full_name": "elder-a", "gender": "female"})
+    db.save_elder({"full_name": "elder-b", "gender": "male"})
+
+    result = handle_records()
+
+    assert [persona["role_label"] for persona in result.personas] == ["daughter", "son"]
+    assert [elder["full_name"] for elder in result.elder_profiles] == ["elder-a", "elder-b"]
+
+
+def test_import_handler_saves_multiple_personas_and_elder_profiles(tmp_path, monkeypatch):
+    from api.handlers import handle_import
+    from api.schemas import ImportRequest
+    from engine import db
+
+    monkeypatch.chdir(tmp_path)
+
+    result = handle_import(
+        ImportRequest(
+            family_id="local",
+            personas=[
+                {"role_label": "daughter", "relation": "daughter", "appellation": "mom"},
+                {"role_label": "son", "relation": "son", "appellation": "mom"},
+            ],
+            elder_profiles=[
+                {"full_name": "elder-a", "gender": "female"},
+                {"full_name": "elder-b", "gender": "male"},
+            ],
+        )
+    )
+
+    assert result.imported.persona == 2
+    assert result.imported.elder_profile == 2
+    assert [persona["role_label"] for persona in db.load_all_personas()] == ["daughter", "son"]
+    assert [elder["full_name"] for elder in db.load_all_elders()] == ["elder-a", "elder-b"]
+
+
 def test_delete_memory_handler_removes_saved_memory(tmp_path, monkeypatch):
     from api.handlers import handle_delete_memory
     from engine import db

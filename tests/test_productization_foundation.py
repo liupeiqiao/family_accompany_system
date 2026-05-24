@@ -212,12 +212,29 @@ def test_saved_profiles_use_collapsed_summary_cards():
 
     assert "function SavedProfileObject" in records_source
     assert "function SavedProfileList" in records_source
-    assert "expandedSavedSection" in records_source
+    assert "expandedElderIndex" in records_source
+    assert "expandedPersonaIndex" in records_source
     assert "expandedFamilyIndex" in records_source
     assert "profileSummary" in records_source
     assert "profileMeta" in records_source
     assert ".profileSummary" in css_source
     assert ".profileMeta" in css_source
+
+
+def test_records_page_lists_all_saved_personas_and_elders():
+    records_source = (ROOT / "web" / "src" / "app" / "records" / "page.tsx").read_text(
+        encoding="utf-8"
+    )
+    backend_source = (ROOT / "web" / "src" / "lib" / "backend-api.ts").read_text(
+        encoding="utf-8"
+    )
+
+    assert "personas?: DraftObject[]" in backend_source
+    assert "elder_profiles?: DraftObject[]" in backend_source
+    assert "expandedPersonaIndex" in records_source
+    assert "expandedElderIndex" in records_source
+    assert "items={savedDraft.elder_profiles ?? []}" in records_source
+    assert "items={savedDraft.personas ?? []}" in records_source
 
 
 def test_records_page_shows_parse_merge_preview():

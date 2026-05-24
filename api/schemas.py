@@ -22,9 +22,11 @@ class ParseResponse(BaseModel):
 class ImportRequest(BaseModel):
     family_id: str = Field(default="local")
     persona: dict = Field(default_factory=dict)
+    personas: list[dict] = Field(default_factory=list)
     memories: list[dict] = Field(default_factory=list)
     family_profiles: list[dict] = Field(default_factory=list)
     elder_profile: dict = Field(default_factory=dict)
+    elder_profiles: list[dict] = Field(default_factory=list)
 
 
 class ImportCounts(BaseModel):
@@ -41,7 +43,9 @@ class ImportResponse(BaseModel):
 
 class RecordsResponse(BaseModel):
     persona: dict = Field(default_factory=dict)
+    personas: list[dict] = Field(default_factory=list)
     elder_profile: dict = Field(default_factory=dict)
+    elder_profiles: list[dict] = Field(default_factory=list)
     family_profiles: list[dict] = Field(default_factory=list)
     memories: list[dict] = Field(default_factory=list)
 

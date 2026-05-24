@@ -157,6 +157,26 @@ def _merge_elder(existing: dict, incoming: dict) -> dict:
     return merged
 
 
+def _save_persona_payload(persona_payload: dict) -> bool:
+    if not persona_payload or not _has_importable_value(persona_payload):
+        return False
+    persona = dict(persona_payload)
+    persona["relation"] = _normalize_persona_relation(persona)
+    existing_personas = {item.get("role_label"): item for item in db.load_all_personas()}
+    existing = existing_personas.get(persona.get("role_label"))
+    db.save_persona(_merge_persona(existing, persona) if existing else persona)
+    return True
+
+
+def _save_elder_payload(elder_payload: dict, *, merge_into_existing: bool) -> bool:
+    if not elder_payload or not _has_importable_value(elder_payload):
+        return False
+    elder_profile = dict(elder_payload)
+    existing = db.load_elder() if merge_into_existing else None
+    db.save_elder(_merge_elder(existing, elder_profile) if existing else elder_profile)
+    return True
+
+
 def handle_parse(request: ParseRequest) -> ParseResponse:
     db.init_db()
     existing_families = db.load_all_family_profiles()
@@ -184,19 +204,15 @@ def handle_import(request: ImportRequest) -> ImportResponse:
     db.init_db()
     counts = ImportCounts()
 
-    if request.persona and _has_importable_value(request.persona):
-        persona = dict(request.persona)
-        persona["relation"] = _normalize_persona_relation(persona)
-        existing_personas = {item.get("role_label"): item for item in db.load_all_personas()}
-        existing = existing_personas.get(persona.get("role_label"))
-        db.save_persona(_merge_persona(existing, persona) if existing else persona)
-        counts.persona = 1
+    persona_payloads = request.personas or ([request.persona] if request.persona else [])
+    for persona_payload in persona_payloads:
+        if _save_persona_payload(persona_payload):
+            counts.persona += 1
 
-    if request.elder_profile and _has_importable_value(request.elder_profile):
-        existing_elder = db.load_elder()
-        elder_profile = dict(request.elder_profile)
-        db.save_elder(_merge_elder(existing_elder, elder_profile) if existing_elder else elder_profile)
-        counts.elder_profile = 1
+    elder_payloads = request.elder_profiles or ([request.elder_profile] if request.elder_profile else [])
+    for elder_payload in elder_payloads:
+        if _save_elder_payload(elder_payload, merge_into_existing=not request.elder_profiles):
+            counts.elder_profile += 1
 
     existing_families = {item.get("name"): item for item in db.load_all_family_profiles()}
     for profile in request.family_profiles:
@@ -226,9 +242,13 @@ def handle_import(request: ImportRequest) -> ImportResponse:
 
 def handle_records() -> RecordsResponse:
     db.init_db()
+    personas = db.load_all_personas()
+    elder_profiles = db.load_all_elders()
     return RecordsResponse(
-        persona=db.load_persona() or {},
-        elder_profile=db.load_elder() or {},
+        persona=personas[0] if personas else {},
+        personas=personas,
+        elder_profile=elder_profiles[0] if elder_profiles else {},
+        elder_profiles=elder_profiles,
         family_profiles=db.load_all_family_profiles(),
         memories=db.load_all_memories(),
     )

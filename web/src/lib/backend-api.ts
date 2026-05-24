@@ -5,7 +5,9 @@ export type DraftObject = Record<string, unknown>;
 
 export type ParsedDraft = {
   persona: DraftObject;
+  personas?: DraftObject[];
   elder_profile: DraftObject;
+  elder_profiles?: DraftObject[];
   family_profiles: DraftObject[];
   memories: DraftObject[];
   merge_preview?: string[];
