@@ -271,11 +271,12 @@ class InMemoryCloudRepository:
     def create_voice_profile(self, *, family_id: str, user_id: str, payload: dict) -> dict:
         self._require_editor(family_id, user_id)
         sample_ids = list(payload.get("sample_ids") or [])
-        samples = [self._get_family_record(self._voice_samples, family_id, sample_id) for sample_id in sample_ids]
-        if not samples:
-            raise FamilyNotFoundError("Voice sample not found.")
-        if any(sample.get("created_by") != user_id for sample in samples):
-            raise FamilyPermissionError("Users can only clone their own voice samples.")
+        if sample_ids:
+            samples = [self._get_family_record(self._voice_samples, family_id, sample_id) for sample_id in sample_ids]
+            if any(sample.get("created_by") != user_id for sample in samples):
+                raise FamilyPermissionError("Users can only clone their own voice samples.")
+        else:
+            samples = []
 
         profile_id = uuid4().hex
         profile = self._with_family_fields(payload, family_id, user_id)
@@ -497,28 +498,28 @@ class SupabaseCloudRepository:
     def create_voice_profile(self, *, family_id: str, user_id: str, payload: dict) -> dict:
         self._require_editor(family_id, user_id)
         sample_ids = list(payload.get("sample_ids") or [])
-        if not sample_ids:
-            raise FamilyNotFoundError("Voice sample not found.")
-        quoted_ids = ",".join(sample_ids)
-        samples = self._request(
-            f"voice_samples?family_id=eq.{family_id}&id=in.({quoted_ids})&select=*",
-            method="GET",
-        )
-        if len(samples) != len(sample_ids):
-            raise FamilyNotFoundError("Voice sample not found.")
-        if any(sample.get("created_by") != user_id for sample in samples):
-            raise FamilyPermissionError("Users can only clone their own voice samples.")
 
         data = dict(payload)
         data.pop("sample_ids", None)
         data["family_id"] = family_id
         data["created_by"] = user_id
         profile = self._request("voice_profiles", method="POST", payload=data)[0]
-        self._request(
-            f"voice_samples?family_id=eq.{family_id}&id=in.({quoted_ids})",
-            method="PATCH",
-            payload={"voice_profile_id": profile["id"], "status": profile.get("status", "ready")},
-        )
+
+        if sample_ids:
+            quoted_ids = ",".join(sample_ids)
+            samples = self._request(
+                f"voice_samples?family_id=eq.{family_id}&id=in.({quoted_ids})&select=*",
+                method="GET",
+            )
+            if len(samples) != len(sample_ids):
+                raise FamilyNotFoundError("Voice sample not found.")
+            if any(sample.get("created_by") != user_id for sample in samples):
+                raise FamilyPermissionError("Users can only clone their own voice samples.")
+            self._request(
+                f"voice_samples?family_id=eq.{family_id}&id=in.({quoted_ids})",
+                method="PATCH",
+                payload={"voice_profile_id": profile["id"], "status": profile.get("status", "ready")},
+            )
         return profile
 
     def _require_member(self, family_id: str, user_id: str) -> FamilyRole:
