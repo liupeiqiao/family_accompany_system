@@ -6,8 +6,10 @@ from fastapi.responses import RedirectResponse
 
 from .handlers import (
     handle_chat,
+    handle_delete_elder,
     handle_delete_family_profile,
     handle_delete_memory,
+    handle_delete_persona,
     handle_import,
     handle_parse,
     handle_records,
@@ -67,3 +69,13 @@ def delete_memory_endpoint(memory_id: str) -> DeleteResponse:
 @app.delete("/api/family-profiles/{name}", response_model=DeleteResponse)
 def delete_family_profile_endpoint(name: str) -> DeleteResponse:
     return handle_delete_family_profile(name)
+
+
+@app.delete("/api/elders/{full_name}", response_model=DeleteResponse)
+def delete_elder_endpoint(full_name: str) -> DeleteResponse:
+    return handle_delete_elder(full_name)
+
+
+@app.delete("/api/personas/{role_label}", response_model=DeleteResponse)
+def delete_persona_endpoint(role_label: str) -> DeleteResponse:
+    return handle_delete_persona(role_label)
