@@ -335,6 +335,19 @@ def test_voices_page_uses_cloud_voice_api_states():
     assert "尚未创建家庭空间" in voices_source
 
 
+def test_elder_chat_page_can_request_voice_replies():
+    elder_source = (ROOT / "web" / "src" / "app" / "elder" / "page.tsx").read_text(
+        encoding="utf-8"
+    )
+
+    assert "fetchCurrentFamily" in elder_source
+    assert "fetchVoiceProfiles" in elder_source
+    assert "voiceEnabled" in elder_source
+    assert "selectedVoiceProfileId" in elder_source
+    assert "voice_profile_id" in elder_source
+    assert "<audio controls" in elder_source
+
+
 def test_family_profile_gender_is_part_of_parse_and_context_contracts():
     parser_source = (ROOT / "llm" / "parser.py").read_text(encoding="utf-8")
     chat_source = (ROOT / "productization" / "chat_service.py").read_text(encoding="utf-8")

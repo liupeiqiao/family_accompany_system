@@ -45,6 +45,11 @@ export type ChatResponse = {
   debug: Record<string, unknown>;
 };
 
+export type TextToSpeechResponse = {
+  provider: string;
+  audio_url: string;
+};
+
 export type FamilyContext = {
   family: {
     id: string;
@@ -285,10 +290,13 @@ export function sendChat(payload: {
   text: string;
   voice_profile_id?: string;
 }): Promise<ChatResponse> {
-  return requestJson<ChatResponse>("/api/chat", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
+  return requestJson<ChatResponse>(
+    "/api/chat",
+    withUser({
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  );
 }
 
 export function cloneVoice(payload: {
@@ -307,9 +315,16 @@ export function cloneVoice(payload: {
   );
 }
 
-export function synthesizeSpeech(payload: Record<string, unknown>): Promise<Record<string, unknown>> {
-  return requestJson<Record<string, unknown>>("/api/tts", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
+export function synthesizeSpeech(payload: {
+  family_id: string;
+  voice_profile_id: string;
+  text: string;
+}): Promise<TextToSpeechResponse> {
+  return requestJson<TextToSpeechResponse>(
+    "/api/tts",
+    withUser({
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  );
 }

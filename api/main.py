@@ -28,6 +28,7 @@ from .handlers import (
     handle_list_voice_samples,
     handle_parse,
     handle_records,
+    handle_tts,
     handle_update_cloud_family_profile,
     handle_update_cloud_memory,
     handle_update_cloud_persona,
@@ -44,6 +45,8 @@ from .schemas import (
     ParseRequest,
     ParseResponse,
     RecordsResponse,
+    TextToSpeechCreateRequest,
+    TextToSpeechCreateResponse,
     VoiceCloneCreateRequest,
     VoiceUploadIntentRequest,
 )
@@ -200,6 +203,14 @@ def clone_voice_endpoint(
     x_user_id: str = Header(default="demo-user", alias="X-User-Id"),
 ) -> dict:
     return handle_clone_voice(request, x_user_id)
+
+
+@app.post("/api/tts", response_model=TextToSpeechCreateResponse)
+def text_to_speech_endpoint(
+    request: TextToSpeechCreateRequest,
+    x_user_id: str = Header(default="demo-user", alias="X-User-Id"),
+) -> TextToSpeechCreateResponse:
+    return handle_tts(request, x_user_id)
 
 
 @app.post("/api/parse", response_model=ParseResponse)

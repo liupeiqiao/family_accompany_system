@@ -79,6 +79,17 @@ class VoiceCloneCreateRequest(BaseModel):
     sample_source: str = "upload"
 
 
+class TextToSpeechCreateRequest(BaseModel):
+    family_id: str
+    voice_profile_id: str
+    text: str
+
+
+class TextToSpeechCreateResponse(BaseModel):
+    provider: str
+    audio_url: str
+
+
 class ChatRequest(BaseModel):
     family_id: str = Field(default="local")
     elder_id: str = ""

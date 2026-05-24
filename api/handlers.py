@@ -15,7 +15,13 @@ from productization.cloud_repository import (
     get_cloud_repository,
 )
 from productization.family_context_service import build_family_chat_context
-from productization.voice import MockVoiceProvider, VoiceCloneRequest, VoiceConsentError, VoiceProvider
+from productization.voice import (
+    MockVoiceProvider,
+    TextToSpeechRequest,
+    VoiceCloneRequest,
+    VoiceConsentError,
+    VoiceProvider,
+)
 
 from .schemas import (
     ChatRequest,
@@ -29,6 +35,8 @@ from .schemas import (
     ParseRequest,
     ParseResponse,
     RecordsResponse,
+    TextToSpeechCreateRequest,
+    TextToSpeechCreateResponse,
     VoiceCloneCreateRequest,
     VoiceUploadIntentRequest,
 )
@@ -369,6 +377,43 @@ def handle_clone_voice(request: VoiceCloneCreateRequest, user_id: str) -> dict:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+def _get_ready_voice_profile(family_id: str, user_id: str, voice_profile_id: str) -> dict:
+    profiles = get_cloud_repository().list_voice_profiles(family_id=family_id, user_id=user_id)
+    for profile in profiles:
+        if profile.get("id") == voice_profile_id:
+            if profile.get("status") != "ready":
+                raise FamilyPermissionError("Voice profile is not ready.")
+            return profile
+    raise FamilyNotFoundError("Voice profile not found.")
+
+
+def _synthesize_with_profile(*, family_id: str, user_id: str, voice_profile_id: str, text: str) -> dict:
+    profile = _get_ready_voice_profile(family_id, user_id, voice_profile_id)
+    result = get_voice_provider().synthesize(
+        TextToSpeechRequest(
+            family_id=family_id,
+            voice_profile_id=str(profile.get("provider_voice_id") or profile["id"]),
+            text=text,
+        )
+    )
+    return {"provider": result.provider, "audio_url": result.audio_path}
+
+
+def handle_tts(request: TextToSpeechCreateRequest, user_id: str) -> TextToSpeechCreateResponse:
+    try:
+        result = _call_cloud(
+            lambda: _synthesize_with_profile(
+                family_id=request.family_id,
+                user_id=user_id,
+                voice_profile_id=request.voice_profile_id,
+                text=request.text,
+            )
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return TextToSpeechCreateResponse(**result)
+
+
 def handle_delete_memory(memory_id: str) -> DeleteResponse:
     db.init_db()
     db.delete_memory(memory_id)
@@ -440,10 +485,24 @@ def handle_chat(request: ChatRequest, user_id: str = "demo-user") -> ChatRespons
         result = generate_chat_reply(request.text, context=context)
     else:
         result = generate_chat_reply(request.text)
+    debug = dict(result.debug)
+    audio_url = result.audio_url
+    if request.family_id and request.family_id != "local" and request.voice_profile_id:
+        try:
+            tts_result = _synthesize_with_profile(
+                family_id=request.family_id,
+                user_id=user_id,
+                voice_profile_id=request.voice_profile_id,
+                text=result.text,
+            )
+            audio_url = tts_result["audio_url"]
+            debug["tts_provider"] = tts_result["provider"]
+        except Exception as exc:
+            debug["tts_error"] = str(exc)
     return ChatResponse(
         text=result.text,
-        audio_url=result.audio_url,
-        debug=result.debug,
+        audio_url=audio_url,
+        debug=debug,
     )
 
 

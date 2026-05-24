@@ -445,9 +445,16 @@ button:disabled {
   width: 18px;
 }
 
+.voiceReplyControl {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(160px, auto) minmax(0, 1fr);
+}
+
 @media (max-width: 720px) {
   .profileSummaryHeader,
-  .memorySummaryHeader {
+  .memorySummaryHeader,
+  .voiceReplyControl {
     grid-template-columns: 1fr;
   }
 
