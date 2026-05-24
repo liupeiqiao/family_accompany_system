@@ -45,6 +45,25 @@ export type ChatResponse = {
   debug: Record<string, unknown>;
 };
 
+export type FamilyContext = {
+  family: {
+    id: string;
+    name: string;
+    created_by?: string;
+  };
+  membership: {
+    id: string;
+    family_id: string;
+    user_id: string;
+    role: "owner" | "editor" | "viewer";
+  };
+};
+
+export type CloudRecord = Record<string, unknown> & {
+  id?: string;
+  family_id?: string;
+};
+
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
@@ -59,6 +78,111 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   }
 
   return response.json() as Promise<T>;
+}
+
+function withUser(init?: RequestInit): RequestInit {
+  return {
+    ...init,
+    headers: {
+      "X-User-Id": "demo-user",
+      ...init?.headers,
+    },
+  };
+}
+
+export function fetchCurrentFamily(): Promise<FamilyContext> {
+  return requestJson<FamilyContext>("/api/family/current", withUser());
+}
+
+export function createFamily(payload: { name: string }): Promise<FamilyContext> {
+  return requestJson<FamilyContext>(
+    "/api/family",
+    withUser({
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  );
+}
+
+export function fetchCloudElder(familyId: string): Promise<CloudRecord> {
+  return requestJson<CloudRecord>(
+    `/api/elders/current?family_id=${encodeURIComponent(familyId)}`,
+    withUser(),
+  );
+}
+
+export function saveCloudElder(payload: CloudRecord & { family_id: string }): Promise<CloudRecord> {
+  return requestJson<CloudRecord>(
+    "/api/elders/current",
+    withUser({
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
+  );
+}
+
+export function fetchCloudFamilyProfiles(familyId: string): Promise<CloudRecord[]> {
+  return requestJson<CloudRecord[]>(
+    `/api/family-profiles?family_id=${encodeURIComponent(familyId)}`,
+    withUser(),
+  );
+}
+
+export function createCloudFamilyProfile(payload: CloudRecord & { family_id: string }): Promise<CloudRecord> {
+  return requestJson<CloudRecord>(
+    "/api/family-profiles",
+    withUser({
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  );
+}
+
+export function updateCloudFamilyProfile(
+  profileId: string,
+  payload: CloudRecord & { family_id: string },
+): Promise<CloudRecord> {
+  return requestJson<CloudRecord>(
+    `/api/family-profiles/${encodeURIComponent(profileId)}`,
+    withUser({
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
+  );
+}
+
+export function fetchCloudMemories(familyId: string): Promise<CloudRecord[]> {
+  return requestJson<CloudRecord[]>(
+    `/api/memories?family_id=${encodeURIComponent(familyId)}`,
+    withUser(),
+  );
+}
+
+export function createCloudMemory(payload: CloudRecord & { family_id: string }): Promise<CloudRecord> {
+  return requestJson<CloudRecord>(
+    "/api/memories",
+    withUser({
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  );
+}
+
+export function fetchCloudPersonas(familyId: string): Promise<CloudRecord[]> {
+  return requestJson<CloudRecord[]>(
+    `/api/personas?family_id=${encodeURIComponent(familyId)}`,
+    withUser(),
+  );
+}
+
+export function createCloudPersona(payload: CloudRecord & { family_id: string }): Promise<CloudRecord> {
+  return requestJson<CloudRecord>(
+    "/api/personas",
+    withUser({
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  );
 }
 
 export function parseProfileText(payload: {

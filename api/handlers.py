@@ -3,15 +3,24 @@ from __future__ import annotations
 import re
 from uuid import uuid4
 
+from fastapi import HTTPException
+
 from engine import db
 from engine.family import normalize_family_relation
 from llm.parser import dedup_check, parse_user_text
 from productization.chat_service import generate_chat_reply
+from productization.cloud_repository import (
+    FamilyNotFoundError,
+    FamilyPermissionError,
+    get_cloud_repository,
+)
 
 from .schemas import (
     ChatRequest,
     ChatResponse,
     DeleteResponse,
+    FamilyCreateRequest,
+    FamilyCurrentResponse,
     ImportCounts,
     ImportRequest,
     ImportResponse,
@@ -140,6 +149,148 @@ def handle_records() -> RecordsResponse:
     )
 
 
+def _raise_cloud_http_error(error: Exception) -> None:
+    if isinstance(error, FamilyPermissionError):
+        raise HTTPException(status_code=403, detail=str(error)) from error
+    if isinstance(error, FamilyNotFoundError):
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    raise error
+
+
+def _call_cloud(operation):
+    try:
+        return operation()
+    except Exception as exc:
+        _raise_cloud_http_error(exc)
+
+
+def _extract_family_payload(payload: dict) -> tuple[str, dict]:
+    data = dict(payload)
+    family_id = str(data.pop("family_id", "")).strip()
+    if not family_id:
+        raise HTTPException(status_code=400, detail="family_id is required.")
+    return family_id, data
+
+
+def handle_get_current_family(user_id: str) -> FamilyCurrentResponse:
+    result = _call_cloud(lambda: get_cloud_repository().get_current_family(user_id=user_id))
+    return FamilyCurrentResponse(**result)
+
+
+def handle_create_family(request: FamilyCreateRequest, user_id: str) -> FamilyCurrentResponse:
+    repo = get_cloud_repository()
+
+    def operation():
+        family = repo.create_family(name=request.name, user_id=user_id)
+        return repo.get_current_family(user_id=user_id) | {"family": family}
+
+    return FamilyCurrentResponse(**_call_cloud(operation))
+
+
+def handle_get_cloud_elder_current(family_id: str, user_id: str) -> dict:
+    return _call_cloud(
+        lambda: get_cloud_repository().get_elder_current(family_id=family_id, user_id=user_id)
+    )
+
+
+def handle_upsert_cloud_elder_current(payload: dict, user_id: str) -> dict:
+    family_id, data = _extract_family_payload(payload)
+    return _call_cloud(
+        lambda: get_cloud_repository().upsert_elder_current(
+            family_id=family_id,
+            user_id=user_id,
+            payload=data,
+        )
+    )
+
+
+def handle_list_cloud_family_profiles(family_id: str, user_id: str) -> list[dict]:
+    return _call_cloud(
+        lambda: get_cloud_repository().list_family_profiles(family_id=family_id, user_id=user_id)
+    )
+
+
+def handle_create_cloud_family_profile(payload: dict, user_id: str) -> dict:
+    family_id, data = _extract_family_payload(payload)
+    return _call_cloud(
+        lambda: get_cloud_repository().create_family_profile(
+            family_id=family_id,
+            user_id=user_id,
+            payload=data,
+        )
+    )
+
+
+def handle_update_cloud_family_profile(profile_id: str, payload: dict, user_id: str) -> dict:
+    family_id, data = _extract_family_payload(payload)
+    return _call_cloud(
+        lambda: get_cloud_repository().update_family_profile(
+            family_id=family_id,
+            user_id=user_id,
+            profile_id=profile_id,
+            payload=data,
+        )
+    )
+
+
+def handle_list_cloud_memories(family_id: str, user_id: str) -> list[dict]:
+    return _call_cloud(
+        lambda: get_cloud_repository().list_memories(family_id=family_id, user_id=user_id)
+    )
+
+
+def handle_create_cloud_memory(payload: dict, user_id: str) -> dict:
+    family_id, data = _extract_family_payload(payload)
+    return _call_cloud(
+        lambda: get_cloud_repository().create_memory(
+            family_id=family_id,
+            user_id=user_id,
+            payload=data,
+        )
+    )
+
+
+def handle_update_cloud_memory(memory_id: str, payload: dict, user_id: str) -> dict:
+    family_id, data = _extract_family_payload(payload)
+    return _call_cloud(
+        lambda: get_cloud_repository().update_memory(
+            family_id=family_id,
+            user_id=user_id,
+            memory_id=memory_id,
+            payload=data,
+        )
+    )
+
+
+def handle_list_cloud_personas(family_id: str, user_id: str) -> list[dict]:
+    return _call_cloud(
+        lambda: get_cloud_repository().list_personas(family_id=family_id, user_id=user_id)
+    )
+
+
+def handle_create_cloud_persona(payload: dict, user_id: str) -> dict:
+    family_id, data = _extract_family_payload(payload)
+    return _call_cloud(
+        lambda: get_cloud_repository().create_persona(
+            family_id=family_id,
+            user_id=user_id,
+            payload=data,
+        )
+    )
+
+
+def handle_update_cloud_persona(persona_id: str, payload: dict, user_id: str) -> dict:
+    family_id, data = _extract_family_payload(payload)
+    return _call_cloud(
+        lambda: get_cloud_repository().update_persona(
+            family_id=family_id,
+            user_id=user_id,
+            persona_id=persona_id,
+            payload=data,
+        )
+    )
+
+
 def handle_delete_memory(memory_id: str) -> DeleteResponse:
     db.init_db()
     db.delete_memory(memory_id)
@@ -161,6 +312,32 @@ def handle_delete_elder(full_name: str) -> DeleteResponse:
 def handle_delete_persona(role_label: str) -> DeleteResponse:
     db.init_db()
     db.delete_persona(role_label)
+    return DeleteResponse(ok=True)
+
+
+def handle_delete_cloud_memory(memory_id: str, family_id: str, user_id: str) -> DeleteResponse:
+    _call_cloud(
+        lambda: get_cloud_repository().delete_memory(
+            family_id=family_id,
+            user_id=user_id,
+            memory_id=memory_id,
+        )
+    )
+    return DeleteResponse(ok=True)
+
+
+def handle_delete_cloud_family_profile(
+    profile_id: str,
+    family_id: str,
+    user_id: str,
+) -> DeleteResponse:
+    _call_cloud(
+        lambda: get_cloud_repository().delete_family_profile(
+            family_id=family_id,
+            user_id=user_id,
+            profile_id=profile_id,
+        )
+    )
     return DeleteResponse(ok=True)
 
 

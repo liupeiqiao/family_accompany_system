@@ -79,6 +79,26 @@ a {
   max-width: 760px;
 }
 
+.familyStatus {
+  display: grid;
+  gap: 16px;
+  max-width: 760px;
+}
+
+.familyStatus h2 {
+  margin: 0 0 8px;
+}
+
+.familyNameField {
+  display: grid;
+  gap: 6px;
+  max-width: 420px;
+}
+
+.familyNameField span {
+  font-weight: 700;
+}
+
 .chat {
   display: grid;
   gap: 16px;

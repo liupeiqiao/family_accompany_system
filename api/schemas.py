@@ -56,6 +56,15 @@ class DeleteResponse(BaseModel):
     ok: bool = True
 
 
+class FamilyCreateRequest(BaseModel):
+    name: str = "我的家庭"
+
+
+class FamilyCurrentResponse(BaseModel):
+    family: dict = Field(default_factory=dict)
+    membership: dict = Field(default_factory=dict)
+
+
 class ChatRequest(BaseModel):
     family_id: str = Field(default="local")
     elder_id: str = ""
