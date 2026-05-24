@@ -135,6 +135,8 @@ export default function RecordsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingRecords, setIsLoadingRecords] = useState(true);
   const [isSavingRecords, setIsSavingRecords] = useState(false);
+  const [expandedSavedSection, setExpandedSavedSection] = useState<"elder" | "persona" | null>(null);
+  const [expandedFamilyIndex, setExpandedFamilyIndex] = useState<number | null>(null);
   const [expandedMemoryIndex, setExpandedMemoryIndex] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -148,6 +150,8 @@ export default function RecordsPage() {
     try {
       const records = await fetchRecords();
       setSavedDraft(cloneDraft(records));
+      setExpandedSavedSection(null);
+      setExpandedFamilyIndex(null);
       setExpandedMemoryIndex(null);
     } catch {
       setRecordsError("无法加载已保存数据，请确认 API 服务已启动。");
@@ -303,6 +307,7 @@ export default function RecordsPage() {
         ...current,
         family_profiles: current.family_profiles.filter((_, itemIndex) => itemIndex !== index),
       }));
+      setExpandedFamilyIndex(null);
       setRecordsSuccess("已删除家人档案。");
     } catch {
       setRecordsError("删除家人档案失败，请稍后重试。");
@@ -453,22 +458,38 @@ export default function RecordsPage() {
           <p className="emptyState">正在加载已保存数据...</p>
         ) : hasDraft(savedDraft) ? (
           <div className="previewGrid">
-            <EditableObject
+            <SavedProfileObject
               title="老人画像"
               data={savedDraft.elder_profile}
               fields={elderFields}
+              summaryKeys={["full_name", "gender", "personality", "preferences"]}
+              isExpanded={expandedSavedSection === "elder"}
+              onToggle={() =>
+                setExpandedSavedSection((current) => (current === "elder" ? null : "elder"))
+              }
               onChange={(key, value) => updateTopLevel("saved", "elder_profile", key, value)}
             />
-            <EditableObject
+            <SavedProfileObject
               title="AI 扮演角色"
               data={savedDraft.persona}
               fields={personaFields}
+              summaryKeys={["role_label", "relation", "appellation", "personality"]}
+              isExpanded={expandedSavedSection === "persona"}
+              onToggle={() =>
+                setExpandedSavedSection((current) =>
+                  current === "persona" ? null : "persona",
+                )
+              }
               onChange={(key, value) => updateTopLevel("saved", "persona", key, value)}
             />
-            <EditableList
+            <SavedProfileList
               title="家人档案"
               items={savedDraft.family_profiles}
               fields={familyFields}
+              expandedIndex={expandedFamilyIndex}
+              onToggle={(index) =>
+                setExpandedFamilyIndex((current) => (current === index ? null : index))
+              }
               onChange={(index, key, value) =>
                 updateListItem("saved", "family_profiles", index, key, value)
               }
@@ -566,6 +587,138 @@ function EditableList({
             </div>
           </article>
         ))}
+      </div>
+    </section>
+  );
+}
+
+function profileMeta(item: DraftObject, keys: readonly string[]): string[] {
+  return keys.map((key) => valueToText(item[key])).filter(Boolean);
+}
+
+function SavedProfileObject({
+  title,
+  data,
+  fields,
+  summaryKeys,
+  isExpanded,
+  onToggle,
+  onChange,
+}: {
+  title: string;
+  data: DraftObject;
+  fields: readonly (readonly [string, string])[];
+  summaryKeys: readonly string[];
+  isExpanded: boolean;
+  onToggle: () => void;
+  onChange: (key: string, value: string) => void;
+}) {
+  const meta = profileMeta(data, summaryKeys);
+
+  return (
+    <section className="importSection profileSummary">
+      <div className="profileSummaryHeader">
+        <div>
+          <h2>{title}</h2>
+          {meta.length > 0 ? (
+            <div className="profileMeta">
+              {meta.map((text) => (
+                <span key={text}>{text}</span>
+              ))}
+            </div>
+          ) : (
+            <p className="emptyState">暂无内容。</p>
+          )}
+        </div>
+        <button className="button buttonSecondary" type="button" onClick={onToggle}>
+          {isExpanded ? "收起" : "展开编辑"}
+        </button>
+      </div>
+
+      {isExpanded ? (
+        <div className="fieldGrid profileEditor">
+          {fields.map(([key, label]) => (
+            <label key={key}>
+              <span>{label}</span>
+              <input value={valueToText(data[key])} onChange={(event) => onChange(key, event.target.value)} />
+            </label>
+          ))}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function SavedProfileList({
+  title,
+  items,
+  fields,
+  expandedIndex,
+  onToggle,
+  onChange,
+  onDelete,
+}: {
+  title: string;
+  items: DraftObject[];
+  fields: readonly (readonly [string, string])[];
+  expandedIndex: number | null;
+  onToggle: (index: number) => void;
+  onChange: (index: number, key: string, value: string) => void;
+  onDelete: (index: number) => void;
+}) {
+  return (
+    <section className="importSection wide">
+      <h2>{title}</h2>
+      {items.length === 0 ? <p className="emptyState">暂无内容。</p> : null}
+      <div className="profileList">
+        {items.map((item, index) => {
+          const isExpanded = expandedIndex === index;
+          const name = valueToText(item.name) || `${title} ${index + 1}`;
+          const meta = profileMeta(item, ["gender", "relation", "personality", "preferences"]);
+
+          return (
+            <article className="profileSummary" key={`${title}-${index}`}>
+              <div className="profileSummaryHeader">
+                <div>
+                  <strong>{name}</strong>
+                  {meta.length > 0 ? (
+                    <div className="profileMeta">
+                      {meta.map((text) => (
+                        <span key={text}>{text}</span>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+                <div className="memoryActions">
+                  <button
+                    className="button buttonSecondary"
+                    type="button"
+                    onClick={() => onToggle(index)}
+                  >
+                    {isExpanded ? "收起" : "展开编辑"}
+                  </button>
+                  <button className="button buttonDanger" type="button" onClick={() => onDelete(index)}>
+                    删除
+                  </button>
+                </div>
+              </div>
+
+              {isExpanded ? (
+                <div className="fieldGrid profileEditor">
+                  {fields.map(([key, label]) => (
+                    <label key={key}>
+                      <span>{label}</span>
+                      <input
+                        value={valueToText(item[key])}
+                        onChange={(event) => onChange(index, key, event.target.value)}
+                      />
+                    </label>
+                  ))}
+                </div>
+              ) : null}
+            </article>
+          );
+        })}
       </div>
     </section>
   );

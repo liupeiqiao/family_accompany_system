@@ -204,6 +204,22 @@ def test_saved_memories_use_collapsed_summary_cards():
     assert ".memoryMeta" in css_source
 
 
+def test_saved_profiles_use_collapsed_summary_cards():
+    records_source = (ROOT / "web" / "src" / "app" / "records" / "page.tsx").read_text(
+        encoding="utf-8"
+    )
+    css_source = (ROOT / "web" / "src" / "app" / "globals.css").read_text(encoding="utf-8")
+
+    assert "function SavedProfileObject" in records_source
+    assert "function SavedProfileList" in records_source
+    assert "expandedSavedSection" in records_source
+    assert "expandedFamilyIndex" in records_source
+    assert "profileSummary" in records_source
+    assert "profileMeta" in records_source
+    assert ".profileSummary" in css_source
+    assert ".profileMeta" in css_source
+
+
 def test_web_app_has_supabase_and_backend_api_boundaries():
     supabase_source = (ROOT / "web" / "src" / "lib" / "supabase.ts").read_text(
         encoding="utf-8"

@@ -247,6 +247,49 @@ button:disabled {
   padding: 14px;
 }
 
+.profileList {
+  display: grid;
+  gap: 10px;
+}
+
+.profileSummary {
+  background: #fffdf8;
+}
+
+.profileSummaryHeader {
+  align-items: flex-start;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.profileSummaryHeader h2 {
+  margin-bottom: 0;
+}
+
+.profileMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.profileMeta span {
+  background: #f6efe5;
+  border: 1px solid #dfcfba;
+  border-radius: 999px;
+  color: #5c402b;
+  font-size: 13px;
+  line-height: 1.4;
+  padding: 4px 8px;
+}
+
+.profileEditor {
+  border-top: 1px solid #e3d6c5;
+  margin-top: 14px;
+  padding-top: 14px;
+}
+
 .memoryList {
   display: grid;
   gap: 10px;
@@ -327,6 +370,7 @@ button:disabled {
 }
 
 @media (max-width: 720px) {
+  .profileSummaryHeader,
   .memorySummaryHeader {
     grid-template-columns: 1fr;
   }
