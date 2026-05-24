@@ -269,6 +269,18 @@ def handle_delete_family_profile(name: str) -> DeleteResponse:
     return DeleteResponse(ok=True)
 
 
+def handle_delete_elder(full_name: str) -> DeleteResponse:
+    db.init_db()
+    db.delete_elder(full_name)
+    return DeleteResponse(ok=True)
+
+
+def handle_delete_persona(role_label: str) -> DeleteResponse:
+    db.init_db()
+    db.delete_persona(role_label)
+    return DeleteResponse(ok=True)
+
+
 def handle_chat(request: ChatRequest) -> ChatResponse:
     result = generate_chat_reply(request.text)
     return ChatResponse(
