@@ -14,6 +14,7 @@ from productization.cloud_repository import (
     FamilyPermissionError,
     get_cloud_repository,
 )
+from productization.family_context_service import build_family_chat_context
 
 from .schemas import (
     ChatRequest,
@@ -341,8 +342,27 @@ def handle_delete_cloud_family_profile(
     return DeleteResponse(ok=True)
 
 
-def handle_chat(request: ChatRequest) -> ChatResponse:
-    result = generate_chat_reply(request.text)
+def handle_chat(request: ChatRequest, user_id: str = "demo-user") -> ChatResponse:
+    if request.family_id and request.family_id != "local":
+        try:
+            context = build_family_chat_context(
+                repo=get_cloud_repository(),
+                family_id=request.family_id,
+                user_id=user_id,
+            )
+        except Exception as exc:
+            if isinstance(exc, (FamilyPermissionError, FamilyNotFoundError)):
+                return ChatResponse(
+                    text="我这边暂时没读到家里的资料，您先慢慢说，我在听。",
+                    debug={
+                        "context_source": "cloud",
+                        "cloud_context_error": str(exc),
+                    },
+                )
+            raise
+        result = generate_chat_reply(request.text, context=context)
+    else:
+        result = generate_chat_reply(request.text)
     return ChatResponse(
         text=result.text,
         audio_url=result.audio_url,

@@ -170,8 +170,11 @@ def parse_endpoint(request: ParseRequest) -> ParseResponse:
 
 
 @app.post("/api/chat", response_model=ChatResponse)
-def chat_endpoint(request: ChatRequest) -> ChatResponse:
-    return handle_chat(request)
+def chat_endpoint(
+    request: ChatRequest,
+    x_user_id: str = Header(default="demo-user", alias="X-User-Id"),
+) -> ChatResponse:
+    return handle_chat(request, x_user_id)
 
 
 @app.post("/api/import", response_model=ImportResponse)

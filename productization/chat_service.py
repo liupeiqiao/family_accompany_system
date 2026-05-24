@@ -43,6 +43,14 @@ class ChatResult:
 
 
 @dataclass
+class ChatContext:
+    personas: dict[str, PersonaProfile] = field(default_factory=dict)
+    memories: list[MemoryUnit] = field(default_factory=list)
+    families: dict[str, FamilyProfile] = field(default_factory=dict)
+    elder: ElderProfile = field(default_factory=ElderProfile)
+
+
+@dataclass
 class PersonaSelection:
     role_label: str
     reason: str
@@ -54,16 +62,26 @@ def generate_chat_reply(
     *,
     chat_fn: ChatFn | None = None,
     weights: dict | None = None,
+    context: ChatContext | None = None,
 ) -> ChatResult:
-    init_db()
     llm = chat_fn or llm_client.chat
     active_weights = weights or DEFAULT_WEIGHTS
 
-    personas = _load_personas()
+    if context is None:
+        init_db()
+        personas = _load_personas()
+        memories = _load_memories()
+        families = _load_family_profiles()
+        elder = _load_elder()
+        context_source = "local"
+    else:
+        personas = context.personas
+        memories = context.memories
+        families = context.families
+        elder = context.elder
+        context_source = "cloud"
+
     persona = _select_default_persona(personas)
-    memories = _load_memories()
-    families = _load_family_profiles()
-    elder = _load_elder()
 
     intent_result = _analyze_intent(user_input, llm)
     intent = intent_result.get("intent", "日常闲聊")
@@ -117,6 +135,7 @@ def generate_chat_reply(
     response = _generate_safe_response(user_input, persona, elder, strategy, memory_context, mentioned_context, family_context, llm, system_prompt)
 
     debug = {
+        "context_source": context_source,
         "intent": intent,
         "emotion": emotion,
         "talk_to": selected.role_label if selected.reason != "default" else talk_to,
