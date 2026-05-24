@@ -67,6 +67,8 @@ web/.next/
 
 # Local Python packages (accidental pip install in project dir)
 Lib/
+!web/src/lib/
+!web/src/lib/*.ts
 Scripts/
 !scripts/
 !scripts/*.py

@@ -412,7 +412,7 @@ def test_import_merges_family_profile_by_dedup_action(tmp_path, monkeypatch):
     assert profile["personality"] == ["稳重", "细心"]
     assert profile["preferences"] == ["做饭", "钓鱼"]
     assert profile["habits"] == ["周末回家"]
-    assert profile["notes"] == "常打电话"
+    assert profile["notes"] == "住得近\n常打电话"
 
 
 def test_import_merges_persona_by_dedup_action(tmp_path, monkeypatch):
@@ -505,6 +505,101 @@ def test_import_skips_memory_by_dedup_action(tmp_path, monkeypatch):
     assert len(memories) == 1
     assert memories[0]["id"] == "mem-existing"
 
+
+def test_import_handler_merges_existing_family_profile_without_overwriting(tmp_path, monkeypatch):
+    from api.handlers import handle_import
+    from api.schemas import ImportRequest
+    from engine import db
+
+    monkeypatch.chdir(tmp_path)
+    db.init_db()
+    db.save_family_profile(
+        {
+            "name": "刘承文",
+            "gender": "男",
+            "relation": "儿子",
+            "personality": ["稳重"],
+            "preferences": ["喝茶"],
+            "habits": ["周末来探望"],
+            "relations": [],
+            "notes": "住得近",
+        }
+    )
+
+    handle_import(
+        ImportRequest(
+            family_id="local",
+            family_profiles=[
+                {
+                    "name": "刘承文",
+                    "gender": "男",
+                    "relation": "子女",
+                    "personality": ["开朗"],
+                    "preferences": ["做面食"],
+                    "habits": [],
+                    "relations": ["宋桂兰的儿子"],
+                    "notes": "",
+                }
+            ],
+        )
+    )
+
+    profile = db.load_all_family_profiles()[0]
+
+    assert profile["relation"] == "儿子"
+    assert profile["personality"] == ["稳重", "开朗"]
+    assert profile["preferences"] == ["喝茶", "做面食"]
+    assert profile["habits"] == ["周末来探望"]
+    assert profile["relations"] == ["宋桂兰的儿子"]
+    assert profile["notes"] == "住得近"
+
+def test_import_handler_normalizes_persona_relation_from_role_label(tmp_path, monkeypatch):
+    from api.handlers import handle_import
+    from api.schemas import ImportRequest
+    from engine import db
+
+    monkeypatch.chdir(tmp_path)
+
+    handle_import(
+        ImportRequest(
+            family_id="local",
+            persona={
+                "role_label": "儿子刘承文",
+                "relation": "子女",
+                "appellation": "妈",
+                "personality": ["大条"],
+            },
+        )
+    )
+
+    assert db.load_persona()["relation"] == "儿子"
+
+def test_parse_handler_reports_existing_records_that_will_merge(tmp_path, monkeypatch):
+    from api.handlers import handle_parse
+    from api.schemas import ParseRequest
+    from engine import db
+
+    monkeypatch.chdir(tmp_path)
+    db.init_db()
+    db.save_family_profile({"name": "刘承文", "gender": "男", "relation": "儿子"})
+
+    def fake_parse_user_text(text: str, perspective: str, existing_families_text: str):
+        assert "刘承文" in existing_families_text
+        return {
+            "persona": {"role_label": "儿子刘承文", "relation": "子女", "appellation": "妈"},
+            "family_profiles": [{"name": "刘承文", "gender": "男", "relation": "子女"}],
+            "memories": [],
+            "elder_profile": {},
+        }
+
+    monkeypatch.setattr("api.handlers.parse_user_text", fake_parse_user_text)
+
+    result = handle_parse(ParseRequest(family_id="local", text="刘承文性格开朗"))
+
+    assert result.persona["relation"] == "儿子"
+    assert result.family_profiles[0]["relation"] == "儿子"
+    assert "家人档案「刘承文」将合并到已有档案" in result.merge_preview
+    assert "AI 角色「儿子刘承文」将合并到已有家人档案「刘承文」" in result.merge_preview
 
 def test_fastapi_import_endpoint_saves_payload(tmp_path, monkeypatch):
     from fastapi.testclient import TestClient

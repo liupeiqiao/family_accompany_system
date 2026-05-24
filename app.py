@@ -668,7 +668,7 @@ with st.sidebar:
                 with c2:
                     if st.button("🗑️ 删除", key="btn_del_elder", use_container_width=True):
                         set_elder(ElderProfile())
-                        db_delete_elder()
+                        db_delete_elder(elder.full_name)
                         for k in list(st.session_state.keys()):
                             if k.startswith("e_") or k.startswith("prev_elder"): st.session_state.pop(k, None)
                         st.rerun()

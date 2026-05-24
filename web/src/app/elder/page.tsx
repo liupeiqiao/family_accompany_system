@@ -54,7 +54,7 @@ export default function ElderChatPage() {
         id: Date.now() + 1,
         role: "assistant",
         content: reply.text,
-        audioUrl: reply.audio_url,
+        audioUrl: reply.audio_url ?? undefined,
       };
       setMessages((current) => [...current, assistantMessage]);
     } catch {

@@ -297,6 +297,17 @@ def load_elder() -> dict | None:
     conn.close()
     if row is None:
         return None
+    return _row_to_elder_dict(row)
+
+
+def load_all_elders() -> list[dict]:
+    conn = _connect()
+    rows = conn.execute("SELECT * FROM elder_profile ORDER BY full_name").fetchall()
+    conn.close()
+    return [_row_to_elder_dict(row) for row in rows]
+
+
+def _row_to_elder_dict(row) -> dict:
     return {
         "full_name": row["full_name"],
         "gender": row["gender"] if "gender" in row.keys() else "",
@@ -311,8 +322,8 @@ def load_elder() -> dict | None:
     }
 
 
-def delete_elder() -> None:
+def delete_elder(full_name: str) -> None:
     conn = _connect()
-    conn.execute("DELETE FROM elder_profile")
+    conn.execute("DELETE FROM elder_profile WHERE full_name = ?", (full_name,))
     conn.commit()
     conn.close()

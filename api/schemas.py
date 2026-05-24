@@ -17,14 +17,17 @@ class ParseResponse(BaseModel):
     family_profiles: list[dict] = Field(default_factory=list)
     elder_profile: dict = Field(default_factory=dict)
     dedup: dict = Field(default_factory=dict)
+    merge_preview: list[str] = Field(default_factory=list)
 
 
 class ImportRequest(BaseModel):
     family_id: str = Field(default="local")
     persona: dict = Field(default_factory=dict)
+    personas: list[dict] = Field(default_factory=list)
     memories: list[dict] = Field(default_factory=list)
     family_profiles: list[dict] = Field(default_factory=list)
     elder_profile: dict = Field(default_factory=dict)
+    elder_profiles: list[dict] = Field(default_factory=list)
     dedup: dict = Field(default_factory=dict)
 
 
@@ -38,6 +41,19 @@ class ImportCounts(BaseModel):
 class ImportResponse(BaseModel):
     ok: bool = True
     imported: ImportCounts = Field(default_factory=ImportCounts)
+
+
+class RecordsResponse(BaseModel):
+    persona: dict = Field(default_factory=dict)
+    personas: list[dict] = Field(default_factory=list)
+    elder_profile: dict = Field(default_factory=dict)
+    elder_profiles: list[dict] = Field(default_factory=list)
+    family_profiles: list[dict] = Field(default_factory=list)
+    memories: list[dict] = Field(default_factory=list)
+
+
+class DeleteResponse(BaseModel):
+    ok: bool = True
 
 
 class ChatRequest(BaseModel):
