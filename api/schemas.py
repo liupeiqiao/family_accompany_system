@@ -16,6 +16,7 @@ class ParseResponse(BaseModel):
     memories: list[dict] = Field(default_factory=list)
     family_profiles: list[dict] = Field(default_factory=list)
     elder_profile: dict = Field(default_factory=dict)
+    merge_preview: list[str] = Field(default_factory=list)
 
 
 class ImportRequest(BaseModel):

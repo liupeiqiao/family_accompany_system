@@ -220,6 +220,20 @@ def test_saved_profiles_use_collapsed_summary_cards():
     assert ".profileMeta" in css_source
 
 
+def test_records_page_shows_parse_merge_preview():
+    records_source = (ROOT / "web" / "src" / "app" / "records" / "page.tsx").read_text(
+        encoding="utf-8"
+    )
+    backend_source = (ROOT / "web" / "src" / "lib" / "backend-api.ts").read_text(
+        encoding="utf-8"
+    )
+
+    assert "merge_preview?: string[]" in backend_source
+    assert "mergePreview" in records_source
+    assert "合并提示" in records_source
+    assert "mergeNotice" in records_source
+
+
 def test_web_app_has_supabase_and_backend_api_boundaries():
     supabase_source = (ROOT / "web" / "src" / "lib" / "supabase.ts").read_text(
         encoding="utf-8"

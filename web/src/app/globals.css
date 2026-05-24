@@ -230,6 +230,26 @@ button:disabled {
   grid-column: 1 / -1;
 }
 
+.mergeNotice {
+  background: #f1f5f2;
+  border: 1px solid #c7d4c7;
+  border-radius: 8px;
+  color: #253d2d;
+  grid-column: 1 / -1;
+  padding: 16px 18px;
+}
+
+.mergeNotice h2 {
+  font-size: 20px;
+  margin: 0 0 10px;
+}
+
+.mergeNotice ul {
+  line-height: 1.7;
+  margin: 0;
+  padding-left: 22px;
+}
+
 .fieldGrid {
   display: grid;
   gap: 12px;

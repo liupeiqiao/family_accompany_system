@@ -8,6 +8,7 @@ export type ParsedDraft = {
   elder_profile: DraftObject;
   family_profiles: DraftObject[];
   memories: DraftObject[];
+  merge_preview?: string[];
 };
 
 export type ImportResponse = {

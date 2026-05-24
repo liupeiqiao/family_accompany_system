@@ -142,6 +142,7 @@ export default function RecordsPage() {
   const [success, setSuccess] = useState("");
   const [recordsError, setRecordsError] = useState("");
   const [recordsSuccess, setRecordsSuccess] = useState("");
+  const [mergePreview, setMergePreview] = useState<string[]>([]);
 
   async function loadSavedRecords() {
     setIsLoadingRecords(true);
@@ -173,6 +174,7 @@ export default function RecordsPage() {
     setIsParsing(true);
     setError("");
     setSuccess("");
+    setMergePreview([]);
 
     try {
       const parsed = await parseProfileText({
@@ -181,6 +183,7 @@ export default function RecordsPage() {
         perspective,
       });
       setDraft(parsed);
+      setMergePreview(parsed.merge_preview ?? []);
       if (!hasDraft(parsed)) {
         setError("暂时没有解析出可导入内容，请补充资料后再试。");
       }
@@ -395,6 +398,16 @@ export default function RecordsPage() {
 
         {hasDraft(draft) ? (
           <div className="previewGrid">
+            {mergePreview.length > 0 ? (
+              <section className="mergeNotice">
+                <h2>合并提示</h2>
+                <ul>
+                  {mergePreview.map((message) => (
+                    <li key={message}>{message}</li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
             <EditableObject
               title="老人画像"
               data={draft.elder_profile}
