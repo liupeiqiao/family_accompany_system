@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import re
 from uuid import uuid4
 
@@ -406,9 +407,19 @@ def _synthesize_with_profile(*, family_id: str, user_id: str, voice_profile_id: 
             family_id=family_id,
             voice_profile_id=str(profile.get("provider_voice_id") or ""),
             text=text,
+            is_cloned_voice=_is_cloned_voice_profile(profile),
         )
     )
     return {"provider": result.provider, "audio_url": result.audio_path}
+
+
+def _is_cloned_voice_profile(profile: dict) -> bool:
+    if str(profile.get("provider", "")).lower() != "doubao":
+        return False
+    provider_voice_id = str(profile.get("provider_voice_id") or "")
+    if provider_voice_id and provider_voice_id != os.getenv("DOUBAO_TTS_DEFAULT_VOICE_TYPE", ""):
+        return True
+    return str(profile.get("sample_source", "")).lower() != "preset"
 
 
 def handle_tts(request: TextToSpeechCreateRequest, user_id: str) -> TextToSpeechCreateResponse:

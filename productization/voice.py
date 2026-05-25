@@ -44,6 +44,7 @@ class TextToSpeechRequest:
     family_id: str
     voice_profile_id: str
     text: str
+    is_cloned_voice: bool = False
 
 
 @dataclass(frozen=True)
@@ -266,7 +267,11 @@ class DoubaoVoiceProvider:
             method="POST",
             headers={
                 "X-Api-Key": self._config.api_key,
-                "X-Api-Resource-Id": _doubao_resource_id_for_speaker(speaker, self._config),
+                "X-Api-Resource-Id": _doubao_resource_id_for_speaker(
+                    speaker,
+                    self._config,
+                    is_cloned_voice=request.is_cloned_voice,
+                ),
                 "X-Api-Request-Id": reqid,
                 "Content-Type": "application/json",
                 "Accept": "text/event-stream",
@@ -303,7 +308,14 @@ def _audio_mime_type(encoding: str) -> str:
     }.get(encoding, "audio/mpeg")
 
 
-def _doubao_resource_id_for_speaker(speaker: str, config: DoubaoTTSConfig) -> str:
+def _doubao_resource_id_for_speaker(
+    speaker: str,
+    config: DoubaoTTSConfig,
+    *,
+    is_cloned_voice: bool = False,
+) -> str:
+    if is_cloned_voice:
+        return config.clone_resource_id
     normalized = speaker.strip().lower()
     if normalized.startswith(("s_", "icl_", "custom_")):
         return config.clone_resource_id

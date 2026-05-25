@@ -228,6 +228,16 @@ export default function VoicesPage() {
                 录制
               </button>
             </div>
+            <div>
+              <label htmlFor="prompt-text" style={{ display: "block", marginBottom: 6 }}>朗读文本</label>
+              <textarea
+                id="prompt-text"
+                onChange={(event) => setPromptText(event.target.value)}
+                placeholder="可选；如果用户按固定文本朗读，在这里填写用于 WER 校验。"
+                rows={3}
+                value={promptText}
+              />
+            </div>
             <button type="submit" disabled={!canWrite || isCreatingSample || !filename.trim()}>
               {isCreatingSample ? "上传中..." : "创建上传路径"}
             </button>
@@ -282,14 +292,22 @@ export default function VoicesPage() {
               </select>
             </label>
             {speakerMode === "custom" ? (
-              <label>
-                <span>后付费自定义音色 ID</span>
-                <input
-                  onChange={(event) => setCustomSpeakerId(event.target.value)}
-                  placeholder="例如 family_voice_001"
-                  value={customSpeakerId}
-                />
-              </label>
+              <>
+                <label>
+                  <span>后付费自定义音色 ID</span>
+                  <input
+                    onChange={(event) => setCustomSpeakerId(event.target.value)}
+                    placeholder="例如 family_voice_001"
+                    value={customSpeakerId}
+                  />
+                </label>
+                <p className="helperText">
+                  至少 8 位，以字母开头，只能包含字母、数字、-、_，且不能以 - 或 _ 结尾。
+                  {customSpeakerId.trim() && !isValidCustomSpeakerId(customSpeakerId.trim()) ? (
+                    <span className="errorText"> 当前输入不符合规则。</span>
+                  ) : null}
+                </p>
+              </>
             ) : (
               <label>
                 <span>预付费 speaker_id</span>
@@ -300,14 +318,6 @@ export default function VoicesPage() {
                 />
               </label>
             )}
-            <label>
-              <span>朗读文本</span>
-              <textarea
-                onChange={(event) => setPromptText(event.target.value)}
-                placeholder="可选；如果你让用户按固定文本朗读，在这里填写用于 WER 校验。"
-                value={promptText}
-              />
-            </label>
             <label>
               <span>试听文本</span>
               <input

@@ -349,6 +349,7 @@ def test_elder_chat_page_can_request_voice_replies():
     assert "voiceEnabled" in elder_source
     assert "selectedVoiceProfileId" in elder_source
     assert "voice_profile_id" in elder_source
+    assert "provider_voice_id" in elder_source
     assert "<audio controls" in elder_source
 
 

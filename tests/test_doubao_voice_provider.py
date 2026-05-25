@@ -182,6 +182,43 @@ def test_doubao_provider_uses_icl_resource_for_custom_cloned_speaker():
     assert normalized_headers["x-api-resource-id"] == "seed-icl-2.0"
 
 
+def test_doubao_provider_uses_icl_resource_when_request_marks_cloned_voice():
+    from productization.voice import DoubaoTTSConfig, DoubaoVoiceProvider, TextToSpeechRequest
+
+    captured = {}
+
+    def fake_urlopen(request, timeout):
+        captured["headers"] = dict(request.header_items())
+        return FakeResponse(
+            b'event: message\n'
+            b'data: {"code":0,"message":"","data":"ZmFrZQ=="}\n\n'
+            b'event: message\n'
+            b'data: {"code":20000000,"message":"OK","data":null}\n\n'
+        )
+
+    provider = DoubaoVoiceProvider(
+        DoubaoTTSConfig(
+            api_key="api-key",
+            resource_id="seed-tts-2.0",
+            clone_resource_id="seed-icl-2.0",
+            default_voice_type="zh_female_vv_uranus_bigtts",
+        ),
+        opener=fake_urlopen,
+    )
+
+    provider.synthesize(
+        TextToSpeechRequest(
+            family_id="family-1",
+            voice_profile_id="MyVoicelpq",
+            text="hello",
+            is_cloned_voice=True,
+        )
+    )
+
+    normalized_headers = {key.lower(): value for key, value in captured["headers"].items()}
+    assert normalized_headers["x-api-resource-id"] == "seed-icl-2.0"
+
+
 def test_doubao_provider_creates_voice_clone_with_v3_api():
     from productization.voice import DoubaoTTSConfig, DoubaoVoiceProvider, VoiceCloneRequest
 
