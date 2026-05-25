@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from urllib.error import HTTPError
 
 import pytest
 
@@ -248,6 +249,40 @@ def test_doubao_provider_creates_voice_clone_with_v3_api():
     assert result.provider_voice_id == "custom_family_voice_001"
     assert result.audit["status"] == "2"
     assert result.audit["model_types"] == "4"
+
+
+def test_doubao_provider_reports_voice_clone_http_error_body():
+    from io import BytesIO
+
+    from productization.voice import DoubaoTTSConfig, DoubaoVoiceProvider, VoiceCloneRequest
+
+    def fake_urlopen(request, timeout):
+        raise HTTPError(
+            request.full_url,
+            400,
+            "Bad Request",
+            {},
+            BytesIO(b'{"code":45001105,"message":"audio decode failed"}'),
+        )
+
+    provider = DoubaoVoiceProvider(
+        DoubaoTTSConfig(api_key="api-key", default_voice_type="zh_female_vv_uranus_bigtts"),
+        opener=fake_urlopen,
+    )
+
+    with pytest.raises(ValueError, match="45001105"):
+        provider.create_clone(
+            VoiceCloneRequest(
+                family_id="family-1",
+                created_by="owner",
+                sample_paths=[],
+                consent_confirmed=True,
+                sample_source="upload",
+                audio_data_base64="bad-audio",
+                audio_format="mp3",
+                custom_speaker_id="custom_family_voice_001",
+            )
+        )
 
 
 def test_voice_provider_factory_uses_mock_by_default(monkeypatch):

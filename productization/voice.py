@@ -5,6 +5,7 @@ import json
 import os
 from dataclasses import dataclass
 from typing import Protocol
+from urllib.error import HTTPError, URLError
 from urllib import request as urlrequest
 from uuid import uuid4
 
@@ -193,8 +194,13 @@ class DoubaoVoiceProvider:
                 "Content-Type": "application/json",
             },
         )
-        with self._opener(http_request, timeout=60) as response:
-            response_payload = json.loads(response.read().decode("utf-8"))
+        try:
+            with self._opener(http_request, timeout=60) as response:
+                response_payload = json.loads(response.read().decode("utf-8"))
+        except HTTPError as exc:
+            raise ValueError(_format_doubao_http_error("voice clone", exc)) from exc
+        except URLError as exc:
+            raise ValueError(f"Doubao voice clone network error: {exc.reason}") from exc
 
         status = response_payload.get("status")
         if status not in {2, 4, "2", "4"}:
@@ -293,6 +299,17 @@ def _doubao_resource_id_for_speaker(speaker: str, config: DoubaoTTSConfig) -> st
     if normalized.startswith(("s_", "icl_", "custom_")):
         return config.clone_resource_id
     return config.resource_id
+
+
+def _format_doubao_http_error(operation: str, exc: HTTPError) -> str:
+    raw = exc.read().decode("utf-8", errors="replace")
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError:
+        payload = {}
+    code = payload.get("code", exc.code)
+    message = payload.get("message", raw or exc.reason)
+    return f"Doubao {operation} failed: {code} {message}".strip()
 
 
 def _parse_doubao_sse_audio(raw: str) -> str:

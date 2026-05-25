@@ -300,6 +300,7 @@ def test_web_app_has_supabase_and_backend_api_boundaries():
     assert "DedupSuggestion" in backend_source
     assert "memory_actions" in backend_source
     assert "response.status" in backend_source
+    assert "response.text()" in backend_source
     assert "status" in backend_source
 
 
