@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import json
 import os
+import re
 from dataclasses import dataclass
 from typing import Protocol
 from urllib.error import HTTPError, URLError
@@ -161,6 +162,14 @@ class DoubaoVoiceProvider:
             speaker_id = "custom_speaker_id"
         if not speaker_id:
             raise ValueError("Doubao voice cloning requires speaker_id or custom_speaker_id.")
+        if custom_speaker_id:
+            _validate_doubao_custom_speaker_id(custom_speaker_id)
+            speaker_id = "custom_speaker_id"
+        elif not _is_doubao_reserved_clone_speaker_id(speaker_id):
+            raise ValueError(
+                "Invalid Doubao speaker_id. For postpaid custom voices, send "
+                'speaker_id="custom_speaker_id" and put the real name in custom_speaker_id.'
+            )
 
         payload: dict[str, object] = {
             "speaker_id": speaker_id,
@@ -299,6 +308,29 @@ def _doubao_resource_id_for_speaker(speaker: str, config: DoubaoTTSConfig) -> st
     if normalized.startswith(("s_", "icl_", "custom_")):
         return config.clone_resource_id
     return config.resource_id
+
+
+def _is_doubao_reserved_clone_speaker_id(speaker_id: str) -> bool:
+    normalized = speaker_id.strip().lower()
+    return normalized.startswith(("s_", "icl_")) or normalized == "custom_speaker_id"
+
+
+def _validate_doubao_custom_speaker_id(custom_speaker_id: str) -> None:
+    if len(custom_speaker_id) < 8:
+        raise ValueError("Doubao custom_speaker_id must be at least 8 characters.")
+    if len(custom_speaker_id) > 256:
+        raise ValueError("Doubao custom_speaker_id must be at most 256 characters.")
+    if not re.match(r"^[A-Za-z][A-Za-z0-9_-]*[A-Za-z0-9]$", custom_speaker_id):
+        raise ValueError(
+            "Doubao custom_speaker_id must start with a letter and contain only letters, "
+            "numbers, hyphen, or underscore; it cannot end with hyphen or underscore."
+        )
+    forbidden = re.compile(
+        r"^((s_|icl_|mix_|dit_|bv)|[a-z]{2}_|.*_(bigtts|bigtts_cc|tob|cs_tob|streaming)$)",
+        re.IGNORECASE,
+    )
+    if forbidden.match(custom_speaker_id):
+        raise ValueError("Doubao custom_speaker_id conflicts with reserved speaker naming rules.")
 
 
 def _format_doubao_http_error(operation: str, exc: HTTPError) -> str:

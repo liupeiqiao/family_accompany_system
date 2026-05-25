@@ -22,6 +22,7 @@ export default function VoicesPage() {
   const [displayName, setDisplayName] = useState("我的声音");
   const [sampleSource, setSampleSource] = useState<"upload" | "recording">("upload");
   const [selectedAudioFile, setSelectedAudioFile] = useState<File | null>(null);
+  const [speakerMode, setSpeakerMode] = useState<"custom" | "prepaid">("custom");
   const [speakerId, setSpeakerId] = useState("");
   const [customSpeakerId, setCustomSpeakerId] = useState("");
   const [promptText, setPromptText] = useState("");
@@ -103,7 +104,14 @@ export default function VoicesPage() {
       }
       const audioDataBase64 = await readFileAsBase64(selectedAudioFile);
       const audioFormat = audioFormatFromFilename(selectedAudioFile.name);
-      const nextSpeakerId = customSpeakerId.trim() ? "custom_speaker_id" : speakerId.trim();
+      const nextCustomSpeakerId = customSpeakerId.trim();
+      const nextSpeakerId = speakerMode === "custom" ? "custom_speaker_id" : speakerId.trim();
+      if (speakerMode === "custom" && !isValidCustomSpeakerId(nextCustomSpeakerId)) {
+        throw new Error("后付费自定义音色 ID 必须至少 8 位，以字母开头，只能包含字母、数字、-、_，且不能以 - 或 _ 结尾。");
+      }
+      if (speakerMode === "prepaid" && !isValidPrepaidSpeakerId(nextSpeakerId)) {
+        throw new Error("预付费 speaker_id 通常应为 S_ 或 icl_ 开头。后付费请切换到自定义音色 ID。");
+      }
       const profile = await cloneVoice({
         family_id: familyContext.family.id,
         display_name: displayName.trim() || "我的声音",
@@ -113,7 +121,7 @@ export default function VoicesPage() {
         audio_data_base64: audioDataBase64,
         audio_format: audioFormat,
         speaker_id: nextSpeakerId,
-        custom_speaker_id: customSpeakerId.trim(),
+        custom_speaker_id: speakerMode === "custom" ? nextCustomSpeakerId : "",
         prompt_text: promptText.trim(),
         language,
         demo_text: demoText.trim(),
@@ -264,23 +272,34 @@ export default function VoicesPage() {
               />
             </label>
             <label>
-              <span>预付费 speaker_id</span>
-              <input
-                disabled={Boolean(customSpeakerId.trim())}
-                onChange={(event) => setSpeakerId(event.target.value)}
-                placeholder="例如 S_example"
-                value={speakerId}
-              />
+              <span>音色创建方式</span>
+              <select
+                onChange={(event) => setSpeakerMode(event.target.value as "custom" | "prepaid")}
+                value={speakerMode}
+              >
+                <option value="custom">后付费自定义音色 ID</option>
+                <option value="prepaid">预付费 speaker_id</option>
+              </select>
             </label>
-            <label>
-              <span>后付费自定义音色 ID</span>
-              <input
-                disabled={Boolean(speakerId.trim())}
-                onChange={(event) => setCustomSpeakerId(event.target.value)}
-                placeholder="例如 custom_family_voice_001"
-                value={customSpeakerId}
-              />
-            </label>
+            {speakerMode === "custom" ? (
+              <label>
+                <span>后付费自定义音色 ID</span>
+                <input
+                  onChange={(event) => setCustomSpeakerId(event.target.value)}
+                  placeholder="例如 family_voice_001"
+                  value={customSpeakerId}
+                />
+              </label>
+            ) : (
+              <label>
+                <span>预付费 speaker_id</span>
+                <input
+                  onChange={(event) => setSpeakerId(event.target.value)}
+                  placeholder="例如 S_example"
+                  value={speakerId}
+                />
+              </label>
+            )}
             <label>
               <span>朗读文本</span>
               <textarea
@@ -338,7 +357,13 @@ export default function VoicesPage() {
             </label>
             <button
               type="submit"
-              disabled={!canWrite || isCloning || !selectedAudioFile || !consentConfirmed || (!speakerId.trim() && !customSpeakerId.trim())}
+              disabled={
+                !canWrite ||
+                isCloning ||
+                !selectedAudioFile ||
+                !consentConfirmed ||
+                (speakerMode === "custom" ? !customSpeakerId.trim() : !speakerId.trim())
+              }
             >
               {isCloning ? "训练中..." : "创建豆包复刻音色"}
             </button>
@@ -375,6 +400,14 @@ function readFileAsBase64(file: File): Promise<string> {
 function audioFormatFromFilename(filename: string): string {
   const extension = filename.split(".").pop()?.toLowerCase() ?? "";
   return extension || "wav";
+}
+
+function isValidCustomSpeakerId(value: string): boolean {
+  return /^[A-Za-z][A-Za-z0-9_-]{6,254}[A-Za-z0-9]$/.test(value);
+}
+
+function isValidPrepaidSpeakerId(value: string): boolean {
+  return /^(S_|icl_)/i.test(value);
 }
 
 function VoiceList({

@@ -285,6 +285,58 @@ def test_doubao_provider_reports_voice_clone_http_error_body():
         )
 
 
+def test_doubao_provider_rejects_invalid_direct_speaker_id_before_request():
+    from productization.voice import DoubaoTTSConfig, DoubaoVoiceProvider, VoiceCloneRequest
+
+    def fake_urlopen(request, timeout):
+        raise AssertionError("invalid speaker id should not call Doubao")
+
+    provider = DoubaoVoiceProvider(
+        DoubaoTTSConfig(api_key="api-key", default_voice_type="zh_female_vv_uranus_bigtts"),
+        opener=fake_urlopen,
+    )
+
+    with pytest.raises(ValueError, match="custom_speaker_id"):
+        provider.create_clone(
+            VoiceCloneRequest(
+                family_id="family-1",
+                created_by="owner",
+                sample_paths=[],
+                consent_confirmed=True,
+                sample_source="upload",
+                audio_data_base64="ZmFrZS13YXY=",
+                audio_format="mp3",
+                speaker_id="111",
+            )
+        )
+
+
+def test_doubao_provider_rejects_invalid_custom_speaker_id_before_request():
+    from productization.voice import DoubaoTTSConfig, DoubaoVoiceProvider, VoiceCloneRequest
+
+    def fake_urlopen(request, timeout):
+        raise AssertionError("invalid custom speaker id should not call Doubao")
+
+    provider = DoubaoVoiceProvider(
+        DoubaoTTSConfig(api_key="api-key", default_voice_type="zh_female_vv_uranus_bigtts"),
+        opener=fake_urlopen,
+    )
+
+    with pytest.raises(ValueError, match="at least 8"):
+        provider.create_clone(
+            VoiceCloneRequest(
+                family_id="family-1",
+                created_by="owner",
+                sample_paths=[],
+                consent_confirmed=True,
+                sample_source="upload",
+                audio_data_base64="ZmFrZS13YXY=",
+                audio_format="mp3",
+                custom_speaker_id="111",
+            )
+        )
+
+
 def test_voice_provider_factory_uses_mock_by_default(monkeypatch):
     from productization.voice import MockVoiceProvider, get_voice_provider_from_env
 
