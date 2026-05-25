@@ -21,6 +21,13 @@ export default function VoicesPage() {
   const [filename, setFilename] = useState("");
   const [displayName, setDisplayName] = useState("我的声音");
   const [sampleSource, setSampleSource] = useState<"upload" | "recording">("upload");
+  const [selectedAudioFile, setSelectedAudioFile] = useState<File | null>(null);
+  const [speakerId, setSpeakerId] = useState("");
+  const [customSpeakerId, setCustomSpeakerId] = useState("");
+  const [promptText, setPromptText] = useState("");
+  const [demoText, setDemoText] = useState("妈，我在呢。");
+  const [language, setLanguage] = useState(0);
+  const [enableAudioDenoise, setEnableAudioDenoise] = useState(false);
   const [consentConfirmed, setConsentConfirmed] = useState(false);
   const [selectedSampleId, setSelectedSampleId] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -84,19 +91,33 @@ export default function VoicesPage() {
 
   async function onCloneVoice(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!familyContext || !selectedSampleId) {
+    if (!familyContext || !selectedAudioFile) {
       return;
     }
     setIsCloning(true);
     setError("");
     setMessage("");
     try {
+      if (selectedAudioFile.size > 10 * 1024 * 1024) {
+        throw new Error("声音样本不能超过 10MB。");
+      }
+      const audioDataBase64 = await readFileAsBase64(selectedAudioFile);
+      const audioFormat = audioFormatFromFilename(selectedAudioFile.name);
+      const nextSpeakerId = customSpeakerId.trim() ? "custom_speaker_id" : speakerId.trim();
       const profile = await cloneVoice({
         family_id: familyContext.family.id,
         display_name: displayName.trim() || "我的声音",
-        sample_ids: [selectedSampleId],
+        sample_ids: selectedSampleId ? [selectedSampleId] : [],
         consent_confirmed: consentConfirmed,
         sample_source: sampleSource,
+        audio_data_base64: audioDataBase64,
+        audio_format: audioFormat,
+        speaker_id: nextSpeakerId,
+        custom_speaker_id: customSpeakerId.trim(),
+        prompt_text: promptText.trim(),
+        language,
+        demo_text: demoText.trim(),
+        enable_audio_denoise: enableAudioDenoise,
       });
       setProfiles((current) => [profile, ...current]);
       setSamples((current) =>
@@ -106,7 +127,7 @@ export default function VoicesPage() {
             : sample,
         ),
       );
-      setMessage("Mock 声音档案已创建，可用于后续语音回复接入。");
+      setMessage("豆包声音复刻已创建，可用于语音回复。");
     } catch (err) {
       setError(err instanceof Error ? err.message : "创建声音档案失败");
     } finally {
@@ -145,7 +166,7 @@ export default function VoicesPage() {
     <main className="shell">
       <section className="sectionHeader">
         <h1>声音克隆</h1>
-        <p>上传或录制本人的授权声音样本，先用 mock provider 跑通声音档案流程。</p>
+        <p>上传或录制本人的授权声音样本，调用豆包 V3 声音复刻训练接口创建可合成音色。</p>
       </section>
 
       <div className="actions">
@@ -228,15 +249,78 @@ export default function VoicesPage() {
           </form>
 
           <form className="importSection" onSubmit={onCloneVoice}>
-            <h2>Mock 克隆</h2>
+            <h2>真实声音复刻</h2>
+            <p className="helperText">建议上传 14-30 秒、低噪声、单人、单轨 wav/mp3 音频，文件不超过 10MB。</p>
             <label>
               <span>声音档案名</span>
               <input value={displayName} onChange={(event) => setDisplayName(event.target.value)} />
             </label>
             <label>
-              <span>选择样本</span>
+              <span>声音文件</span>
+              <input
+                accept=".wav,.mp3,.ogg,.m4a,.aac,.pcm,audio/*"
+                onChange={(event) => setSelectedAudioFile(event.target.files?.[0] ?? null)}
+                type="file"
+              />
+            </label>
+            <label>
+              <span>预付费 speaker_id</span>
+              <input
+                disabled={Boolean(customSpeakerId.trim())}
+                onChange={(event) => setSpeakerId(event.target.value)}
+                placeholder="例如 S_example"
+                value={speakerId}
+              />
+            </label>
+            <label>
+              <span>后付费自定义音色 ID</span>
+              <input
+                disabled={Boolean(speakerId.trim())}
+                onChange={(event) => setCustomSpeakerId(event.target.value)}
+                placeholder="例如 custom_family_voice_001"
+                value={customSpeakerId}
+              />
+            </label>
+            <label>
+              <span>朗读文本</span>
+              <textarea
+                onChange={(event) => setPromptText(event.target.value)}
+                placeholder="可选；如果你让用户按固定文本朗读，在这里填写用于 WER 校验。"
+                value={promptText}
+              />
+            </label>
+            <label>
+              <span>试听文本</span>
+              <input
+                onChange={(event) => setDemoText(event.target.value)}
+                placeholder="4-300 字，建议贴近陪伴场景"
+                value={demoText}
+              />
+            </label>
+            <label>
+              <span>语种</span>
+              <select onChange={(event) => setLanguage(Number(event.target.value))} value={language}>
+                <option value={0}>中文</option>
+                <option value={1}>英文</option>
+                <option value={2}>日语</option>
+                <option value={3}>西班牙语</option>
+                <option value={4}>印尼语</option>
+                <option value={5}>葡萄牙语</option>
+                <option value={8}>韩语</option>
+              </select>
+            </label>
+            <label className="voiceConsent">
+              <input
+                checked={enableAudioDenoise}
+                onChange={(event) => setEnableAudioDenoise(event.target.checked)}
+                type="checkbox"
+              />
+              <span>样本噪声较大时启用降噪；音频质量好时建议关闭以保留相似度。</span>
+            </label>
+            <label>
+              <span>关联样本记录</span>
               <select value={selectedSampleId} onChange={(event) => setSelectedSampleId(event.target.value)}>
-                <option value="">请选择样本</option>
+                <option value="">不关联</option>
                 {samples.map((sample) => (
                   <option key={sample.id} value={sample.id}>
                     {sample.storage_path}
@@ -252,8 +336,11 @@ export default function VoicesPage() {
               />
               <span>我确认这是我本人的声音，并用于本家庭空间的语音陪伴。</span>
             </label>
-            <button type="submit" disabled={!canWrite || isCloning || !selectedSampleId}>
-              {isCloning ? "生成中..." : "创建 mock 声音档案"}
+            <button
+              type="submit"
+              disabled={!canWrite || isCloning || !selectedAudioFile || !consentConfirmed || (!speakerId.trim() && !customSpeakerId.trim())}
+            >
+              {isCloning ? "训练中..." : "创建豆包复刻音色"}
             </button>
           </form>
 
@@ -271,6 +358,23 @@ export default function VoicesPage() {
       ) : null}
     </main>
   );
+}
+
+function readFileAsBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("读取声音文件失败"));
+    reader.onload = () => {
+      const result = String(reader.result ?? "");
+      resolve(result.includes(",") ? result.split(",", 2)[1] : result);
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function audioFormatFromFilename(filename: string): string {
+  const extension = filename.split(".").pop()?.toLowerCase() ?? "";
+  return extension || "wav";
 }
 
 function VoiceList({

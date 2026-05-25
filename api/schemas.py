@@ -77,6 +77,14 @@ class VoiceCloneCreateRequest(BaseModel):
     sample_ids: list[str] = Field(default_factory=list)
     consent_confirmed: bool = False
     sample_source: str = "upload"  # upload / recording / preset
+    audio_data_base64: str = ""
+    audio_format: str = "wav"
+    speaker_id: str = ""
+    custom_speaker_id: str = ""
+    prompt_text: str = ""
+    language: int = 0
+    demo_text: str = ""
+    enable_audio_denoise: bool | None = None
 
 
 class TextToSpeechCreateRequest(BaseModel):

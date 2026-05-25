@@ -333,6 +333,9 @@ def test_voices_page_uses_cloud_voice_api_states():
     assert "isCloning" in voices_source
     assert "pending_upload" in voices_source
     assert "尚未创建家庭空间" in voices_source
+    assert "FileReader" in voices_source
+    assert "customSpeakerId" in voices_source
+    assert "promptText" in voices_source
 
 
 def test_elder_chat_page_can_request_voice_replies():

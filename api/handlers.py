@@ -359,6 +359,14 @@ def handle_clone_voice(request: VoiceCloneCreateRequest, user_id: str) -> dict:
                 sample_paths=sample_paths,
                 consent_confirmed=request.consent_confirmed,
                 sample_source=sample_source,
+                audio_data_base64=request.audio_data_base64,
+                audio_format=request.audio_format,
+                speaker_id=request.speaker_id,
+                custom_speaker_id=request.custom_speaker_id,
+                text=request.prompt_text,
+                language=request.language,
+                demo_text=request.demo_text,
+                enable_audio_denoise=request.enable_audio_denoise,
             )
         )
         return repo.create_voice_profile(

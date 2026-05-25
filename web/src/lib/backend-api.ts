@@ -305,6 +305,14 @@ export function cloneVoice(payload: {
   sample_ids: string[];
   consent_confirmed: boolean;
   sample_source?: "upload" | "recording" | "preset";
+  audio_data_base64?: string;
+  audio_format?: string;
+  speaker_id?: string;
+  custom_speaker_id?: string;
+  prompt_text?: string;
+  language?: number;
+  demo_text?: string;
+  enable_audio_denoise?: boolean;
 }): Promise<VoiceProfile> {
   return requestJson<VoiceProfile>(
     "/api/voices/clone",

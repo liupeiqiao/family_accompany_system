@@ -20,6 +20,14 @@ class VoiceCloneRequest:
     sample_paths: list[str]
     consent_confirmed: bool
     sample_source: str
+    audio_data_base64: str = ""
+    audio_format: str = ""
+    speaker_id: str = ""
+    custom_speaker_id: str = ""
+    text: str = ""
+    language: int = 0
+    demo_text: str = ""
+    enable_audio_denoise: bool | None = None
 
 
 @dataclass(frozen=True)
@@ -83,7 +91,9 @@ class DoubaoTTSConfig:
     api_key: str
     default_voice_type: str
     resource_id: str = "seed-tts-2.0"
+    clone_resource_id: str = "seed-icl-2.0"
     endpoint: str = "https://openspeech.bytedance.com/api/v3/tts/unidirectional/sse"
+    clone_endpoint: str = "https://openspeech.bytedance.com/api/v3/tts/voice_clone"
     encoding: str = "mp3"
     sample_rate: int = 24000
     speech_rate: int = 0
@@ -98,9 +108,14 @@ class DoubaoTTSConfig:
             api_key=api_key,
             default_voice_type=voice_type,
             resource_id=os.getenv("DOUBAO_TTS_RESOURCE_ID", "seed-tts-2.0"),
+            clone_resource_id=os.getenv("DOUBAO_TTS_CLONE_RESOURCE_ID", "seed-icl-2.0"),
             endpoint=os.getenv(
                 "DOUBAO_TTS_ENDPOINT",
                 "https://openspeech.bytedance.com/api/v3/tts/unidirectional/sse",
+            ).rstrip(),
+            clone_endpoint=os.getenv(
+                "DOUBAO_VOICE_CLONE_ENDPOINT",
+                "https://openspeech.bytedance.com/api/v3/tts/voice_clone",
             ).rstrip(),
             encoding=os.getenv("DOUBAO_TTS_ENCODING", "mp3"),
             sample_rate=int(os.getenv("DOUBAO_TTS_SAMPLE_RATE", "24000")),
@@ -124,10 +139,10 @@ class DoubaoVoiceProvider:
     def create_clone(self, request: VoiceCloneRequest) -> VoiceCloneResult:
         if not request.consent_confirmed:
             raise VoiceConsentError("Voice cloning requires consent confirmation.")
+        if request.audio_data_base64:
+            return self._create_clone_from_audio(request)
         if request.sample_paths:
-            raise NotImplementedError(
-                "Doubao voice cloning with real samples requires the voice-clone API and sample file upload flow."
-            )
+            raise NotImplementedError("Doubao voice cloning requires inline audio data.")
         return VoiceCloneResult(
             provider=self.provider_name,
             provider_voice_id=self._config.default_voice_type,
@@ -138,12 +153,80 @@ class DoubaoVoiceProvider:
             },
         )
 
+    def _create_clone_from_audio(self, request: VoiceCloneRequest) -> VoiceCloneResult:
+        speaker_id = request.speaker_id.strip()
+        custom_speaker_id = request.custom_speaker_id.strip()
+        if custom_speaker_id and not speaker_id:
+            speaker_id = "custom_speaker_id"
+        if not speaker_id:
+            raise ValueError("Doubao voice cloning requires speaker_id or custom_speaker_id.")
+
+        payload: dict[str, object] = {
+            "speaker_id": speaker_id,
+            "audio": {
+                "data": request.audio_data_base64,
+                "format": request.audio_format or "wav",
+            },
+            "language": request.language,
+        }
+        if custom_speaker_id:
+            payload["custom_speaker_id"] = custom_speaker_id
+        if request.text.strip():
+            payload["text"] = request.text.strip()
+
+        extra_params: dict[str, object] = {}
+        if request.demo_text.strip():
+            extra_params["demo_text"] = request.demo_text.strip()
+        if request.enable_audio_denoise is not None:
+            extra_params["enable_audio_denoise"] = request.enable_audio_denoise
+        if extra_params:
+            payload["extra_params"] = extra_params
+
+        reqid = self._reqid_factory()
+        http_request = urlrequest.Request(
+            self._config.clone_endpoint,
+            data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+            method="POST",
+            headers={
+                "X-Api-Key": self._config.api_key,
+                "X-Api-Request-Id": reqid,
+                "Content-Type": "application/json",
+            },
+        )
+        with self._opener(http_request, timeout=60) as response:
+            response_payload = json.loads(response.read().decode("utf-8"))
+
+        status = response_payload.get("status")
+        if status not in {2, 4, "2", "4"}:
+            message = response_payload.get("message") or "voice clone did not become ready"
+            raise ValueError(f"Doubao voice clone failed: {response_payload.get('code')} {message}".strip())
+
+        provider_voice_id = str(response_payload.get("speaker_id") or custom_speaker_id or speaker_id)
+        model_types = [
+            str(item.get("model_type"))
+            for item in response_payload.get("speaker_status", [])
+            if isinstance(item, dict) and item.get("model_type") is not None
+        ]
+        return VoiceCloneResult(
+            provider=self.provider_name,
+            provider_voice_id=provider_voice_id,
+            audit={
+                "family_id": request.family_id,
+                "created_by": request.created_by,
+                "sample_source": request.sample_source,
+                "status": str(status),
+                "available_training_times": str(response_payload.get("available_training_times", "")),
+                "model_types": ",".join(model_types),
+            },
+        )
+
     def synthesize(self, request: TextToSpeechRequest) -> TextToSpeechResult:
         text = request.text.strip()
         if not text:
             raise ValueError("TTS text cannot be empty.")
 
         reqid = self._reqid_factory()
+        speaker = request.voice_profile_id or self._config.default_voice_type
         audio_params = {
             "format": self._config.encoding,
             "sample_rate": self._config.sample_rate,
@@ -157,7 +240,7 @@ class DoubaoVoiceProvider:
             },
             "req_params": {
                 "text": text,
-                "speaker": request.voice_profile_id or self._config.default_voice_type,
+                "speaker": speaker,
                 "audio_params": audio_params,
             },
         }
@@ -168,7 +251,7 @@ class DoubaoVoiceProvider:
             method="POST",
             headers={
                 "X-Api-Key": self._config.api_key,
-                "X-Api-Resource-Id": self._config.resource_id,
+                "X-Api-Resource-Id": _doubao_resource_id_for_speaker(speaker, self._config),
                 "X-Api-Request-Id": reqid,
                 "Content-Type": "application/json",
                 "Accept": "text/event-stream",
@@ -203,6 +286,13 @@ def _audio_mime_type(encoding: str) -> str:
         "ogg_opus": "audio/ogg",
         "pcm": "audio/pcm",
     }.get(encoding, "audio/mpeg")
+
+
+def _doubao_resource_id_for_speaker(speaker: str, config: DoubaoTTSConfig) -> str:
+    normalized = speaker.strip().lower()
+    if normalized.startswith(("s_", "icl_", "custom_")):
+        return config.clone_resource_id
+    return config.resource_id
 
 
 def _parse_doubao_sse_audio(raw: str) -> str:
