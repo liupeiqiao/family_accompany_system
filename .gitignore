@@ -87,6 +87,8 @@ companion.db
 .env
 .env.*
 !.env.example
+start.ps1
+start.bat
 .claude/
 
 # Streamlit
