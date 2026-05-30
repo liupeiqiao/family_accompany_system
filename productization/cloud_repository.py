@@ -100,6 +100,9 @@ class CloudRepository(Protocol):
     def hide_voice_profile(self, *, family_id: str, user_id: str, profile_id: str) -> None:
         ...
 
+    def delete_voice_profile(self, *, family_id: str, user_id: str, profile_id: str) -> None:
+        ...
+
 
 class InMemoryCloudRepository:
     """Deterministic cloud repository used for local API wiring and tests."""
@@ -303,6 +306,24 @@ class InMemoryCloudRepository:
         profile = self._get_family_record(self._voice_profiles, family_id, profile_id)
         profile["status"] = "hidden"
         profile["updated_by"] = user_id
+
+    def delete_voice_profile(self, *, family_id: str, user_id: str, profile_id: str) -> None:
+        self._require_editor(family_id, user_id)
+        profile = self._get_family_record(self._voice_profiles, family_id, profile_id)
+        voice_type = profile.get("voice_type", "")
+        if voice_type in ("preset", "prepaid"):
+            # Hard delete: remove profile + cascade delete linked samples
+            sample_ids_to_delete = [
+                sid for sid, s in self._voice_samples.items()
+                if s.get("voice_profile_id") == profile_id
+            ]
+            for sid in sample_ids_to_delete:
+                del self._voice_samples[sid]
+            del self._voice_profiles[profile_id]
+        else:
+            # Soft delete (postpaid): hide from list
+            profile["status"] = "hidden"
+            profile["updated_by"] = user_id
 
     def _role_for(self, family_id: str, user_id: str) -> FamilyRole | None:
         membership = self._memberships.get(f"{family_id}:{user_id}")
