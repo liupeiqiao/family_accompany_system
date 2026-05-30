@@ -24,7 +24,7 @@ from .handlers import (
     handle_get_voice_status,
     handle_get_cloud_elder_current,
     handle_get_current_family,
-    handle_hide_voice_profile,
+    handle_delete_voice_profile,
     handle_import,
     handle_clone_voice,
     handle_list_cloud_family_profiles,
@@ -284,12 +284,12 @@ def delete_family_profile_endpoint(
 
 
 @app.delete("/api/voices/profiles/{profile_id}", response_model=DeleteResponse)
-def hide_voice_profile_endpoint(
+def delete_voice_profile_endpoint(
     profile_id: str,
     family_id: str = Query(...),
     x_user_id: str = Depends(current_user_id),
 ) -> DeleteResponse:
-    return handle_hide_voice_profile(profile_id, family_id, x_user_id)
+    return handle_delete_voice_profile(profile_id, family_id, x_user_id)
 
 
 @app.delete("/api/elders/{full_name}", response_model=DeleteResponse)

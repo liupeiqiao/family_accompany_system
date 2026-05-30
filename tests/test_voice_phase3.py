@@ -295,3 +295,102 @@ def test_derive_voice_type_correctly_classifies_requests():
         custom_speaker_id="my_custom_voice_001",
     )
     assert _derive_voice_type(postpaid, "upload") == "postpaid"
+
+
+def test_delete_voice_profile_hard_deletes_preset_and_prepaid(monkeypatch):
+    from fastapi.testclient import TestClient
+    from api.main import app
+    from productization.cloud_repository import InMemoryCloudRepository
+
+    repo = InMemoryCloudRepository()
+    family = repo.create_family(name="Test", user_id="owner")
+
+    sample = repo.create_voice_sample_upload_intent(
+        family_id=family["id"], user_id="owner", filename="test.wav", sample_source="upload"
+    )
+
+    preset = repo.create_voice_profile(
+        family_id=family["id"], user_id="owner",
+        payload={
+            "display_name": "Preset Voice", "provider": "doubao",
+            "provider_voice_id": "BV001", "status": "ready",
+            "consent_confirmed": True, "sample_source": "preset",
+            "sample_ids": [sample["id"]], "voice_type": "preset",
+        },
+    )
+    prepaid = repo.create_voice_profile(
+        family_id=family["id"], user_id="owner",
+        payload={
+            "display_name": "Prepaid Voice", "provider": "doubao",
+            "provider_voice_id": "S_test_001", "status": "ready",
+            "consent_confirmed": True, "sample_source": "upload",
+            "sample_ids": [], "voice_type": "prepaid",
+        },
+    )
+    monkeypatch.setattr("api.handlers.get_cloud_repository", lambda: repo)
+    client = TestClient(app)
+
+    # Hard delete preset
+    resp = client.delete(
+        f"/api/voices/profiles/{preset['id']}?family_id={family['id']}",
+        headers={"X-User-Id": "owner"},
+    )
+    assert resp.status_code == 200
+    profiles_after = client.get(
+        f"/api/voices/profiles?family_id={family['id']}",
+        headers={"X-User-Id": "owner"},
+    )
+    profile_ids = [p["id"] for p in profiles_after.json()]
+    assert preset["id"] not in profile_ids
+    # Linked sample should be cascade-deleted
+    samples = repo.list_voice_samples(family_id=family["id"], user_id="owner")
+    sample_ids = [s["id"] for s in samples]
+    assert sample["id"] not in sample_ids
+
+    # Hard delete prepaid
+    resp2 = client.delete(
+        f"/api/voices/profiles/{prepaid['id']}?family_id={family['id']}",
+        headers={"X-User-Id": "owner"},
+    )
+    assert resp2.status_code == 200
+    profiles_final = client.get(
+        f"/api/voices/profiles?family_id={family['id']}",
+        headers={"X-User-Id": "owner"},
+    )
+    assert prepaid["id"] not in [p["id"] for p in profiles_final.json()]
+
+
+def test_delete_voice_profile_soft_deletes_postpaid(monkeypatch):
+    from fastapi.testclient import TestClient
+    from api.main import app
+    from productization.cloud_repository import InMemoryCloudRepository
+
+    repo = InMemoryCloudRepository()
+    family = repo.create_family(name="Test", user_id="owner")
+    postpaid = repo.create_voice_profile(
+        family_id=family["id"], user_id="owner",
+        payload={
+            "display_name": "Postpaid Voice", "provider": "doubao",
+            "provider_voice_id": "custom_voice_001", "status": "ready",
+            "consent_confirmed": True, "sample_source": "upload",
+            "sample_ids": [], "voice_type": "postpaid",
+        },
+    )
+    monkeypatch.setattr("api.handlers.get_cloud_repository", lambda: repo)
+    client = TestClient(app)
+
+    resp = client.delete(
+        f"/api/voices/profiles/{postpaid['id']}?family_id={family['id']}",
+        headers={"X-User-Id": "owner"},
+    )
+    assert resp.status_code == 200
+    # Profile should be hidden (filtered from list)
+    profiles = client.get(
+        f"/api/voices/profiles?family_id={family['id']}",
+        headers={"X-User-Id": "owner"},
+    )
+    assert profiles.json() == []
+    # But still exists in repo with status "hidden"
+    all_profiles = repo._voice_profiles
+    assert postpaid["id"] in all_profiles
+    assert all_profiles[postpaid["id"]]["status"] == "hidden"

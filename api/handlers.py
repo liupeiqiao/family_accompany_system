@@ -581,9 +581,9 @@ def handle_delete_cloud_family_profile(
     return DeleteResponse(ok=True)
 
 
-def handle_hide_voice_profile(profile_id: str, family_id: str, user_id: str) -> DeleteResponse:
+def handle_delete_voice_profile(profile_id: str, family_id: str, user_id: str) -> DeleteResponse:
     _call_cloud(
-        lambda: get_cloud_repository().hide_voice_profile(
+        lambda: get_cloud_repository().delete_voice_profile(
             family_id=family_id,
             user_id=user_id,
             profile_id=profile_id,
