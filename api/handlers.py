@@ -531,6 +531,15 @@ def handle_tts(request: TextToSpeechCreateRequest, user_id: str) -> TextToSpeech
     return TextToSpeechCreateResponse(**result)
 
 
+def handle_list_chat_history(family_id: str, user_id: str) -> list[dict]:
+    return _call_cloud(
+        lambda: get_cloud_repository().list_chat_messages(
+            family_id=family_id,
+            user_id=user_id,
+        )
+    )
+
+
 def handle_delete_memory(memory_id: str) -> DeleteResponse:
     db.init_db()
     db.delete_memory(memory_id)
@@ -627,6 +636,19 @@ def handle_chat(request: ChatRequest, user_id: str = "demo-user") -> ChatRespons
             debug["tts_provider"] = tts_result["provider"]
         except Exception as exc:
             debug["tts_error"] = str(exc)
+    if request.family_id and request.family_id != "local":
+        try:
+            get_cloud_repository().record_chat_exchange(
+                family_id=request.family_id,
+                user_id=user_id,
+                elder_id=request.elder_id,
+                user_text=request.text,
+                assistant_text=result.text,
+                audio_url=audio_url or "",
+                tts_provider=str(debug.get("tts_provider", "")),
+            )
+        except Exception as exc:
+            debug["chat_history_error"] = str(exc)
     return ChatResponse(
         text=result.text,
         audio_url=audio_url,

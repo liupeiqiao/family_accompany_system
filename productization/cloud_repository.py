@@ -104,6 +104,22 @@ class CloudRepository(Protocol):
     def delete_voice_profile(self, *, family_id: str, user_id: str, profile_id: str) -> None:
         ...
 
+    def record_chat_exchange(
+        self,
+        *,
+        family_id: str,
+        user_id: str,
+        elder_id: str,
+        user_text: str,
+        assistant_text: str,
+        audio_url: str,
+        tts_provider: str,
+    ) -> dict:
+        ...
+
+    def list_chat_messages(self, *, family_id: str, user_id: str) -> list[dict]:
+        ...
+
 
 class InMemoryCloudRepository:
     """Deterministic cloud repository used for local API wiring and tests."""
@@ -117,6 +133,8 @@ class InMemoryCloudRepository:
         self._personas: dict[str, dict] = {}
         self._voice_samples: dict[str, dict] = {}
         self._voice_profiles: dict[str, dict] = {}
+        self._chat_sessions: dict[str, dict] = {}
+        self._chat_messages: dict[str, dict] = {}
 
     def create_family(self, *, name: str, user_id: str) -> dict:
         family = {"id": uuid4().hex, "name": name.strip() or "我的家庭", "created_by": user_id}
@@ -325,6 +343,79 @@ class InMemoryCloudRepository:
             # Soft delete (postpaid): hide from list
             profile["status"] = "hidden"
             profile["updated_by"] = user_id
+
+    def record_chat_exchange(
+        self,
+        *,
+        family_id: str,
+        user_id: str,
+        elder_id: str,
+        user_text: str,
+        assistant_text: str,
+        audio_url: str,
+        tts_provider: str,
+    ) -> dict:
+        self._require_member(family_id, user_id)
+        session_id = uuid4().hex
+        session = {
+            "id": session_id,
+            "family_id": family_id,
+            "elder_id": elder_id or "",
+            "created_by": user_id,
+            "created_at": str(len(self._chat_sessions)).zfill(8),
+        }
+        self._chat_sessions[session_id] = session
+        self._append_chat_message(
+            session_id=session_id,
+            role="user",
+            text=user_text,
+            audio_storage_path="",
+            tts_provider="",
+        )
+        self._append_chat_message(
+            session_id=session_id,
+            role="assistant",
+            text=assistant_text,
+            audio_storage_path=audio_url or "",
+            tts_provider=tts_provider or "",
+        )
+        return dict(session)
+
+    def list_chat_messages(self, *, family_id: str, user_id: str) -> list[dict]:
+        self._require_member(family_id, user_id)
+        session_ids = {
+            session_id
+            for session_id, session in self._chat_sessions.items()
+            if session.get("family_id") == family_id
+        }
+        messages = [
+            dict(message)
+            for message in self._chat_messages.values()
+            if message.get("session_id") in session_ids
+        ]
+        return sorted(messages, key=lambda message: message["created_at"])
+
+    def _append_chat_message(
+        self,
+        *,
+        session_id: str,
+        role: str,
+        text: str,
+        audio_storage_path: str,
+        tts_provider: str,
+    ) -> dict:
+        message_id = uuid4().hex
+        message = {
+            "id": message_id,
+            "session_id": session_id,
+            "role": role,
+            "text": text,
+            "audio_storage_path": audio_storage_path,
+            "tts_provider": tts_provider,
+            "created_at": str(len(self._chat_messages)).zfill(8),
+        }
+        self._chat_messages[message_id] = message
+        return dict(message)
 
     def _role_for(self, family_id: str, user_id: str) -> FamilyRole | None:
         membership = self._memberships.get(f"{family_id}:{user_id}")
@@ -595,6 +686,60 @@ class SupabaseCloudRepository:
                 method="PATCH",
                 payload={"status": "hidden", "updated_by": user_id},
             )
+
+    def record_chat_exchange(
+        self,
+        *,
+        family_id: str,
+        user_id: str,
+        elder_id: str,
+        user_text: str,
+        assistant_text: str,
+        audio_url: str,
+        tts_provider: str,
+    ) -> dict:
+        self._require_member(family_id, user_id)
+        session = self._request(
+            "chat_sessions",
+            method="POST",
+            payload={
+                "family_id": family_id,
+                "elder_id": elder_id or None,
+            },
+        )[0]
+        self._request(
+            "chat_messages",
+            method="POST",
+            payload={
+                "session_id": session["id"],
+                "role": "user",
+                "text": user_text,
+                "audio_storage_path": "",
+                "tts_provider": "",
+            },
+        )
+        self._request(
+            "chat_messages",
+            method="POST",
+            payload={
+                "session_id": session["id"],
+                "role": "assistant",
+                "text": assistant_text,
+                "audio_storage_path": audio_url or "",
+                "tts_provider": tts_provider or "",
+            },
+        )
+        return session
+
+    def list_chat_messages(self, *, family_id: str, user_id: str) -> list[dict]:
+        self._require_member(family_id, user_id)
+        return self._request(
+            "chat_messages"
+            f"?select=*,chat_sessions!inner(family_id)"
+            f"&chat_sessions.family_id=eq.{family_id}"
+            "&order=created_at.asc",
+            method="GET",
+        )
 
     def _require_member(self, family_id: str, user_id: str) -> FamilyRole:
         rows = self._request(

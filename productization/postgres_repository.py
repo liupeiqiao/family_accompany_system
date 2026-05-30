@@ -307,6 +307,61 @@ class PostgresCloudRepository:
         else:
             self.hide_voice_profile(family_id=family_id, user_id=user_id, profile_id=profile_id)
 
+    def record_chat_exchange(
+        self,
+        *,
+        family_id: str,
+        user_id: str,
+        elder_id: str,
+        user_text: str,
+        assistant_text: str,
+        audio_url: str,
+        tts_provider: str,
+    ) -> dict:
+        self._require_member(family_id, user_id)
+        session = self._fetch_one(
+            """
+            INSERT INTO chat_sessions (family_id, elder_id)
+            VALUES (%s, %s)
+            RETURNING *
+            """,
+            (family_id, _optional_uuid(elder_id)),
+        )
+        self._execute(
+            """
+            INSERT INTO chat_messages (session_id, role, text, audio_storage_path, tts_provider)
+            VALUES
+                (%s, %s, %s, %s, %s),
+                (%s, %s, %s, %s, %s)
+            """,
+            (
+                session["id"],
+                "user",
+                user_text,
+                "",
+                "",
+                session["id"],
+                "assistant",
+                assistant_text,
+                audio_url or "",
+                tts_provider or "",
+            ),
+        )
+        return session
+
+    def list_chat_messages(self, *, family_id: str, user_id: str) -> list[dict]:
+        self._require_member(family_id, user_id)
+        return self._fetch_all(
+            """
+            SELECT chat_messages.*
+            FROM chat_messages
+            JOIN chat_sessions ON chat_sessions.id = chat_messages.session_id
+            WHERE chat_sessions.family_id = %s
+            ORDER BY chat_messages.created_at ASC, chat_messages.id ASC
+            """,
+            (family_id,),
+        )
+
     def _connect(self):
         return psycopg.connect(self._database_url, row_factory=dict_row)
 
@@ -419,6 +474,15 @@ def _adapt_value(column: str, value: Any) -> Any:
     if column in JSON_FIELDS:
         return Jsonb(value if value is not None else ([] if column != "sensitivity_map" else {}))
     return value
+
+
+def _optional_uuid(value: str) -> str | None:
+    if not value:
+        return None
+    try:
+        return str(UUID(value))
+    except ValueError:
+        return None
 
 
 def _serialize_row(row: dict) -> dict:

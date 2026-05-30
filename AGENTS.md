@@ -40,7 +40,7 @@ npm run dev -- --hostname 127.0.0.1 --port 3000
 
 
 ## 对话收尾与 Git 提交规范
-- **自动生成提交信息**：每次对话及完成一个阶段性任务后，请主动根据本次的代码变更，为我生成一条清晰、符合 Conventional Commits 规范的 Commit Message。
+- **自动生成提交信息**：每次对话及完成一个阶段性任务后，请主动根据本次的代码变更，为我生成一条清晰、符合 Conventional Commits 规范的 Commit Message（用中文）。
 - **格式要求**：
   - 格式：`<type>(<scope>): <subject>`
   - type 常用类型：`feat` (新功能), `fix` (修复bug), `refactor` (重构), `docs` (文档), `chore` (杂项/配置) 等。

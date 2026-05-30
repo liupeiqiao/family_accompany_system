@@ -22,6 +22,7 @@ from .handlers import (
     handle_delete_memory,
     handle_delete_persona,
     handle_get_voice_status,
+    handle_list_chat_history,
     handle_get_cloud_elder_current,
     handle_get_current_family,
     handle_delete_voice_profile,
@@ -249,6 +250,14 @@ def chat_endpoint(
     x_user_id: str = Depends(current_user_id),
 ) -> ChatResponse:
     return handle_chat(request, x_user_id)
+
+
+@app.get("/api/chat/history", response_model=list[dict])
+def chat_history_endpoint(
+    family_id: str = Query(...),
+    x_user_id: str = Depends(current_user_id),
+) -> list[dict]:
+    return handle_list_chat_history(family_id, x_user_id)
 
 
 @app.post("/api/import", response_model=ImportResponse)
