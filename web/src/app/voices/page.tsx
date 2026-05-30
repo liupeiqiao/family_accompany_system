@@ -192,7 +192,129 @@ function FamilyVoiceLibrary(props: {
   onQuery: (profile: VoiceProfile) => void;
   onUpgrade: (profile: VoiceProfile) => void;
 }) {
-  return <section className="importSection wide"><h2>家人音色库</h2><p className="emptyState">还没有声音档案</p></section>;
+  const { profiles, canWrite, management, message, onDelete, onQuery, onUpgrade } = props;
+  const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
+
+  const filtered = profiles.filter((p) => {
+    if (search && !p.display_name.toLowerCase().includes(search.toLowerCase())) return false;
+    if (typeFilter !== "all" && p.voice_type !== typeFilter) return false;
+    return true;
+  });
+
+  return (
+    <section className="importSection wide">
+      <h2>家人音色库</h2>
+      <div className="toolbar">
+        <input
+          placeholder="搜索音色名称..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+          <option value="all">全部</option>
+          <option value="preset">预置音色</option>
+          <option value="prepaid">已导入</option>
+          <option value="postpaid">已复刻</option>
+        </select>
+      </div>
+      {message ? <p className="successText">{message}</p> : null}
+      {filtered.length === 0 ? (
+        <p className="emptyState">还没有音色档案</p>
+      ) : (
+        <div className="voiceGrid">
+          {filtered.map((profile) => (
+            <VoiceCard
+              key={profile.id}
+              profile={profile}
+              canWrite={canWrite}
+              management={management}
+              onDelete={onDelete}
+              onQuery={onQuery}
+              onUpgrade={onUpgrade}
+            />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function VoiceCard(props: {
+  profile: VoiceProfile;
+  canWrite: boolean;
+  management: Record<string, VoiceManagementState>;
+  onDelete: (profile: VoiceProfile) => void;
+  onQuery: (profile: VoiceProfile) => void;
+  onUpgrade: (profile: VoiceProfile) => void;
+}) {
+  const { profile, canWrite, management, onDelete, onQuery, onUpgrade } = props;
+  const [speakerIdExpanded, setSpeakerIdExpanded] = useState(false);
+  const state = management[profile.id] ?? {};
+  const cloudStatus = state.result?.voice_status;
+
+  const typeLabel = profile.voice_type === "preset" ? "预置音色"
+    : profile.voice_type === "prepaid" ? "已导入"
+    : profile.voice_type === "postpaid" ? "已复刻" : "";
+  const typeClass = profile.voice_type === "preset" ? "tagPreset"
+    : profile.voice_type === "prepaid" ? "tagPrepaid"
+    : "tagPostpaid";
+
+  function confirmDelete() {
+    const isPostpaid = profile.voice_type === "postpaid";
+    const msg = isPostpaid
+      ? `确认删除音色「${profile.display_name}」？\n\n该操作仅会将音色从当前系统中移除。\n\n豆包平台中的原始音色不会被删除，\n您仍然可以在豆包控制台中继续使用该音色。`
+      : `确认删除音色「${profile.display_name}」？\n\n删除后将从当前家庭空间中永久移除。\n该操作不可恢复。`;
+    if (window.confirm(msg)) {
+      onDelete(profile);
+    }
+  }
+
+  return (
+    <article className="voiceCard">
+      <div className="voiceCardHeader">
+        <strong>{profile.display_name}</strong>
+        {typeLabel ? <span className={`voiceTag ${typeClass}`}>{typeLabel}</span> : null}
+      </div>
+      <div className="voiceCardMeta">
+        <span>创建时间: {new Date().toLocaleDateString()}</span>
+      </div>
+      <div className="voiceCardFooter">
+        <span className="speakerIdRow">
+          Speaker ID{" "}
+          {speakerIdExpanded ? (
+            <span>{profile.provider_voice_id} <button className="linkButton" onClick={() => setSpeakerIdExpanded(false)}>[收起]</button></span>
+          ) : (
+            <button className="linkButton" onClick={() => setSpeakerIdExpanded(true)}>[展开]</button>
+          )}
+        </span>
+        <button
+          className="buttonSecondary"
+          disabled={!canWrite || state.isLoading}
+          onClick={confirmDelete}
+        >
+          删除音色
+        </button>
+      </div>
+      {cloudStatus ? (
+        <div className="voiceCardStatus">
+          <span>豆包状态：{formatDoubaoVoiceStatus(cloudStatus.status)}</span>
+          {cloudStatus.available_training_times !== undefined ? (
+            <span>剩余训练次数：{cloudStatus.available_training_times}</span>
+          ) : null}
+        </div>
+      ) : null}
+      {state.error ? <p className="errorText">{state.error}</p> : null}
+      <div className="actions" style={{ marginTop: 8 }}>
+        <button disabled={state.isLoading} onClick={() => onQuery(profile)} type="button">
+          {state.isLoading ? "查询中..." : "查询状态"}
+        </button>
+        <button disabled={!canWrite || state.isLoading} onClick={() => onUpgrade(profile)} type="button">
+          升级统一管理
+        </button>
+      </div>
+    </article>
+  );
 }
 
 function ImportVoice(props: { familyId: string; canWrite: boolean; onImported: (p: VoiceProfile) => void; onError: (e: string) => void }) {
