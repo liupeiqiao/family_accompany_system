@@ -17,6 +17,9 @@ API_ENDPOINTS = {
     "voice_upload_intent": "POST /api/voices/upload-intent",
     "voice_samples": "GET /api/voices/samples",
     "voice_profiles": "GET /api/voices/profiles",
+    "voice_profile_item": "DELETE /api/voices/profiles/{id}",
     "voice_clone": "POST /api/voices/clone",
+    "voice_status": "POST /api/voices/status",
+    "voice_upgrade": "POST /api/voices/upgrade",
     "tts": "POST /api/tts",
 }

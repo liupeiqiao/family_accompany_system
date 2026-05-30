@@ -37,6 +37,7 @@ class VoiceCloneResult:
     provider: str
     provider_voice_id: str
     audit: dict[str, str]
+    demo_audio_url: str = ""
 
 
 @dataclass(frozen=True)
@@ -60,6 +61,12 @@ class VoiceProvider(Protocol):
         ...
 
     def synthesize(self, request: TextToSpeechRequest) -> TextToSpeechResult:
+        ...
+
+    def get_voice_status(self, provider_voice_id: str) -> dict:
+        ...
+
+    def upgrade_voice(self, provider_voice_id: str) -> dict:
         ...
 
 
@@ -88,6 +95,22 @@ class MockVoiceProvider:
             audio_path=f"generated-audio/{request.family_id}/{uuid4().hex}.mp3",
         )
 
+    def get_voice_status(self, provider_voice_id: str) -> dict:
+        return {
+            "speaker_id": provider_voice_id,
+            "status": 4,
+            "message": "mock voice is ready",
+            "speaker_status": [],
+        }
+
+    def upgrade_voice(self, provider_voice_id: str) -> dict:
+        return {
+            "speaker_id": provider_voice_id,
+            "status": 4,
+            "message": "mock voice upgraded",
+            "speaker_status": [],
+        }
+
 
 @dataclass(frozen=True)
 class DoubaoTTSConfig:
@@ -97,6 +120,8 @@ class DoubaoTTSConfig:
     clone_resource_id: str = "seed-icl-2.0"
     endpoint: str = "https://openspeech.bytedance.com/api/v3/tts/unidirectional/sse"
     clone_endpoint: str = "https://openspeech.bytedance.com/api/v3/tts/voice_clone"
+    get_voice_endpoint: str = "https://openspeech.bytedance.com/api/v3/tts/get_voice"
+    upgrade_voice_endpoint: str = "https://openspeech.bytedance.com/api/v3/tts/upgrade_voice"
     encoding: str = "mp3"
     sample_rate: int = 24000
     speech_rate: int = 0
@@ -119,6 +144,14 @@ class DoubaoTTSConfig:
             clone_endpoint=os.getenv(
                 "DOUBAO_VOICE_CLONE_ENDPOINT",
                 "https://openspeech.bytedance.com/api/v3/tts/voice_clone",
+            ).rstrip(),
+            get_voice_endpoint=os.getenv(
+                "DOUBAO_GET_VOICE_ENDPOINT",
+                "https://openspeech.bytedance.com/api/v3/tts/get_voice",
+            ).rstrip(),
+            upgrade_voice_endpoint=os.getenv(
+                "DOUBAO_UPGRADE_VOICE_ENDPOINT",
+                "https://openspeech.bytedance.com/api/v3/tts/upgrade_voice",
             ).rstrip(),
             encoding=os.getenv("DOUBAO_TTS_ENCODING", "mp3"),
             sample_rate=int(os.getenv("DOUBAO_TTS_SAMPLE_RATE", "24000")),
@@ -223,9 +256,15 @@ class DoubaoVoiceProvider:
             for item in response_payload.get("speaker_status", [])
             if isinstance(item, dict) and item.get("model_type") is not None
         ]
+        demo_audio_url = ""
+        for item in response_payload.get("speaker_status", []):
+            if isinstance(item, dict) and item.get("demo_audio"):
+                demo_audio_url = str(item["demo_audio"])
+                break
         return VoiceCloneResult(
             provider=self.provider_name,
             provider_voice_id=provider_voice_id,
+            demo_audio_url=demo_audio_url,
             audit={
                 "family_id": request.family_id,
                 "created_by": request.created_by,
@@ -285,6 +324,44 @@ class DoubaoVoiceProvider:
             audio_path=f"data:{_audio_mime_type(self._config.encoding)};base64,{audio_base64}",
         )
 
+    def get_voice_status(self, provider_voice_id: str) -> dict:
+        return self._manage_voice(
+            endpoint=self._config.get_voice_endpoint,
+            provider_voice_id=provider_voice_id,
+            operation="get voice",
+        )
+
+    def upgrade_voice(self, provider_voice_id: str) -> dict:
+        return self._manage_voice(
+            endpoint=self._config.upgrade_voice_endpoint,
+            provider_voice_id=provider_voice_id,
+            operation="upgrade voice",
+        )
+
+    def _manage_voice(self, *, endpoint: str, provider_voice_id: str, operation: str) -> dict:
+        speaker_id = provider_voice_id.strip()
+        if not speaker_id:
+            raise ValueError("Doubao voice management requires provider_voice_id.")
+        payload = _doubao_voice_management_payload(speaker_id)
+        reqid = self._reqid_factory()
+        http_request = urlrequest.Request(
+            endpoint,
+            data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+            method="POST",
+            headers={
+                "X-Api-Key": self._config.api_key,
+                "X-Api-Request-Id": reqid,
+                "Content-Type": "application/json",
+            },
+        )
+        try:
+            with self._opener(http_request, timeout=30) as response:
+                return json.loads(response.read().decode("utf-8"))
+        except HTTPError as exc:
+            raise ValueError(_format_doubao_http_error(operation, exc)) from exc
+        except URLError as exc:
+            raise ValueError(f"Doubao {operation} network error: {exc.reason}") from exc
+
 
 def get_voice_provider_from_env() -> VoiceProvider:
     provider = os.getenv("VOICE_PROVIDER", "mock").strip().lower()
@@ -325,6 +402,16 @@ def _doubao_resource_id_for_speaker(
 def _is_doubao_reserved_clone_speaker_id(speaker_id: str) -> bool:
     normalized = speaker_id.strip().lower()
     return normalized.startswith(("s_", "icl_")) or normalized == "custom_speaker_id"
+
+
+def _doubao_voice_management_payload(provider_voice_id: str) -> dict[str, str]:
+    if _is_doubao_reserved_clone_speaker_id(provider_voice_id):
+        return {"speaker_id": provider_voice_id}
+    _validate_doubao_custom_speaker_id(provider_voice_id)
+    return {
+        "speaker_id": "custom_speaker_id",
+        "custom_speaker_id": provider_voice_id,
+    }
 
 
 def _validate_doubao_custom_speaker_id(custom_speaker_id: str) -> None:

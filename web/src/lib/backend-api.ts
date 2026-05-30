@@ -86,6 +86,27 @@ export type VoiceProfile = CloudRecord & {
   provider_voice_id: string;
   status: "creating" | "ready" | "failed";
   consent_confirmed: boolean;
+  demo_audio_url?: string;
+  sample_source?: string;
+};
+
+export type VoiceStatusResponse = {
+  profile_id: string;
+  provider: string;
+  provider_voice_id: string;
+  voice_status: {
+    code?: number;
+    message?: string;
+    available_training_times?: number;
+    create_time?: number;
+    language?: number;
+    speaker_id?: string;
+    status?: number;
+    speaker_status?: {
+      model_type?: number;
+      demo_audio?: string;
+    }[];
+  };
 };
 
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
@@ -327,6 +348,41 @@ export function cloneVoice(payload: {
     withUser({
       method: "POST",
       body: JSON.stringify(payload),
+    }),
+  );
+}
+
+export function queryVoiceStatus(payload: {
+  family_id: string;
+  voice_profile_id: string;
+}): Promise<VoiceStatusResponse> {
+  return requestJson<VoiceStatusResponse>(
+    "/api/voices/status",
+    withUser({
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  );
+}
+
+export function upgradeVoice(payload: {
+  family_id: string;
+  voice_profile_id: string;
+}): Promise<VoiceStatusResponse> {
+  return requestJson<VoiceStatusResponse>(
+    "/api/voices/upgrade",
+    withUser({
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  );
+}
+
+export function hideVoiceProfile(profileId: string, familyId: string): Promise<{ ok: boolean }> {
+  return requestJson<{ ok: boolean }>(
+    `/api/voices/profiles/${encodeURIComponent(profileId)}?family_id=${encodeURIComponent(familyId)}`,
+    withUser({
+      method: "DELETE",
     }),
   );
 }

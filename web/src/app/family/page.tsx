@@ -35,12 +35,8 @@ export default function FamilyPage() {
       const current = await fetchCurrentFamily();
       setFamilyContext(current);
       setFamilyName(current.family.name || "我的家庭");
-    } catch (loadError) {
-      if (loadError instanceof Error && loadError.message.includes("404")) {
-        setFamilyContext(null);
-      } else {
-        setError("无法加载家庭空间，请确认 API 服务已启动。");
-      }
+    } catch {
+      setFamilyContext(null);
     } finally {
       setIsLoading(false);
     }

@@ -106,7 +106,10 @@ def test_python_api_contracts_match_productization_plan():
         "voice_upload_intent": "POST /api/voices/upload-intent",
         "voice_samples": "GET /api/voices/samples",
         "voice_profiles": "GET /api/voices/profiles",
+        "voice_profile_item": "DELETE /api/voices/profiles/{id}",
         "voice_clone": "POST /api/voices/clone",
+        "voice_status": "POST /api/voices/status",
+        "voice_upgrade": "POST /api/voices/upgrade",
         "tts": "POST /api/tts",
     }
 
@@ -292,8 +295,13 @@ def test_web_app_has_supabase_and_backend_api_boundaries():
     assert "/api/voices/clone" in backend_source
     assert "/api/voices/upload-intent" in backend_source
     assert "/api/voices/profiles" in backend_source
+    assert "/api/voices/status" in backend_source
+    assert "/api/voices/upgrade" in backend_source
     assert "createVoiceUploadIntent" in backend_source
     assert "fetchVoiceProfiles" in backend_source
+    assert "queryVoiceStatus" in backend_source
+    assert "upgradeVoice" in backend_source
+    assert "hideVoiceProfile" in backend_source
     assert "/api/tts" in backend_source
     assert "parseProfileText" in backend_source
     assert "importParsedData" in backend_source
@@ -337,6 +345,10 @@ def test_voices_page_uses_cloud_voice_api_states():
     assert "FileReader" in voices_source
     assert "customSpeakerId" in voices_source
     assert "promptText" in voices_source
+    assert "queryVoiceStatus" in voices_source
+    assert "upgradeVoice" in voices_source
+    assert "hideVoiceProfile" in voices_source
+    assert "voiceManagement" in voices_source
 
 
 def test_elder_chat_page_can_request_voice_replies():

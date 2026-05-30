@@ -288,6 +288,92 @@ def test_doubao_provider_creates_voice_clone_with_v3_api():
     assert result.audit["model_types"] == "4"
 
 
+def test_doubao_provider_gets_custom_voice_status_with_v3_api():
+    from productization.voice import DoubaoTTSConfig, DoubaoVoiceProvider
+
+    captured = {}
+
+    def fake_urlopen(request, timeout):
+        captured["url"] = request.full_url
+        captured["method"] = request.get_method()
+        captured["headers"] = dict(request.header_items())
+        captured["body"] = json.loads(request.data.decode("utf-8"))
+        captured["timeout"] = timeout
+        return FakeResponse(
+            json.dumps(
+                {
+                    "speaker_id": "custom_family_voice_001",
+                    "status": 4,
+                    "available_training_times": 14,
+                    "speaker_status": [{"model_type": 4, "demo_audio": "https://example.test/demo.wav"}],
+                }
+            ).encode("utf-8")
+        )
+
+    provider = DoubaoVoiceProvider(
+        DoubaoTTSConfig(
+            api_key="api-key",
+            default_voice_type="zh_female_vv_uranus_bigtts",
+            get_voice_endpoint="https://example.test/get_voice",
+        ),
+        opener=fake_urlopen,
+        reqid_factory=lambda: "status-reqid",
+    )
+
+    status = provider.get_voice_status("custom_family_voice_001")
+
+    normalized_headers = {key.lower(): value for key, value in captured["headers"].items()}
+    assert captured["url"] == "https://example.test/get_voice"
+    assert captured["method"] == "POST"
+    assert normalized_headers["x-api-key"] == "api-key"
+    assert normalized_headers["x-api-request-id"] == "status-reqid"
+    assert captured["body"] == {
+        "speaker_id": "custom_speaker_id",
+        "custom_speaker_id": "custom_family_voice_001",
+    }
+    assert captured["timeout"] == 30
+    assert status["status"] == 4
+    assert status["speaker_status"][0]["model_type"] == 4
+
+
+def test_doubao_provider_upgrades_prepaid_voice_with_v3_api():
+    from productization.voice import DoubaoTTSConfig, DoubaoVoiceProvider
+
+    captured = {}
+
+    def fake_urlopen(request, timeout):
+        captured["url"] = request.full_url
+        captured["headers"] = dict(request.header_items())
+        captured["body"] = json.loads(request.data.decode("utf-8"))
+        return FakeResponse(
+            json.dumps(
+                {
+                    "speaker_id": "S_example",
+                    "status": 2,
+                    "speaker_status": [{"model_type": 4}],
+                }
+            ).encode("utf-8")
+        )
+
+    provider = DoubaoVoiceProvider(
+        DoubaoTTSConfig(
+            api_key="api-key",
+            default_voice_type="zh_female_vv_uranus_bigtts",
+            upgrade_voice_endpoint="https://example.test/upgrade_voice",
+        ),
+        opener=fake_urlopen,
+        reqid_factory=lambda: "upgrade-reqid",
+    )
+
+    result = provider.upgrade_voice("S_example")
+
+    normalized_headers = {key.lower(): value for key, value in captured["headers"].items()}
+    assert captured["url"] == "https://example.test/upgrade_voice"
+    assert normalized_headers["x-api-request-id"] == "upgrade-reqid"
+    assert captured["body"] == {"speaker_id": "S_example"}
+    assert result["speaker_id"] == "S_example"
+
+
 def test_doubao_provider_reports_voice_clone_http_error_body():
     from io import BytesIO
 

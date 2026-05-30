@@ -20,8 +20,10 @@ from .handlers import (
     handle_delete_family_profile,
     handle_delete_memory,
     handle_delete_persona,
+    handle_get_voice_status,
     handle_get_cloud_elder_current,
     handle_get_current_family,
+    handle_hide_voice_profile,
     handle_import,
     handle_clone_voice,
     handle_list_cloud_family_profiles,
@@ -32,6 +34,7 @@ from .handlers import (
     handle_parse,
     handle_records,
     handle_tts,
+    handle_upgrade_voice,
     handle_update_cloud_family_profile,
     handle_update_cloud_memory,
     handle_update_cloud_persona,
@@ -51,6 +54,7 @@ from .schemas import (
     TextToSpeechCreateRequest,
     TextToSpeechCreateResponse,
     VoiceCloneCreateRequest,
+    VoiceManagementRequest,
     VoiceUploadIntentRequest,
 )
 
@@ -208,6 +212,22 @@ def clone_voice_endpoint(
     return handle_clone_voice(request, x_user_id)
 
 
+@app.post("/api/voices/status", response_model=dict)
+def voice_status_endpoint(
+    request: VoiceManagementRequest,
+    x_user_id: str = Header(default="demo-user", alias="X-User-Id"),
+) -> dict:
+    return handle_get_voice_status(request, x_user_id)
+
+
+@app.post("/api/voices/upgrade", response_model=dict)
+def upgrade_voice_endpoint(
+    request: VoiceManagementRequest,
+    x_user_id: str = Header(default="demo-user", alias="X-User-Id"),
+) -> dict:
+    return handle_upgrade_voice(request, x_user_id)
+
+
 @app.post("/api/tts", response_model=TextToSpeechCreateResponse)
 def text_to_speech_endpoint(
     request: TextToSpeechCreateRequest,
@@ -259,6 +279,15 @@ def delete_family_profile_endpoint(
     if family_id:
         return handle_delete_cloud_family_profile(name, family_id, x_user_id)
     return handle_delete_family_profile(name)
+
+
+@app.delete("/api/voices/profiles/{profile_id}", response_model=DeleteResponse)
+def hide_voice_profile_endpoint(
+    profile_id: str,
+    family_id: str = Query(...),
+    x_user_id: str = Header(default="demo-user", alias="X-User-Id"),
+) -> DeleteResponse:
+    return handle_hide_voice_profile(profile_id, family_id, x_user_id)
 
 
 @app.delete("/api/elders/{full_name}", response_model=DeleteResponse)

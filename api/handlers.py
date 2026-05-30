@@ -39,6 +39,7 @@ from .schemas import (
     TextToSpeechCreateRequest,
     TextToSpeechCreateResponse,
     VoiceCloneCreateRequest,
+    VoiceManagementRequest,
     VoiceUploadIntentRequest,
 )
 
@@ -56,12 +57,21 @@ ELDER_LIST_FIELDS = (
 )
 
 _voice_provider: VoiceProvider | None = None
+_voice_provider_signature: tuple[str | None, ...] | None = None
 
 
 def get_voice_provider() -> VoiceProvider:
-    global _voice_provider
-    if _voice_provider is None:
+    global _voice_provider, _voice_provider_signature
+    signature = (
+        os.getenv("VOICE_PROVIDER"),
+        os.getenv("DOUBAO_TTS_API_KEY"),
+        os.getenv("DOUBAO_TTS_DEFAULT_VOICE_TYPE"),
+        os.getenv("DOUBAO_TTS_RESOURCE_ID"),
+        os.getenv("DOUBAO_TTS_CLONE_RESOURCE_ID"),
+    )
+    if _voice_provider is None or _voice_provider_signature != signature:
         _voice_provider = get_voice_provider_from_env()
+        _voice_provider_signature = signature
     return _voice_provider
 
 
@@ -381,6 +391,7 @@ def handle_clone_voice(request: VoiceCloneCreateRequest, user_id: str) -> dict:
                 "consent_confirmed": request.consent_confirmed,
                 "sample_source": sample_source,
                 "sample_ids": request.sample_ids,
+                "demo_audio_url": clone_result.demo_audio_url,
             },
         )
 
@@ -390,14 +401,61 @@ def handle_clone_voice(request: VoiceCloneCreateRequest, user_id: str) -> dict:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-def _get_ready_voice_profile(family_id: str, user_id: str, voice_profile_id: str) -> dict:
+def _get_voice_profile(family_id: str, user_id: str, voice_profile_id: str) -> dict:
     profiles = get_cloud_repository().list_voice_profiles(family_id=family_id, user_id=user_id)
     for profile in profiles:
         if profile.get("id") == voice_profile_id:
-            if profile.get("status") != "ready":
-                raise FamilyPermissionError("Voice profile is not ready.")
             return profile
     raise FamilyNotFoundError("Voice profile not found.")
+
+
+def _get_ready_voice_profile(family_id: str, user_id: str, voice_profile_id: str) -> dict:
+    profile = _get_voice_profile(family_id, user_id, voice_profile_id)
+    if profile.get("status") != "ready":
+        raise FamilyPermissionError("Voice profile is not ready.")
+    return profile
+
+
+def handle_get_voice_status(request: VoiceManagementRequest, user_id: str) -> dict:
+    try:
+        profile = _call_cloud(
+            lambda: _get_voice_profile(
+                request.family_id,
+                user_id,
+                request.voice_profile_id,
+            )
+        )
+        provider_voice_id = str(profile.get("provider_voice_id") or "")
+        status = get_voice_provider().get_voice_status(provider_voice_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {
+        "profile_id": profile.get("id"),
+        "provider": profile.get("provider"),
+        "provider_voice_id": provider_voice_id,
+        "voice_status": status,
+    }
+
+
+def handle_upgrade_voice(request: VoiceManagementRequest, user_id: str) -> dict:
+    try:
+        profile = _call_cloud(
+            lambda: _get_voice_profile(
+                request.family_id,
+                user_id,
+                request.voice_profile_id,
+            )
+        )
+        provider_voice_id = str(profile.get("provider_voice_id") or "")
+        status = get_voice_provider().upgrade_voice(provider_voice_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {
+        "profile_id": profile.get("id"),
+        "provider": profile.get("provider"),
+        "provider_voice_id": provider_voice_id,
+        "voice_status": status,
+    }
 
 
 def _synthesize_with_profile(*, family_id: str, user_id: str, voice_profile_id: str, text: str) -> dict:
@@ -479,6 +537,17 @@ def handle_delete_cloud_family_profile(
 ) -> DeleteResponse:
     _call_cloud(
         lambda: get_cloud_repository().delete_family_profile(
+            family_id=family_id,
+            user_id=user_id,
+            profile_id=profile_id,
+        )
+    )
+    return DeleteResponse(ok=True)
+
+
+def handle_hide_voice_profile(profile_id: str, family_id: str, user_id: str) -> DeleteResponse:
+    _call_cloud(
+        lambda: get_cloud_repository().hide_voice_profile(
             family_id=family_id,
             user_id=user_id,
             profile_id=profile_id,

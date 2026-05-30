@@ -6,13 +6,23 @@ import { FormEvent, useEffect, useState } from "react";
 import {
   FamilyContext,
   VoiceProfile,
+  VoiceStatusResponse,
   VoiceSample,
   cloneVoice,
   createVoiceUploadIntent,
   fetchCurrentFamily,
   fetchVoiceProfiles,
   fetchVoiceSamples,
+  hideVoiceProfile,
+  queryVoiceStatus,
+  upgradeVoice,
 } from "../../lib/backend-api";
+
+type VoiceManagementState = {
+  isLoading?: boolean;
+  error?: string;
+  result?: VoiceStatusResponse;
+};
 
 export default function VoicesPage() {
   const [familyContext, setFamilyContext] = useState<FamilyContext | null>(null);
@@ -37,8 +47,10 @@ export default function VoicesPage() {
   const [isCreatingPreset, setIsCreatingPreset] = useState(false);
   const [presetDisplayName, setPresetDisplayName] = useState("预置音色");
   const [presetConsentConfirmed, setPresetConsentConfirmed] = useState(false);
+  const [demoAudioUrl, setDemoAudioUrl] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [voiceManagement, setVoiceManagement] = useState<Record<string, VoiceManagementState>>({});
 
   useEffect(() => {
     void loadVoiceSpace();
@@ -128,6 +140,7 @@ export default function VoicesPage() {
         enable_audio_denoise: enableAudioDenoise,
       });
       setProfiles((current) => [profile, ...current]);
+      setDemoAudioUrl(profile.demo_audio_url ?? "");
       setSamples((current) =>
         current.map((sample) =>
           sample.id === selectedSampleId
@@ -165,6 +178,93 @@ export default function VoicesPage() {
       setError(err instanceof Error ? err.message : "创建预置音色失败");
     } finally {
       setIsCreatingPreset(false);
+    }
+  }
+
+  async function onQueryVoiceStatus(profile: VoiceProfile) {
+    if (!familyContext) {
+      return;
+    }
+    setVoiceManagement((current) => ({
+      ...current,
+      [profile.id]: { ...current[profile.id], isLoading: true, error: "" },
+    }));
+    try {
+      const result = await queryVoiceStatus({
+        family_id: familyContext.family.id,
+        voice_profile_id: profile.id,
+      });
+      setVoiceManagement((current) => ({
+        ...current,
+        [profile.id]: { isLoading: false, result },
+      }));
+    } catch (err) {
+      setVoiceManagement((current) => ({
+        ...current,
+        [profile.id]: {
+          ...current[profile.id],
+          isLoading: false,
+          error: err instanceof Error ? err.message : "查询音色状态失败",
+        },
+      }));
+    }
+  }
+
+  async function onUpgradeVoice(profile: VoiceProfile) {
+    if (!familyContext) {
+      return;
+    }
+    setVoiceManagement((current) => ({
+      ...current,
+      [profile.id]: { ...current[profile.id], isLoading: true, error: "" },
+    }));
+    try {
+      const result = await upgradeVoice({
+        family_id: familyContext.family.id,
+        voice_profile_id: profile.id,
+      });
+      setVoiceManagement((current) => ({
+        ...current,
+        [profile.id]: { isLoading: false, result },
+      }));
+      setMessage("音色升级请求已完成。");
+    } catch (err) {
+      setVoiceManagement((current) => ({
+        ...current,
+        [profile.id]: {
+          ...current[profile.id],
+          isLoading: false,
+          error: err instanceof Error ? err.message : "升级音色失败",
+        },
+      }));
+    }
+  }
+
+  async function onHideVoiceProfile(profile: VoiceProfile) {
+    if (!familyContext) {
+      return;
+    }
+    const confirmed = window.confirm(`从本地列表隐藏音色「${profile.display_name}」？这不会删除豆包后付费音色。`);
+    if (!confirmed) {
+      return;
+    }
+    setVoiceManagement((current) => ({
+      ...current,
+      [profile.id]: { ...current[profile.id], isLoading: true, error: "" },
+    }));
+    try {
+      await hideVoiceProfile(profile.id, familyContext.family.id);
+      setProfiles((current) => current.filter((item) => item.id !== profile.id));
+      setMessage("音色已从本地列表隐藏，豆包后付费音色仍保留在服务端。");
+    } catch (err) {
+      setVoiceManagement((current) => ({
+        ...current,
+        [profile.id]: {
+          ...current[profile.id],
+          isLoading: false,
+          error: err instanceof Error ? err.message : "隐藏音色失败",
+        },
+      }));
     }
   }
 
@@ -377,6 +477,14 @@ export default function VoicesPage() {
             >
               {isCloning ? "训练中..." : "创建豆包复刻音色"}
             </button>
+            {demoAudioUrl ? (
+              <div style={{ marginTop: 12 }}>
+                <p className="helperText">试听复刻效果：</p>
+                <audio controls src={demoAudioUrl} style={{ width: "100%" }}>
+                  当前浏览器不支持音频播放。
+                </audio>
+              </div>
+            ) : null}
           </form>
 
           {message ? <p className="successText">{message}</p> : null}
@@ -386,7 +494,16 @@ export default function VoicesPage() {
             <h2>声音状态</h2>
             <div className="voiceGrid">
               <VoiceList title="样本" emptyText="还没有声音样本" items={samples} />
-              <VoiceList title="档案" emptyText="还没有声音档案" items={profiles} />
+              <VoiceProfileList
+                canWrite={Boolean(canWrite)}
+                emptyText="还没有声音档案"
+                items={profiles}
+                management={voiceManagement}
+                onHide={onHideVoiceProfile}
+                onQuery={onQueryVoiceStatus}
+                onUpgrade={onUpgradeVoice}
+                title="档案"
+              />
             </div>
           </section>
         </div>
@@ -427,7 +544,7 @@ function VoiceList({
 }: {
   title: string;
   emptyText: string;
-  items: (VoiceSample | VoiceProfile)[];
+  items: VoiceSample[];
 }) {
   return (
     <div className="profileList">
@@ -435,14 +552,105 @@ function VoiceList({
       {items.length === 0 ? <p className="emptyState">{emptyText}</p> : null}
       {items.map((item) => (
         <article className="profileSummary" key={item.id}>
-          <strong>{String("storage_path" in item ? item.storage_path : item.display_name)}</strong>
+          <strong>{item.storage_path}</strong>
           <div className="profileMeta">
             <span>{item.status}</span>
-            {"provider" in item ? <span>{String(item.provider)}</span> : null}
-            {"sample_source" in item ? <span>{String(item.sample_source)}</span> : null}
+            <span>{item.sample_source}</span>
           </div>
         </article>
       ))}
     </div>
   );
+}
+
+function VoiceProfileList({
+  title,
+  emptyText,
+  items,
+  canWrite,
+  management,
+  onHide,
+  onQuery,
+  onUpgrade,
+}: {
+  title: string;
+  emptyText: string;
+  items: VoiceProfile[];
+  canWrite: boolean;
+  management: Record<string, VoiceManagementState>;
+  onHide: (profile: VoiceProfile) => void;
+  onQuery: (profile: VoiceProfile) => void;
+  onUpgrade: (profile: VoiceProfile) => void;
+}) {
+  return (
+    <div className="profileList">
+      <h3>{title}</h3>
+      {items.length === 0 ? <p className="emptyState">{emptyText}</p> : null}
+      {items.map((profile) => {
+        const state = management[profile.id] ?? {};
+        const cloudStatus = state.result?.voice_status;
+        return (
+          <article className="profileSummary" key={profile.id}>
+            <strong>{profile.display_name}</strong>
+            <div className="profileMeta">
+              <span>{profile.status}</span>
+              <span>{profile.provider}</span>
+              <span>{profile.provider_voice_id}</span>
+              {profile.sample_source ? <span>{profile.sample_source}</span> : null}
+            </div>
+            <div className="actions">
+              <button disabled={state.isLoading} onClick={() => onQuery(profile)} type="button">
+                {state.isLoading ? "查询中..." : "查询状态"}
+              </button>
+              <button disabled={!canWrite || state.isLoading} onClick={() => onUpgrade(profile)} type="button">
+                升级统一管理
+              </button>
+              <button
+                className="buttonSecondary"
+                disabled={!canWrite || state.isLoading}
+                onClick={() => onHide(profile)}
+                type="button"
+              >
+                本地隐藏
+              </button>
+            </div>
+            {cloudStatus ? (
+              <div className="profileMeta">
+                <span>豆包状态：{formatDoubaoVoiceStatus(cloudStatus.status)}</span>
+                {cloudStatus.available_training_times !== undefined ? (
+                  <span>剩余训练次数：{cloudStatus.available_training_times}</span>
+                ) : null}
+                {(cloudStatus.speaker_status ?? []).map((item, index) => (
+                  <span key={`${profile.id}-model-${index}`}>
+                    model_type {item.model_type ?? "-"}
+                    {item.demo_audio ? " · 有试听音频" : ""}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+            {state.error ? <p className="errorText">{state.error}</p> : null}
+          </article>
+        );
+      })}
+    </div>
+  );
+}
+
+function formatDoubaoVoiceStatus(status: number | undefined): string {
+  if (status === 0) {
+    return "NotFound";
+  }
+  if (status === 1) {
+    return "Training";
+  }
+  if (status === 2) {
+    return "Success";
+  }
+  if (status === 3) {
+    return "Failed";
+  }
+  if (status === 4) {
+    return "Active";
+  }
+  return "Unknown";
 }

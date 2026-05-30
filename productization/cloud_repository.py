@@ -97,6 +97,9 @@ class CloudRepository(Protocol):
     def create_voice_profile(self, *, family_id: str, user_id: str, payload: dict) -> dict:
         ...
 
+    def hide_voice_profile(self, *, family_id: str, user_id: str, profile_id: str) -> None:
+        ...
+
 
 class InMemoryCloudRepository:
     """Deterministic cloud repository used for local API wiring and tests."""
@@ -266,7 +269,11 @@ class InMemoryCloudRepository:
 
     def list_voice_profiles(self, *, family_id: str, user_id: str) -> list[dict]:
         self._require_member(family_id, user_id)
-        return self._list_family_records(self._voice_profiles, family_id)
+        return [
+            profile
+            for profile in self._list_family_records(self._voice_profiles, family_id)
+            if profile.get("status") != "hidden"
+        ]
 
     def create_voice_profile(self, *, family_id: str, user_id: str, payload: dict) -> dict:
         self._require_editor(family_id, user_id)
@@ -290,6 +297,12 @@ class InMemoryCloudRepository:
             sample["voice_profile_id"] = profile_id
             sample["status"] = "ready"
         return dict(profile)
+
+    def hide_voice_profile(self, *, family_id: str, user_id: str, profile_id: str) -> None:
+        self._require_editor(family_id, user_id)
+        profile = self._get_family_record(self._voice_profiles, family_id, profile_id)
+        profile["status"] = "hidden"
+        profile["updated_by"] = user_id
 
     def _role_for(self, family_id: str, user_id: str) -> FamilyRole | None:
         membership = self._memberships.get(f"{family_id}:{user_id}")
@@ -493,7 +506,10 @@ class SupabaseCloudRepository:
 
     def list_voice_profiles(self, *, family_id: str, user_id: str) -> list[dict]:
         self._require_member(family_id, user_id)
-        return self._request(f"voice_profiles?family_id=eq.{family_id}&select=*", method="GET")
+        return self._request(
+            f"voice_profiles?family_id=eq.{family_id}&status=neq.hidden&select=*",
+            method="GET",
+        )
 
     def create_voice_profile(self, *, family_id: str, user_id: str, payload: dict) -> dict:
         self._require_editor(family_id, user_id)
@@ -521,6 +537,14 @@ class SupabaseCloudRepository:
                 payload={"voice_profile_id": profile["id"], "status": profile.get("status", "ready")},
             )
         return profile
+
+    def hide_voice_profile(self, *, family_id: str, user_id: str, profile_id: str) -> None:
+        self._require_editor(family_id, user_id)
+        self._request(
+            f"voice_profiles?id=eq.{profile_id}&family_id=eq.{family_id}",
+            method="PATCH",
+            payload={"status": "hidden", "updated_by": user_id},
+        )
 
     def _require_member(self, family_id: str, user_id: str) -> FamilyRole:
         rows = self._request(

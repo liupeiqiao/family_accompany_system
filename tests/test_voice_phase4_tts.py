@@ -28,6 +28,7 @@ def test_tts_endpoint_synthesizes_with_ready_voice_profile(monkeypatch):
             "sample_ids": [sample["id"]],
         },
     )
+    monkeypatch.setenv("VOICE_PROVIDER", "mock")
     monkeypatch.setattr("api.handlers.get_cloud_repository", lambda: repo)
 
     client = TestClient(app)
@@ -172,6 +173,7 @@ def test_chat_endpoint_adds_audio_when_voice_profile_is_requested(monkeypatch):
         },
     )
     repo.upsert_elder_current(family_id=family["id"], user_id="owner", payload={"full_name": "Grandma"})
+    monkeypatch.setenv("VOICE_PROVIDER", "mock")
     monkeypatch.setattr("api.handlers.get_cloud_repository", lambda: repo)
     monkeypatch.setattr(
         "api.handlers.generate_chat_reply",

@@ -66,6 +66,7 @@ def test_fastapi_voice_upload_intent_and_clone_flow(monkeypatch):
     repo = InMemoryCloudRepository()
     family = repo.create_family(name="Song family", user_id="owner")
     repo.add_member(family_id=family["id"], user_id="viewer", role="viewer")
+    monkeypatch.setenv("VOICE_PROVIDER", "mock")
     monkeypatch.setattr("api.handlers.get_cloud_repository", lambda: repo)
 
     client = TestClient(app)
@@ -185,3 +186,80 @@ def test_fastapi_voice_clone_accepts_inline_audio_payload(monkeypatch):
     assert captured["request"].text == "这是一段本人授权声音样本。"
     assert captured["request"].demo_text == "妈，我在呢。"
     assert captured["request"].enable_audio_denoise is False
+
+
+def test_fastapi_voice_status_and_local_hide(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from api.main import app
+    from productization.cloud_repository import InMemoryCloudRepository
+    from productization.voice import TextToSpeechResult, VoiceCloneResult
+
+    repo = InMemoryCloudRepository()
+    family = repo.create_family(name="Song family", user_id="owner")
+    profile = repo.create_voice_profile(
+        family_id=family["id"],
+        user_id="owner",
+        payload={
+            "display_name": "Custom voice",
+            "provider": "doubao",
+            "provider_voice_id": "custom_family_voice_001",
+            "status": "ready",
+            "consent_confirmed": True,
+            "sample_source": "upload",
+            "sample_ids": [],
+        },
+    )
+    monkeypatch.setattr("api.handlers.get_cloud_repository", lambda: repo)
+
+    captured = {}
+
+    class FakeVoiceProvider:
+        provider_name = "doubao"
+
+        def create_clone(self, request):  # pragma: no cover - not used
+            return VoiceCloneResult(provider="doubao", provider_voice_id="unused", audit={})
+
+        def synthesize(self, request):  # pragma: no cover - not used
+            return TextToSpeechResult(provider="doubao", audio_path="data:audio/mpeg;base64,ZmFrZQ==")
+
+        def get_voice_status(self, provider_voice_id):
+            captured["status_voice_id"] = provider_voice_id
+            return {
+                "speaker_id": provider_voice_id,
+                "status": 4,
+                "available_training_times": 12,
+                "speaker_status": [{"model_type": 4, "demo_audio": "https://example.test/demo.wav"}],
+            }
+
+        def upgrade_voice(self, provider_voice_id):  # pragma: no cover - not used
+            raise NotImplementedError
+
+    monkeypatch.setattr("api.handlers.get_voice_provider", lambda: FakeVoiceProvider())
+    client = TestClient(app)
+
+    status_response = client.post(
+        "/api/voices/status",
+        json={"family_id": family["id"], "voice_profile_id": profile["id"]},
+        headers={"X-User-Id": "owner"},
+    )
+
+    assert status_response.status_code == 200
+    assert captured["status_voice_id"] == "custom_family_voice_001"
+    status = status_response.json()
+    assert status["profile_id"] == profile["id"]
+    assert status["provider_voice_id"] == "custom_family_voice_001"
+    assert status["voice_status"]["status"] == 4
+
+    hide_response = client.delete(
+        f"/api/voices/profiles/{profile['id']}?family_id={family['id']}",
+        headers={"X-User-Id": "owner"},
+    )
+
+    assert hide_response.status_code == 200
+    profiles = client.get(
+        f"/api/voices/profiles?family_id={family['id']}",
+        headers={"X-User-Id": "owner"},
+    )
+    assert profiles.status_code == 200
+    assert profiles.json() == []

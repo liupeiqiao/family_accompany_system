@@ -87,6 +87,11 @@ class VoiceCloneCreateRequest(BaseModel):
     enable_audio_denoise: bool | None = None
 
 
+class VoiceManagementRequest(BaseModel):
+    family_id: str
+    voice_profile_id: str
+
+
 class TextToSpeechCreateRequest(BaseModel):
     family_id: str
     voice_profile_id: str
