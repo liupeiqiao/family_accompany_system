@@ -396,8 +396,150 @@ function ImportVoice(props: {
   );
 }
 
-function CreateCloneVoice(props: { familyId: string; canWrite: boolean; onCreated: (p: VoiceProfile) => void; onError: (e: string) => void }) {
-  return <section className="importSection"><h2>创建复刻音色</h2><p>TBD</p></section>;
+function CreateCloneVoice(props: {
+  familyId: string;
+  canWrite: boolean;
+  onCreated: (p: VoiceProfile) => void;
+  onError: (e: string) => void;
+}) {
+  const { familyId, canWrite, onCreated, onError } = props;
+  const [displayName, setDisplayName] = useState("我的声音");
+  const [selectedAudioFile, setSelectedAudioFile] = useState<File | null>(null);
+  const [speakerMode, setSpeakerMode] = useState<"custom" | "prepaid">("custom");
+  const [customSpeakerId, setCustomSpeakerId] = useState("");
+  const [speakerId, setSpeakerId] = useState("");
+  const [demoText, setDemoText] = useState("妈，我在呢。");
+  const [language, setLanguage] = useState(0);
+  const [enableAudioDenoise, setEnableAudioDenoise] = useState(false);
+  const [consentConfirmed, setConsentConfirmed] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [demoAudioUrl, setDemoAudioUrl] = useState("");
+  const [paramsExpanded, setParamsExpanded] = useState(true);
+
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!selectedAudioFile) return;
+    setIsSubmitting(true);
+    try {
+      if (selectedAudioFile.size > 10 * 1024 * 1024) throw new Error("声音样本不能超过 10MB。");
+      const audioDataBase64 = await readFileAsBase64(selectedAudioFile);
+      const audioFormat = audioFormatFromFilename(selectedAudioFile.name);
+      const nextCustomSpeakerId = customSpeakerId.trim();
+      const nextSpeakerId = speakerMode === "custom" ? "custom_speaker_id" : speakerId.trim();
+      if (speakerMode === "custom" && !isValidCustomSpeakerId(nextCustomSpeakerId)) {
+        throw new Error("后付费自定义音色 ID 必须至少 8 位，以字母开头，只能包含字母、数字、-、_，且不能以 - 或 _ 结尾。");
+      }
+      if (speakerMode === "prepaid" && !isValidPrepaidSpeakerId(nextSpeakerId)) {
+        throw new Error("预付费 speaker_id 通常应为 S_ 或 icl_ 开头。后付费请切换到自定义音色 ID。");
+      }
+      const profile = await cloneVoice({
+        family_id: familyId,
+        display_name: displayName.trim() || "我的声音",
+        sample_ids: [],
+        consent_confirmed: consentConfirmed,
+        sample_source: "upload",
+        audio_data_base64: audioDataBase64,
+        audio_format: audioFormat,
+        speaker_id: nextSpeakerId,
+        custom_speaker_id: speakerMode === "custom" ? nextCustomSpeakerId : "",
+        language,
+        demo_text: demoText.trim(),
+        enable_audio_denoise: enableAudioDenoise,
+        voice_type: speakerMode === "prepaid" ? "prepaid" : "postpaid",
+      });
+      setDemoAudioUrl(profile.demo_audio_url ?? "");
+      onCreated(profile);
+    } catch (err) {
+      onError(err instanceof Error ? err.message : "创建复刻音色失败");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <section className="importSection">
+      <h2>创建复刻音色</h2>
+      <p className="warningText">后付费声音复刻可能产生额外费用，请提前查看官方计费规则。</p>
+      <form onSubmit={handleSubmit}>
+        <label>
+          <span>音色名称</span>
+          <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
+        </label>
+        <label>
+          <span>音频上传</span>
+          <input
+            accept=".wav,.mp3,.ogg,.m4a,.aac,.pcm,audio/*"
+            onChange={(e) => setSelectedAudioFile(e.target.files?.[0] ?? null)}
+            type="file"
+          />
+        </label>
+        <p className="helperText">建议 14-30 秒、低噪声、单人单轨 wav/mp3 音频，文件不超过 10MB。</p>
+        <div className="collapsibleSection">
+          <button type="button" className="linkButton" onClick={() => setParamsExpanded(!paramsExpanded)}>
+            {paramsExpanded ? "▼" : "▶"} 复刻参数
+          </button>
+          {paramsExpanded ? (
+            <>
+              <label>
+                <span>音色创建方式</span>
+                <select value={speakerMode} onChange={(e) => setSpeakerMode(e.target.value as "custom" | "prepaid")}>
+                  <option value="custom">后付费自定义音色 ID</option>
+                  <option value="prepaid">预付费 speaker_id</option>
+                </select>
+              </label>
+              {speakerMode === "custom" ? (
+                <label>
+                  <span>后付费自定义音色 ID</span>
+                  <input value={customSpeakerId} onChange={(e) => setCustomSpeakerId(e.target.value)} placeholder="例如 family_voice_001" />
+                </label>
+              ) : (
+                <label>
+                  <span>预付费 speaker_id</span>
+                  <input value={speakerId} onChange={(e) => setSpeakerId(e.target.value)} placeholder="例如 S_example" />
+                </label>
+              )}
+              <label>
+                <span>试听文本</span>
+                <input value={demoText} onChange={(e) => setDemoText(e.target.value)} placeholder="4-300 字，建议贴近陪伴场景" />
+              </label>
+              <label>
+                <span>语种</span>
+                <select value={language} onChange={(e) => setLanguage(Number(e.target.value))}>
+                  <option value={0}>中文</option>
+                  <option value={1}>英文</option>
+                  <option value={2}>日语</option>
+                  <option value={3}>西班牙语</option>
+                  <option value={4}>印尼语</option>
+                  <option value={5}>葡萄牙语</option>
+                  <option value={8}>韩语</option>
+                </select>
+              </label>
+              <label className="voiceConsent">
+                <input checked={enableAudioDenoise} onChange={(e) => setEnableAudioDenoise(e.target.checked)} type="checkbox" />
+                <span>样本噪声较大时启用降噪；音频质量好时建议关闭以保留相似度。</span>
+              </label>
+            </>
+          ) : null}
+        </div>
+        <label className="voiceConsent">
+          <input checked={consentConfirmed} onChange={(e) => setConsentConfirmed(e.target.checked)} type="checkbox" />
+          <span>我确认这是我本人的声音，用于本家庭空间的语音陪伴。</span>
+        </label>
+        <button
+          type="submit"
+          disabled={!canWrite || isSubmitting || !selectedAudioFile || !consentConfirmed}
+        >
+          {isSubmitting ? "训练中..." : "创建复刻音色"}
+        </button>
+        {demoAudioUrl ? (
+          <div style={{ marginTop: 12 }}>
+            <p className="helperText">试听复刻效果：</p>
+            <audio controls src={demoAudioUrl} style={{ width: "100%" }}>当前浏览器不支持音频播放。</audio>
+          </div>
+        ) : null}
+      </form>
+    </section>
+  );
 }
 
 // ====== Utility functions (kept from original file) ======
