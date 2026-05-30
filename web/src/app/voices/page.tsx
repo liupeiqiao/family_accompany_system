@@ -317,8 +317,83 @@ function VoiceCard(props: {
   );
 }
 
-function ImportVoice(props: { familyId: string; canWrite: boolean; onImported: (p: VoiceProfile) => void; onError: (e: string) => void }) {
-  return <section className="importSection"><h2>导入已有音色</h2><p>TBD</p></section>;
+function ImportVoice(props: {
+  familyId: string;
+  canWrite: boolean;
+  onImported: (p: VoiceProfile) => void;
+  onError: (e: string) => void;
+}) {
+  const { familyId, canWrite, onImported, onError } = props;
+  const [importType, setImportType] = useState<"preset" | "prepaid">("preset");
+  const [displayName, setDisplayName] = useState("");
+  const [speakerId, setSpeakerId] = useState("");
+  const [consentConfirmed, setConsentConfirmed] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!displayName.trim()) return;
+    if (importType === "prepaid" && !isValidPrepaidSpeakerId(speakerId.trim())) {
+      onError("预付费 speaker_id 通常应为 S_ 或 icl_ 开头。");
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const profile = await cloneVoice({
+        family_id: familyId,
+        display_name: displayName.trim(),
+        sample_ids: [],
+        consent_confirmed: consentConfirmed,
+        sample_source: importType === "preset" ? "preset" : "upload",
+        speaker_id: importType === "prepaid" ? speakerId.trim() : "",
+        voice_type: importType,
+      });
+      onImported(profile);
+    } catch (err) {
+      onError(err instanceof Error ? err.message : "导入音色失败");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <section className="importSection">
+      <h2>导入已有音色</h2>
+      <p className="helperText">
+        如果您已经拥有豆包语音中的音色，可直接导入已有 Speaker ID，无需重新进行声音复刻。
+      </p>
+      <form onSubmit={handleSubmit}>
+        <label>
+          <span>音色类型</span>
+          <select value={importType} onChange={(e) => setImportType(e.target.value as "preset" | "prepaid")}>
+            <option value="preset">预置音色</option>
+            <option value="prepaid">预付费 Speaker ID</option>
+          </select>
+        </label>
+        <label>
+          <span>音色名称</span>
+          <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="例如：妈妈的声音" />
+        </label>
+        {importType === "prepaid" ? (
+          <label>
+            <span>Speaker ID</span>
+            <input
+              value={speakerId}
+              onChange={(e) => setSpeakerId(e.target.value)}
+              placeholder="例如 S_example"
+            />
+          </label>
+        ) : null}
+        <label className="voiceConsent">
+          <input checked={consentConfirmed} onChange={(e) => setConsentConfirmed(e.target.checked)} type="checkbox" />
+          <span>我确认此声音将用于本家庭空间的语音陪伴。</span>
+        </label>
+        <button type="submit" disabled={!canWrite || isSubmitting || !consentConfirmed || !displayName.trim()}>
+          {isSubmitting ? "添加中..." : "添加音色"}
+        </button>
+      </form>
+    </section>
+  );
 }
 
 function CreateCloneVoice(props: { familyId: string; canWrite: boolean; onCreated: (p: VoiceProfile) => void; onError: (e: string) => void }) {
