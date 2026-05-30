@@ -263,3 +263,35 @@ def test_fastapi_voice_status_and_local_hide(monkeypatch):
     )
     assert profiles.status_code == 200
     assert profiles.json() == []
+
+
+def test_derive_voice_type_correctly_classifies_requests():
+    from api.handlers import _derive_voice_type
+    from api.schemas import VoiceCloneCreateRequest
+
+    preset = VoiceCloneCreateRequest(
+        family_id="f1",
+        sample_source="preset",
+        audio_data_base64="",
+        speaker_id="",
+        custom_speaker_id="",
+    )
+    assert _derive_voice_type(preset, "preset") == "preset"
+
+    prepaid = VoiceCloneCreateRequest(
+        family_id="f1",
+        sample_source="upload",
+        audio_data_base64="ZmFrZQ==",
+        speaker_id="S_test_001",
+        custom_speaker_id="",
+    )
+    assert _derive_voice_type(prepaid, "upload") == "prepaid"
+
+    postpaid = VoiceCloneCreateRequest(
+        family_id="f1",
+        sample_source="upload",
+        audio_data_base64="ZmFrZQ==",
+        speaker_id="custom_speaker_id",
+        custom_speaker_id="my_custom_voice_001",
+    )
+    assert _derive_voice_type(postpaid, "upload") == "postpaid"
