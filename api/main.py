@@ -3,10 +3,11 @@ from __future__ import annotations
 from dotenv import load_dotenv
 load_dotenv()
 
-from fastapi import FastAPI, Header, Query
+from fastapi import Depends, FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 
+from .auth import current_user_id, router as auth_router
 from .handlers import (
     handle_chat,
     handle_create_cloud_family_profile,
@@ -59,6 +60,7 @@ from .schemas import (
 )
 
 app = FastAPI(title="亲情陪伴系统 API")
+app.include_router(auth_router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -76,7 +78,7 @@ def root() -> RedirectResponse:
 
 @app.get("/api/family/current", response_model=FamilyCurrentResponse)
 def current_family_endpoint(
-    x_user_id: str = Header(default="demo-user", alias="X-User-Id"),
+    x_user_id: str = Depends(current_user_id),
 ) -> FamilyCurrentResponse:
     return handle_get_current_family(x_user_id)
 
@@ -84,7 +86,7 @@ def current_family_endpoint(
 @app.post("/api/family", response_model=FamilyCurrentResponse)
 def create_family_endpoint(
     request: FamilyCreateRequest,
-    x_user_id: str = Header(default="demo-user", alias="X-User-Id"),
+    x_user_id: str = Depends(current_user_id),
 ) -> FamilyCurrentResponse:
     return handle_create_family(request, x_user_id)
 
@@ -92,7 +94,7 @@ def create_family_endpoint(
 @app.get("/api/elders/current", response_model=dict)
 def cloud_elder_current_endpoint(
     family_id: str = Query(...),
-    x_user_id: str = Header(default="demo-user", alias="X-User-Id"),
+    x_user_id: str = Depends(current_user_id),
 ) -> dict:
     return handle_get_cloud_elder_current(family_id, x_user_id)
 
@@ -100,7 +102,7 @@ def cloud_elder_current_endpoint(
 @app.put("/api/elders/current", response_model=dict)
 def update_cloud_elder_current_endpoint(
     payload: dict,
-    x_user_id: str = Header(default="demo-user", alias="X-User-Id"),
+    x_user_id: str = Depends(current_user_id),
 ) -> dict:
     return handle_upsert_cloud_elder_current(payload, x_user_id)
 
@@ -108,7 +110,7 @@ def update_cloud_elder_current_endpoint(
 @app.get("/api/family-profiles", response_model=list[dict])
 def cloud_family_profiles_endpoint(
     family_id: str = Query(...),
-    x_user_id: str = Header(default="demo-user", alias="X-User-Id"),
+    x_user_id: str = Depends(current_user_id),
 ) -> list[dict]:
     return handle_list_cloud_family_profiles(family_id, x_user_id)
 
@@ -116,7 +118,7 @@ def cloud_family_profiles_endpoint(
 @app.post("/api/family-profiles", response_model=dict)
 def create_cloud_family_profile_endpoint(
     payload: dict,
-    x_user_id: str = Header(default="demo-user", alias="X-User-Id"),
+    x_user_id: str = Depends(current_user_id),
 ) -> dict:
     return handle_create_cloud_family_profile(payload, x_user_id)
 
@@ -125,7 +127,7 @@ def create_cloud_family_profile_endpoint(
 def update_cloud_family_profile_endpoint(
     profile_id: str,
     payload: dict,
-    x_user_id: str = Header(default="demo-user", alias="X-User-Id"),
+    x_user_id: str = Depends(current_user_id),
 ) -> dict:
     return handle_update_cloud_family_profile(profile_id, payload, x_user_id)
 
@@ -133,7 +135,7 @@ def update_cloud_family_profile_endpoint(
 @app.get("/api/memories", response_model=list[dict])
 def cloud_memories_endpoint(
     family_id: str = Query(...),
-    x_user_id: str = Header(default="demo-user", alias="X-User-Id"),
+    x_user_id: str = Depends(current_user_id),
 ) -> list[dict]:
     return handle_list_cloud_memories(family_id, x_user_id)
 
@@ -141,7 +143,7 @@ def cloud_memories_endpoint(
 @app.post("/api/memories", response_model=dict)
 def create_cloud_memory_endpoint(
     payload: dict,
-    x_user_id: str = Header(default="demo-user", alias="X-User-Id"),
+    x_user_id: str = Depends(current_user_id),
 ) -> dict:
     return handle_create_cloud_memory(payload, x_user_id)
 
@@ -150,7 +152,7 @@ def create_cloud_memory_endpoint(
 def update_cloud_memory_endpoint(
     memory_id: str,
     payload: dict,
-    x_user_id: str = Header(default="demo-user", alias="X-User-Id"),
+    x_user_id: str = Depends(current_user_id),
 ) -> dict:
     return handle_update_cloud_memory(memory_id, payload, x_user_id)
 
@@ -158,7 +160,7 @@ def update_cloud_memory_endpoint(
 @app.get("/api/personas", response_model=list[dict])
 def cloud_personas_endpoint(
     family_id: str = Query(...),
-    x_user_id: str = Header(default="demo-user", alias="X-User-Id"),
+    x_user_id: str = Depends(current_user_id),
 ) -> list[dict]:
     return handle_list_cloud_personas(family_id, x_user_id)
 
@@ -166,7 +168,7 @@ def cloud_personas_endpoint(
 @app.post("/api/personas", response_model=dict)
 def create_cloud_persona_endpoint(
     payload: dict,
-    x_user_id: str = Header(default="demo-user", alias="X-User-Id"),
+    x_user_id: str = Depends(current_user_id),
 ) -> dict:
     return handle_create_cloud_persona(payload, x_user_id)
 
@@ -175,7 +177,7 @@ def create_cloud_persona_endpoint(
 def update_cloud_persona_endpoint(
     persona_id: str,
     payload: dict,
-    x_user_id: str = Header(default="demo-user", alias="X-User-Id"),
+    x_user_id: str = Depends(current_user_id),
 ) -> dict:
     return handle_update_cloud_persona(persona_id, payload, x_user_id)
 
@@ -183,7 +185,7 @@ def update_cloud_persona_endpoint(
 @app.post("/api/voices/upload-intent", response_model=dict)
 def create_voice_upload_intent_endpoint(
     request: VoiceUploadIntentRequest,
-    x_user_id: str = Header(default="demo-user", alias="X-User-Id"),
+    x_user_id: str = Depends(current_user_id),
 ) -> dict:
     return handle_create_voice_upload_intent(request, x_user_id)
 
@@ -191,7 +193,7 @@ def create_voice_upload_intent_endpoint(
 @app.get("/api/voices/samples", response_model=list[dict])
 def voice_samples_endpoint(
     family_id: str = Query(...),
-    x_user_id: str = Header(default="demo-user", alias="X-User-Id"),
+    x_user_id: str = Depends(current_user_id),
 ) -> list[dict]:
     return handle_list_voice_samples(family_id, x_user_id)
 
@@ -199,7 +201,7 @@ def voice_samples_endpoint(
 @app.get("/api/voices/profiles", response_model=list[dict])
 def voice_profiles_endpoint(
     family_id: str = Query(...),
-    x_user_id: str = Header(default="demo-user", alias="X-User-Id"),
+    x_user_id: str = Depends(current_user_id),
 ) -> list[dict]:
     return handle_list_voice_profiles(family_id, x_user_id)
 
@@ -207,7 +209,7 @@ def voice_profiles_endpoint(
 @app.post("/api/voices/clone", response_model=dict)
 def clone_voice_endpoint(
     request: VoiceCloneCreateRequest,
-    x_user_id: str = Header(default="demo-user", alias="X-User-Id"),
+    x_user_id: str = Depends(current_user_id),
 ) -> dict:
     return handle_clone_voice(request, x_user_id)
 
@@ -215,7 +217,7 @@ def clone_voice_endpoint(
 @app.post("/api/voices/status", response_model=dict)
 def voice_status_endpoint(
     request: VoiceManagementRequest,
-    x_user_id: str = Header(default="demo-user", alias="X-User-Id"),
+    x_user_id: str = Depends(current_user_id),
 ) -> dict:
     return handle_get_voice_status(request, x_user_id)
 
@@ -223,7 +225,7 @@ def voice_status_endpoint(
 @app.post("/api/voices/upgrade", response_model=dict)
 def upgrade_voice_endpoint(
     request: VoiceManagementRequest,
-    x_user_id: str = Header(default="demo-user", alias="X-User-Id"),
+    x_user_id: str = Depends(current_user_id),
 ) -> dict:
     return handle_upgrade_voice(request, x_user_id)
 
@@ -231,7 +233,7 @@ def upgrade_voice_endpoint(
 @app.post("/api/tts", response_model=TextToSpeechCreateResponse)
 def text_to_speech_endpoint(
     request: TextToSpeechCreateRequest,
-    x_user_id: str = Header(default="demo-user", alias="X-User-Id"),
+    x_user_id: str = Depends(current_user_id),
 ) -> TextToSpeechCreateResponse:
     return handle_tts(request, x_user_id)
 
@@ -244,7 +246,7 @@ def parse_endpoint(request: ParseRequest) -> ParseResponse:
 @app.post("/api/chat", response_model=ChatResponse)
 def chat_endpoint(
     request: ChatRequest,
-    x_user_id: str = Header(default="demo-user", alias="X-User-Id"),
+    x_user_id: str = Depends(current_user_id),
 ) -> ChatResponse:
     return handle_chat(request, x_user_id)
 
@@ -263,7 +265,7 @@ def records_endpoint() -> RecordsResponse:
 def delete_memory_endpoint(
     memory_id: str,
     family_id: str | None = Query(default=None),
-    x_user_id: str = Header(default="demo-user", alias="X-User-Id"),
+    x_user_id: str = Depends(current_user_id),
 ) -> DeleteResponse:
     if family_id:
         return handle_delete_cloud_memory(memory_id, family_id, x_user_id)
@@ -274,7 +276,7 @@ def delete_memory_endpoint(
 def delete_family_profile_endpoint(
     name: str,
     family_id: str | None = Query(default=None),
-    x_user_id: str = Header(default="demo-user", alias="X-User-Id"),
+    x_user_id: str = Depends(current_user_id),
 ) -> DeleteResponse:
     if family_id:
         return handle_delete_cloud_family_profile(name, family_id, x_user_id)
@@ -285,7 +287,7 @@ def delete_family_profile_endpoint(
 def hide_voice_profile_endpoint(
     profile_id: str,
     family_id: str = Query(...),
-    x_user_id: str = Header(default="demo-user", alias="X-User-Id"),
+    x_user_id: str = Depends(current_user_id),
 ) -> DeleteResponse:
     return handle_hide_voice_profile(profile_id, family_id, x_user_id)
 

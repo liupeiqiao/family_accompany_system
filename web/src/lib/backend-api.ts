@@ -1,3 +1,5 @@
+import { getAuthToken } from "./auth";
+
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_COMPANION_API_URL ?? "http://127.0.0.1:8000";
 
@@ -134,10 +136,11 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 function withUser(init?: RequestInit): RequestInit {
+  const token = getAuthToken();
   return {
     ...init,
     headers: {
-      "X-User-Id": "demo-user",
+      ...(token ? { "X-User-Token": token } : {}),
       ...init?.headers,
     },
   };
