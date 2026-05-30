@@ -90,6 +90,7 @@ export type VoiceProfile = CloudRecord & {
   consent_confirmed: boolean;
   demo_audio_url?: string;
   sample_source?: string;
+  voice_type?: "preset" | "prepaid" | "postpaid";
 };
 
 export type VoiceStatusResponse = {
@@ -345,6 +346,7 @@ export function cloneVoice(payload: {
   language?: number;
   demo_text?: string;
   enable_audio_denoise?: boolean;
+  voice_type?: "preset" | "prepaid" | "postpaid";
 }): Promise<VoiceProfile> {
   return requestJson<VoiceProfile>(
     "/api/voices/clone",
@@ -381,7 +383,7 @@ export function upgradeVoice(payload: {
   );
 }
 
-export function hideVoiceProfile(profileId: string, familyId: string): Promise<{ ok: boolean }> {
+export function deleteVoiceProfile(profileId: string, familyId: string): Promise<{ ok: boolean }> {
   return requestJson<{ ok: boolean }>(
     `/api/voices/profiles/${encodeURIComponent(profileId)}?family_id=${encodeURIComponent(familyId)}`,
     withUser({

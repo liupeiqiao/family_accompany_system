@@ -13,7 +13,7 @@ import {
   fetchCurrentFamily,
   fetchVoiceProfiles,
   fetchVoiceSamples,
-  hideVoiceProfile,
+  deleteVoiceProfile,
   queryVoiceStatus,
   upgradeVoice,
 } from "../../lib/backend-api";
@@ -294,7 +294,7 @@ export default function VoicesPage() {
       [profile.id]: { ...current[profile.id], isLoading: true, error: "" },
     }));
     try {
-      await hideVoiceProfile(profile.id, familyContext.family.id);
+      await deleteVoiceProfile(profile.id, familyContext.family.id);
       setProfiles((current) => current.filter((item) => item.id !== profile.id));
       setMessage("音色已从本地列表隐藏，豆包后付费音色仍保留在服务端。");
     } catch (err) {
