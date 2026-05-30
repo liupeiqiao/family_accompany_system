@@ -567,6 +567,34 @@ class SupabaseCloudRepository:
             payload={"status": "hidden", "updated_by": user_id},
         )
 
+    def delete_voice_profile(self, *, family_id: str, user_id: str, profile_id: str) -> None:
+        self._require_editor(family_id, user_id)
+        # Fetch the profile to check voice_type
+        result = self._request(
+            f"voice_profiles?id=eq.{profile_id}&family_id=eq.{family_id}&select=voice_type",
+            method="GET",
+        )
+        if not result:
+            raise FamilyNotFoundError("Voice profile not found.")
+        voice_type = str(result[0].get("voice_type", ""))
+        if voice_type in ("preset", "prepaid"):
+            # Hard delete: remove linked samples first, then profile
+            self._request(
+                f"voice_samples?voice_profile_id=eq.{profile_id}",
+                method="DELETE",
+            )
+            self._request(
+                f"voice_profiles?id=eq.{profile_id}&family_id=eq.{family_id}",
+                method="DELETE",
+            )
+        else:
+            # Soft delete (postpaid)
+            self._request(
+                f"voice_profiles?id=eq.{profile_id}&family_id=eq.{family_id}",
+                method="PATCH",
+                payload={"status": "hidden", "updated_by": user_id},
+            )
+
     def _require_member(self, family_id: str, user_id: str) -> FamilyRole:
         rows = self._request(
             f"family_memberships?family_id=eq.{family_id}&user_id=eq.{user_id}&select=role",
