@@ -381,6 +381,7 @@ def handle_clone_voice(request: VoiceCloneCreateRequest, user_id: str) -> dict:
                     "sample_source": "prepaid",
                     "sample_ids": [],
                     "demo_audio_url": "",
+                    "voice_type": request.voice_type or _derive_voice_type(request, sample_source),
                 },
             )
 
@@ -413,6 +414,7 @@ def handle_clone_voice(request: VoiceCloneCreateRequest, user_id: str) -> dict:
                 "sample_source": sample_source,
                 "sample_ids": request.sample_ids,
                 "demo_audio_url": clone_result.demo_audio_url,
+                "voice_type": request.voice_type or _derive_voice_type(request, sample_source),
             },
         )
 
@@ -499,6 +501,19 @@ def _is_cloned_voice_profile(profile: dict) -> bool:
     if provider_voice_id and provider_voice_id != os.getenv("DOUBAO_TTS_DEFAULT_VOICE_TYPE", ""):
         return True
     return str(profile.get("sample_source", "")).lower() != "preset"
+
+
+def _derive_voice_type(request: VoiceCloneCreateRequest, sample_source: str) -> str:
+    if sample_source == "preset" and not request.audio_data_base64:
+        return "preset"
+    if request.speaker_id and not request.custom_speaker_id:
+        if request.speaker_id.startswith("S_") or request.speaker_id.startswith("icl_"):
+            return "prepaid"
+    if request.custom_speaker_id:
+        return "postpaid"
+    if request.audio_data_base64:
+        return "postpaid"
+    return "prepaid"
 
 
 def handle_tts(request: TextToSpeechCreateRequest, user_id: str) -> TextToSpeechCreateResponse:

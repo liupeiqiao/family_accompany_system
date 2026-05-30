@@ -85,6 +85,7 @@ class VoiceCloneCreateRequest(BaseModel):
     language: int = 0
     demo_text: str = ""
     enable_audio_denoise: bool | None = None
+    voice_type: str = ""  # "preset" | "prepaid" | "postpaid"
 
 
 class VoiceManagementRequest(BaseModel):
