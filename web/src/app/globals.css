@@ -477,3 +477,133 @@ button:disabled {
     justify-content: flex-start;
   }
 }
+
+/* Voice page layout */
+.voiceLayout {
+  display: flex;
+  gap: 24px;
+  min-height: calc(100vh - 120px);
+}
+
+.voiceNav {
+  width: 200px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.voiceNav h3 {
+  margin: 0 0 12px;
+  font-size: 14px;
+  color: #8a7e72;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.navItem, .navItemActive {
+  text-align: left;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  background: none;
+  color: #2f241c;
+}
+
+.navItem:hover { background: #f0e8da; }
+.navItemActive { background: #e8dcc8; color: #2f241c; font-weight: 600; }
+
+.voiceContent { flex: 1; min-width: 0; }
+
+/* Banner */
+.doubaoBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: #fffaf3;
+  border: 1px solid #e3d6c5;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  font-size: 13px;
+}
+
+/* Toolbar */
+.toolbar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.toolbar input { flex: 1; }
+
+/* Voice cards */
+.voiceCard {
+  background: #fffdf8;
+  border: 1px solid #e3d6c5;
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.voiceCardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.voiceCardHeader strong { font-size: 16px; }
+
+.voiceCardMeta { font-size: 12px; color: #8a7e72; }
+
+.voiceCardFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.voiceCardStatus { font-size: 12px; color: #8a7e72; display: flex; gap: 12px; }
+
+.speakerIdRow { display: flex; align-items: center; gap: 6px; }
+
+/* Voice type tags */
+.voiceTag {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.tagPreset { background: #e8ecf4; color: #4a5f8a; }
+.tagPrepaid { background: #e6f4ea; color: #2d6a4f; }
+.tagPostpaid { background: #fdf0e0; color: #9a5d1a; }
+
+/* Collapsible */
+.collapsibleSection { margin: 8px 0; }
+
+/* Link button */
+.linkButton {
+  background: none;
+  border: none;
+  color: #7a5c3e;
+  cursor: pointer;
+  text-decoration: underline;
+  font-size: inherit;
+  padding: 0;
+}
+
+/* Warning */
+.warningText {
+  background: #fff8e6;
+  border: 1px solid #f0d77b;
+  border-radius: 6px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: #8a6d10;
+}
