@@ -267,3 +267,42 @@ def test_preset_voice_creation_uses_default_speaker_from_env(monkeypatch):
     assert body["provider"] == "doubao"
     assert body["provider_voice_id"] == "zh_female_default_bigtts"
     assert body["sample_source"] == "preset"
+
+
+def test_prepaid_speaker_creation_saves_speaker_without_clone_provider(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from api.main import app
+    from productization.cloud_repository import InMemoryCloudRepository
+
+    repo = InMemoryCloudRepository()
+    family = repo.create_family(name="Song family", user_id="owner")
+    monkeypatch.setattr("api.handlers.get_cloud_repository", lambda: repo)
+
+    class FailingProvider:
+        def create_clone(self, request):  # pragma: no cover - should not be called
+            raise AssertionError("prepaid speaker should not create a clone task")
+
+    monkeypatch.setattr("api.handlers.get_voice_provider", lambda: FailingProvider())
+
+    client = TestClient(app)
+    response = client.post(
+        "/api/voices/clone",
+        json={
+            "family_id": family["id"],
+            "display_name": "妈妈音色",
+            "sample_ids": [],
+            "consent_confirmed": False,
+            "sample_source": "prepaid",
+            "speaker_id": "S_mom_001",
+        },
+        headers={"X-User-Id": "owner"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["display_name"] == "妈妈音色"
+    assert body["provider"] == "doubao"
+    assert body["provider_voice_id"] == "S_mom_001"
+    assert body["sample_source"] == "prepaid"
+    assert body["consent_confirmed"] is False

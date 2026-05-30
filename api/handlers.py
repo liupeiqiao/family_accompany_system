@@ -361,7 +361,28 @@ def handle_clone_voice(request: VoiceCloneCreateRequest, user_id: str) -> dict:
             sample_source = request.sample_source or str(selected_samples[0].get("sample_source", "upload"))
         else:
             sample_paths = []
-            sample_source = "preset"
+            sample_source = "prepaid" if request.sample_source == "prepaid" else "preset"
+
+        if sample_source == "prepaid":
+            speaker_id = request.speaker_id.strip()
+            if not speaker_id:
+                raise ValueError("Prepaid speaker_id is required.")
+            if not re.match(r"^(S_|icl_)", speaker_id, flags=re.IGNORECASE):
+                raise ValueError("Prepaid speaker_id should start with S_ or icl_.")
+            return repo.create_voice_profile(
+                family_id=request.family_id,
+                user_id=user_id,
+                payload={
+                    "display_name": request.display_name,
+                    "provider": "doubao",
+                    "provider_voice_id": speaker_id,
+                    "status": "ready",
+                    "consent_confirmed": request.consent_confirmed,
+                    "sample_source": "prepaid",
+                    "sample_ids": [],
+                    "demo_audio_url": "",
+                },
+            )
 
         clone_result = get_voice_provider().create_clone(
             VoiceCloneRequest(

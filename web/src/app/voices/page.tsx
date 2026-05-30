@@ -34,12 +34,14 @@ export default function VoicesPage() {
   const [selectedAudioFile, setSelectedAudioFile] = useState<File | null>(null);
   const [speakerMode, setSpeakerMode] = useState<"custom" | "prepaid">("custom");
   const [speakerId, setSpeakerId] = useState("");
+  const [prepaidDisplayName, setPrepaidDisplayName] = useState("妈妈音色");
   const [customSpeakerId, setCustomSpeakerId] = useState("");
   const [promptText, setPromptText] = useState("");
   const [demoText, setDemoText] = useState("妈，我在呢。");
   const [language, setLanguage] = useState(0);
   const [enableAudioDenoise, setEnableAudioDenoise] = useState(false);
   const [consentConfirmed, setConsentConfirmed] = useState(false);
+  const [postpaidCostConfirmed, setPostpaidCostConfirmed] = useState(false);
   const [selectedSampleId, setSelectedSampleId] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isCreatingSample, setIsCreatingSample] = useState(false);
@@ -117,12 +119,17 @@ export default function VoicesPage() {
       const audioDataBase64 = await readFileAsBase64(selectedAudioFile);
       const audioFormat = audioFormatFromFilename(selectedAudioFile.name);
       const nextCustomSpeakerId = customSpeakerId.trim();
-      const nextSpeakerId = speakerMode === "custom" ? "custom_speaker_id" : speakerId.trim();
-      if (speakerMode === "custom" && !isValidCustomSpeakerId(nextCustomSpeakerId)) {
+      if (!isValidCustomSpeakerId(nextCustomSpeakerId)) {
         throw new Error("后付费自定义音色 ID 必须至少 8 位，以字母开头，只能包含字母、数字、-、_，且不能以 - 或 _ 结尾。");
       }
-      if (speakerMode === "prepaid" && !isValidPrepaidSpeakerId(nextSpeakerId)) {
-        throw new Error("预付费 speaker_id 通常应为 S_ 或 icl_ 开头。后付费请切换到自定义音色 ID。");
+      if (!postpaidCostConfirmed) {
+        throw new Error("请先确认已了解后付费音色可能产生额外成本。");
+      }
+      const confirmed = window.confirm(
+        "后付费音色在正式激活或使用后可能产生较高费用。请确认你已了解火山引擎/豆包官方计费规则，并愿意继续创建。",
+      );
+      if (!confirmed) {
+        return;
       }
       const profile = await cloneVoice({
         family_id: familyContext.family.id,
@@ -132,8 +139,8 @@ export default function VoicesPage() {
         sample_source: sampleSource,
         audio_data_base64: audioDataBase64,
         audio_format: audioFormat,
-        speaker_id: nextSpeakerId,
-        custom_speaker_id: speakerMode === "custom" ? nextCustomSpeakerId : "",
+        speaker_id: "custom_speaker_id",
+        custom_speaker_id: nextCustomSpeakerId,
         prompt_text: promptText.trim(),
         language,
         demo_text: demoText.trim(),
@@ -151,6 +158,40 @@ export default function VoicesPage() {
       setMessage("豆包声音复刻已创建，可用于语音回复。");
     } catch (err) {
       setError(err instanceof Error ? err.message : "创建声音档案失败");
+    } finally {
+      setIsCloning(false);
+    }
+  }
+
+  async function onCreatePrepaidSpeaker(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!familyContext) {
+      return;
+    }
+    const nextSpeakerId = speakerId.trim();
+    if (!isValidPrepaidSpeakerId(nextSpeakerId)) {
+      setError("预付费 Speaker ID 通常应为 S_ 或 icl_ 开头。后付费音色请切换到后付费复刻模式。");
+      return;
+    }
+    setIsCloning(true);
+    setError("");
+    setMessage("");
+    try {
+      const profile = await cloneVoice({
+        family_id: familyContext.family.id,
+        display_name: prepaidDisplayName.trim() || nextSpeakerId,
+        sample_ids: [],
+        consent_confirmed: false,
+        sample_source: "prepaid",
+        speaker_id: nextSpeakerId,
+      });
+      setProfiles((current) => [profile, ...current]);
+      setSpeakerId("");
+      setPrepaidDisplayName("妈妈音色");
+      setDemoAudioUrl("");
+      setMessage("预付费 Speaker ID 已保存为声音档案，可用于语音回复。");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "保存预付费 Speaker ID 失败");
     } finally {
       setIsCloning(false);
     }
@@ -366,33 +407,39 @@ export default function VoicesPage() {
             </button>
           </form>
 
-          <form className="importSection" onSubmit={onCloneVoice}>
+          <form
+            className="importSection"
+            onSubmit={speakerMode === "prepaid" ? onCreatePrepaidSpeaker : onCloneVoice}
+          >
             <h2>真实声音复刻</h2>
-            <p className="helperText">建议上传 14-30 秒、低噪声、单人、单轨 wav/mp3 音频，文件不超过 10MB。</p>
-            <label>
-              <span>声音档案名</span>
-              <input value={displayName} onChange={(event) => setDisplayName(event.target.value)} />
-            </label>
-            <label>
-              <span>声音文件</span>
-              <input
-                accept=".wav,.mp3,.ogg,.m4a,.aac,.pcm,audio/*"
-                onChange={(event) => setSelectedAudioFile(event.target.files?.[0] ?? null)}
-                type="file"
-              />
-            </label>
             <label>
               <span>音色创建方式</span>
               <select
                 onChange={(event) => setSpeakerMode(event.target.value as "custom" | "prepaid")}
                 value={speakerMode}
               >
-                <option value="custom">后付费自定义音色 ID</option>
-                <option value="prepaid">预付费 speaker_id</option>
+                <option value="custom">后付费音色复刻</option>
+                <option value="prepaid">预付费 Speaker ID</option>
               </select>
             </label>
             {speakerMode === "custom" ? (
               <>
+                <p className="errorText">
+                  后付费音色在正式激活或使用后可能产生较高费用。创建前请先了解火山引擎/豆包官方计费规则，确认预算和使用边界。
+                </p>
+                <p className="helperText">建议上传 14-30 秒、低噪声、单人、单轨 wav/mp3 音频，文件不超过 10MB。</p>
+                <label>
+                  <span>自定义音色名称</span>
+                  <input value={displayName} onChange={(event) => setDisplayName(event.target.value)} />
+                </label>
+                <label>
+                  <span>声音文件</span>
+                  <input
+                    accept=".wav,.mp3,.ogg,.m4a,.aac,.pcm,audio/*"
+                    onChange={(event) => setSelectedAudioFile(event.target.files?.[0] ?? null)}
+                    type="file"
+                  />
+                </label>
                 <label>
                   <span>后付费自定义音色 ID</span>
                   <input
@@ -407,77 +454,97 @@ export default function VoicesPage() {
                     <span className="errorText"> 当前输入不符合规则。</span>
                   ) : null}
                 </p>
+                <label>
+                  <span>试听文本</span>
+                  <input
+                    onChange={(event) => setDemoText(event.target.value)}
+                    placeholder="4-300 字，建议贴近陪伴场景"
+                    value={demoText}
+                  />
+                </label>
+                <label>
+                  <span>语种</span>
+                  <select onChange={(event) => setLanguage(Number(event.target.value))} value={language}>
+                    <option value={0}>中文</option>
+                    <option value={1}>英文</option>
+                    <option value={2}>日语</option>
+                    <option value={3}>西班牙语</option>
+                    <option value={4}>印尼语</option>
+                    <option value={5}>葡萄牙语</option>
+                    <option value={8}>韩语</option>
+                  </select>
+                </label>
+                <label className="voiceConsent">
+                  <input
+                    checked={enableAudioDenoise}
+                    onChange={(event) => setEnableAudioDenoise(event.target.checked)}
+                    type="checkbox"
+                  />
+                  <span>样本噪声较大时启用降噪；音频质量好时建议关闭以保留相似度。</span>
+                </label>
+                <label>
+                  <span>关联样本记录</span>
+                  <select value={selectedSampleId} onChange={(event) => setSelectedSampleId(event.target.value)}>
+                    <option value="">不关联</option>
+                    {samples.map((sample) => (
+                      <option key={sample.id} value={sample.id}>
+                        {sample.storage_path}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="voiceConsent">
+                  <input
+                    checked={consentConfirmed}
+                    onChange={(event) => setConsentConfirmed(event.target.checked)}
+                    type="checkbox"
+                  />
+                  <span>我确认这是我本人的声音，并用于本家庭空间的语音陪伴。</span>
+                </label>
+                <label className="voiceConsent">
+                  <input
+                    checked={postpaidCostConfirmed}
+                    onChange={(event) => setPostpaidCostConfirmed(event.target.checked)}
+                    type="checkbox"
+                  />
+                  <span>我已了解后付费音色激活或使用后可能产生额外成本，并会以火山引擎/豆包官方计费规则为准。</span>
+                </label>
               </>
             ) : (
-              <label>
-                <span>预付费 speaker_id</span>
-                <input
-                  onChange={(event) => setSpeakerId(event.target.value)}
-                  placeholder="例如 S_example"
-                  value={speakerId}
-                />
-              </label>
+              <>
+                <p className="helperText">预付费 Speaker ID 已在豆包侧购买或开通；这里仅保存系统内部配置，不上传音频，也不会创建复刻任务。</p>
+                <label>
+                  <span>Speaker ID</span>
+                  <input
+                    onChange={(event) => setSpeakerId(event.target.value)}
+                    placeholder="例如 S_xxxxxxxxx"
+                    value={speakerId}
+                  />
+                </label>
+                <label>
+                  <span>音色名称</span>
+                  <input
+                    onChange={(event) => setPrepaidDisplayName(event.target.value)}
+                    placeholder="例如 妈妈音色"
+                    value={prepaidDisplayName}
+                  />
+                </label>
+                <p className="helperText">音色名称仅用于系统内部展示和管理，不会影响实际 Speaker ID。</p>
+              </>
             )}
-            <label>
-              <span>试听文本</span>
-              <input
-                onChange={(event) => setDemoText(event.target.value)}
-                placeholder="4-300 字，建议贴近陪伴场景"
-                value={demoText}
-              />
-            </label>
-            <label>
-              <span>语种</span>
-              <select onChange={(event) => setLanguage(Number(event.target.value))} value={language}>
-                <option value={0}>中文</option>
-                <option value={1}>英文</option>
-                <option value={2}>日语</option>
-                <option value={3}>西班牙语</option>
-                <option value={4}>印尼语</option>
-                <option value={5}>葡萄牙语</option>
-                <option value={8}>韩语</option>
-              </select>
-            </label>
-            <label className="voiceConsent">
-              <input
-                checked={enableAudioDenoise}
-                onChange={(event) => setEnableAudioDenoise(event.target.checked)}
-                type="checkbox"
-              />
-              <span>样本噪声较大时启用降噪；音频质量好时建议关闭以保留相似度。</span>
-            </label>
-            <label>
-              <span>关联样本记录</span>
-              <select value={selectedSampleId} onChange={(event) => setSelectedSampleId(event.target.value)}>
-                <option value="">不关联</option>
-                {samples.map((sample) => (
-                  <option key={sample.id} value={sample.id}>
-                    {sample.storage_path}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="voiceConsent">
-              <input
-                checked={consentConfirmed}
-                onChange={(event) => setConsentConfirmed(event.target.checked)}
-                type="checkbox"
-              />
-              <span>我确认这是我本人的声音，并用于本家庭空间的语音陪伴。</span>
-            </label>
             <button
               type="submit"
               disabled={
                 !canWrite ||
                 isCloning ||
-                !selectedAudioFile ||
-                !consentConfirmed ||
-                (speakerMode === "custom" ? !customSpeakerId.trim() : !speakerId.trim())
+                (speakerMode === "custom"
+                  ? !selectedAudioFile || !consentConfirmed || !postpaidCostConfirmed || !customSpeakerId.trim()
+                  : !speakerId.trim() || !prepaidDisplayName.trim())
               }
             >
-              {isCloning ? "训练中..." : "创建豆包复刻音色"}
+              {isCloning ? "处理中..." : speakerMode === "custom" ? "创建后付费复刻音色" : "保存预付费 Speaker ID"}
             </button>
-            {demoAudioUrl ? (
+            {speakerMode === "custom" && demoAudioUrl ? (
               <div style={{ marginTop: 12 }}>
                 <p className="helperText">试听复刻效果：</p>
                 <audio controls src={demoAudioUrl} style={{ width: "100%" }}>

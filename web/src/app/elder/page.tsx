@@ -144,7 +144,7 @@ export default function ElderChatPage() {
               <option value="">暂无可用声音档案</option>
               {voiceProfiles.map((profile) => (
                 <option key={profile.id} value={profile.id}>
-                  {profile.provider_voice_id} · {profile.display_name}
+                  {profile.display_name} · {profile.provider_voice_id}
                 </option>
               ))}
             </select>
