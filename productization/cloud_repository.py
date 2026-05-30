@@ -12,6 +12,7 @@ from uuid import uuid4
 from engine.family import normalize_family_relation
 
 FamilyRole = Literal["owner", "editor", "viewer"]
+PostgresCloudRepository = None
 
 
 class FamilyPermissionError(PermissionError):
@@ -641,6 +642,16 @@ _cloud_repository: CloudRepository | None = None
 def get_cloud_repository() -> CloudRepository:
     global _cloud_repository
     if _cloud_repository is not None:
+        return _cloud_repository
+
+    database_url = os.getenv("DATABASE_URL")
+    if database_url:
+        repo_cls = PostgresCloudRepository
+        if repo_cls is None:
+            from .postgres_repository import PostgresCloudRepository as repo_cls
+
+        _cloud_repository = repo_cls(database_url)
+        _cloud_repository.init_schema()
         return _cloud_repository
 
     config = SupabaseConfig.from_env()
