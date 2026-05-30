@@ -234,3 +234,36 @@ def test_chat_endpoint_keeps_text_when_tts_fails(monkeypatch):
     assert body["text"] == "Text still works."
     assert body["audio_url"] is None
     assert "tts_error" in body["debug"]
+
+
+def test_preset_voice_creation_uses_default_speaker_from_env(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from api.main import app
+    from productization.cloud_repository import InMemoryCloudRepository
+
+    repo = InMemoryCloudRepository()
+    family = repo.create_family(name="Song family", user_id="owner")
+    monkeypatch.setenv("VOICE_PROVIDER", "doubao")
+    monkeypatch.setenv("DOUBAO_TTS_API_KEY", "api-key")
+    monkeypatch.setenv("DOUBAO_TTS_DEFAULT_VOICE_TYPE", "zh_female_default_bigtts")
+    monkeypatch.setattr("api.handlers.get_cloud_repository", lambda: repo)
+
+    client = TestClient(app)
+    response = client.post(
+        "/api/voices/clone",
+        json={
+            "family_id": family["id"],
+            "display_name": "Preset voice",
+            "sample_ids": [],
+            "consent_confirmed": True,
+            "sample_source": "preset",
+        },
+        headers={"X-User-Id": "owner"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["provider"] == "doubao"
+    assert body["provider_voice_id"] == "zh_female_default_bigtts"
+    assert body["sample_source"] == "preset"
