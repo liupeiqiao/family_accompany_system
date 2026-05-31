@@ -352,6 +352,25 @@ def handle_list_voice_profiles(family_id: str, user_id: str) -> list[dict]:
     )
 
 
+def handle_update_voice_profile(profile_id: str, payload: dict, user_id: str) -> dict:
+    family_id = str(payload.get("family_id") or "")
+    persona_id = str(payload.get("persona_id") or "")
+    if persona_id:
+        personas = _call_cloud(
+            lambda: get_cloud_repository().list_personas(family_id=family_id, user_id=user_id)
+        )
+        if not any(str(persona.get("id") or "") == persona_id for persona in personas):
+            raise HTTPException(status_code=400, detail="Persona does not belong to this family.")
+    return _call_cloud(
+        lambda: get_cloud_repository().update_voice_profile(
+            family_id=family_id,
+            user_id=user_id,
+            profile_id=profile_id,
+            payload={"persona_id": persona_id},
+        )
+    )
+
+
 def handle_clone_voice(request: VoiceCloneCreateRequest, user_id: str) -> dict:
     repo = get_cloud_repository()
 

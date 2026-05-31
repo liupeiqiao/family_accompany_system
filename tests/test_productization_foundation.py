@@ -355,6 +355,9 @@ def test_voices_page_uses_cloud_voice_api_states():
     assert "queryVoiceStatus" in voices_source
     assert "upgradeVoice" in voices_source
     assert "deleteVoiceProfile" in voices_source
+    assert "fetchCloudPersonas" in voices_source
+    assert "updateVoiceProfile" in voices_source
+    assert "persona_id" in voices_source
     assert "voiceManagement" in voices_source
 
 

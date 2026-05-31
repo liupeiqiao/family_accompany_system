@@ -98,6 +98,16 @@ class CloudRepository(Protocol):
     def create_voice_profile(self, *, family_id: str, user_id: str, payload: dict) -> dict:
         ...
 
+    def update_voice_profile(
+        self,
+        *,
+        family_id: str,
+        user_id: str,
+        profile_id: str,
+        payload: dict,
+    ) -> dict:
+        ...
+
     def hide_voice_profile(self, *, family_id: str, user_id: str, profile_id: str) -> None:
         ...
 
@@ -335,6 +345,20 @@ class InMemoryCloudRepository:
         for sample in samples:
             sample["voice_profile_id"] = profile_id
             sample["status"] = "ready"
+        return dict(profile)
+
+    def update_voice_profile(
+        self,
+        *,
+        family_id: str,
+        user_id: str,
+        profile_id: str,
+        payload: dict,
+    ) -> dict:
+        self._require_editor(family_id, user_id)
+        profile = self._get_family_record(self._voice_profiles, family_id, profile_id)
+        profile.update(payload)
+        profile["updated_by"] = user_id
         return dict(profile)
 
     def hide_voice_profile(self, *, family_id: str, user_id: str, profile_id: str) -> None:
@@ -724,6 +748,21 @@ class SupabaseCloudRepository:
                 payload={"voice_profile_id": profile["id"], "status": profile.get("status", "ready")},
             )
         return profile
+
+    def update_voice_profile(
+        self,
+        *,
+        family_id: str,
+        user_id: str,
+        profile_id: str,
+        payload: dict,
+    ) -> dict:
+        self._require_editor(family_id, user_id)
+        return self._request(
+            f"voice_profiles?id=eq.{profile_id}&family_id=eq.{family_id}",
+            method="PATCH",
+            payload={**payload, "updated_by": user_id},
+        )[0]
 
     def hide_voice_profile(self, *, family_id: str, user_id: str, profile_id: str) -> None:
         self._require_editor(family_id, user_id)

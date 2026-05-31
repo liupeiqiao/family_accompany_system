@@ -3,14 +3,17 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import {
+  CloudRecord,
   FamilyContext,
   VoiceProfile,
   VoiceStatusResponse,
   cloneVoice,
+  fetchCloudPersonas,
   fetchCurrentFamily,
   fetchVoiceProfiles,
   deleteVoiceProfile,
   queryVoiceStatus,
+  updateVoiceProfile,
   upgradeVoice,
 } from "../../lib/backend-api";
 
@@ -21,6 +24,7 @@ export default function VoicesPage() {
   const [activeTab, setActiveTab] = useState<NavTab>("library");
   const [familyContext, setFamilyContext] = useState<FamilyContext | null>(null);
   const [profiles, setProfiles] = useState<VoiceProfile[]>([]);
+  const [personas, setPersonas] = useState<CloudRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -34,8 +38,12 @@ export default function VoicesPage() {
     try {
       const context = await fetchCurrentFamily();
       setFamilyContext(context);
-      const nextProfiles = await fetchVoiceProfiles(context.family.id);
+      const [nextProfiles, nextPersonas] = await Promise.all([
+        fetchVoiceProfiles(context.family.id),
+        fetchCloudPersonas(context.family.id),
+      ]);
       setProfiles(nextProfiles);
+      setPersonas(nextPersonas);
     } catch (err) {
       setFamilyContext(null);
       setError(err instanceof Error ? err.message : "声音空间加载失败");
@@ -54,6 +62,24 @@ export default function VoicesPage() {
     } catch (err) {
       setVoiceManagement((c) => ({
         ...c, [profile.id]: { ...c[profile.id], isLoading: false, error: err instanceof Error ? err.message : "删除失败" },
+      }));
+    }
+  }
+
+  async function handleBindPersona(profile: VoiceProfile, personaId: string) {
+    if (!familyContext) return;
+    setVoiceManagement((c) => ({ ...c, [profile.id]: { ...c[profile.id], isLoading: true } }));
+    try {
+      const updated = await updateVoiceProfile(profile.id, {
+        family_id: familyContext.family.id,
+        persona_id: personaId,
+      });
+      setProfiles((c) => c.map((p) => (p.id === profile.id ? updated : p)));
+      setVoiceManagement((c) => ({ ...c, [profile.id]: { ...c[profile.id], isLoading: false } }));
+      setMessage(personaId ? "音色已绑定到 AI 角色。" : "音色已取消角色绑定。");
+    } catch (err) {
+      setVoiceManagement((c) => ({
+        ...c, [profile.id]: { ...c[profile.id], isLoading: false, error: err instanceof Error ? err.message : "绑定失败" },
       }));
     }
   }
@@ -110,10 +136,12 @@ export default function VoicesPage() {
           {familyContext && activeTab === "library" && (
             <FamilyVoiceLibrary
               profiles={profiles}
+              personas={personas}
               canWrite={Boolean(canWrite)}
               management={voiceManagement}
               message={message}
               onDelete={handleDelete}
+              onBindPersona={handleBindPersona}
               onQuery={handleQuery}
               onUpgrade={handleUpgrade}
             />
@@ -185,14 +213,16 @@ function VoiceNav({ activeTab, onSelect }: { activeTab: NavTab; onSelect: (tab: 
 
 function FamilyVoiceLibrary(props: {
   profiles: VoiceProfile[];
+  personas: CloudRecord[];
   canWrite: boolean;
   management: Record<string, VoiceManagementState>;
   message: string;
   onDelete: (profile: VoiceProfile) => void;
+  onBindPersona: (profile: VoiceProfile, personaId: string) => void;
   onQuery: (profile: VoiceProfile) => void;
   onUpgrade: (profile: VoiceProfile) => void;
 }) {
-  const { profiles, canWrite, management, message, onDelete, onQuery, onUpgrade } = props;
+  const { profiles, personas, canWrite, management, message, onDelete, onBindPersona, onQuery, onUpgrade } = props;
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
 
@@ -227,9 +257,11 @@ function FamilyVoiceLibrary(props: {
             <VoiceCard
               key={profile.id}
               profile={profile}
+              personas={personas}
               canWrite={canWrite}
               management={management}
               onDelete={onDelete}
+              onBindPersona={onBindPersona}
               onQuery={onQuery}
               onUpgrade={onUpgrade}
             />
@@ -242,16 +274,19 @@ function FamilyVoiceLibrary(props: {
 
 function VoiceCard(props: {
   profile: VoiceProfile;
+  personas: CloudRecord[];
   canWrite: boolean;
   management: Record<string, VoiceManagementState>;
   onDelete: (profile: VoiceProfile) => void;
+  onBindPersona: (profile: VoiceProfile, personaId: string) => void;
   onQuery: (profile: VoiceProfile) => void;
   onUpgrade: (profile: VoiceProfile) => void;
 }) {
-  const { profile, canWrite, management, onDelete, onQuery, onUpgrade } = props;
+  const { profile, personas, canWrite, management, onDelete, onBindPersona, onQuery, onUpgrade } = props;
   const [speakerIdExpanded, setSpeakerIdExpanded] = useState(false);
   const state = management[profile.id] ?? {};
   const cloudStatus = state.result?.voice_status;
+  const boundPersona = personas.find((persona) => String(persona.id ?? "") === String(profile.persona_id ?? ""));
 
   const typeLabel = profile.voice_type === "preset" ? "预置音色"
     : profile.voice_type === "prepaid" ? "已导入"
@@ -279,6 +314,24 @@ function VoiceCard(props: {
       <div className="voiceCardMeta">
         <span>创建时间: {new Date().toLocaleDateString()}</span>
       </div>
+      <label>
+        <span>绑定 AI 角色</span>
+        <select
+          value={profile.persona_id ?? ""}
+          disabled={!canWrite || state.isLoading}
+          onChange={(event) => onBindPersona(profile, event.target.value)}
+        >
+          <option value="">暂不绑定，老人端自动选择</option>
+          {personas.map((persona) => (
+            <option key={String(persona.id ?? "")} value={String(persona.id ?? "")}>
+              {String(persona.role_label ?? persona.relation ?? persona.id ?? "未命名角色")}
+            </option>
+          ))}
+        </select>
+      </label>
+      <p className="helperText">
+        当前绑定：{boundPersona ? String(boundPersona.role_label ?? boundPersona.id) : "未绑定"}
+      </p>
       <div className="voiceCardFooter">
         <span className="speakerIdRow">
           Speaker ID{" "}

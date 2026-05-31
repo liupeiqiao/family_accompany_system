@@ -134,6 +134,7 @@ export type VoiceProfile = CloudRecord & {
   demo_audio_url?: string;
   sample_source?: string;
   voice_type?: "preset" | "prepaid" | "postpaid";
+  persona_id?: string;
 };
 
 export type VoiceStatusResponse = {
@@ -325,6 +326,22 @@ export function fetchVoiceProfiles(familyId: string): Promise<VoiceProfile[]> {
   return requestJson<VoiceProfile[]>(
     `/api/voices/profiles?family_id=${encodeURIComponent(familyId)}`,
     withUser(),
+  );
+}
+
+export function updateVoiceProfile(
+  profileId: string,
+  payload: {
+    family_id: string;
+    persona_id: string;
+  },
+): Promise<VoiceProfile> {
+  return requestJson<VoiceProfile>(
+    `/api/voices/profiles/${encodeURIComponent(profileId)}`,
+    withUser({
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
   );
 }
 

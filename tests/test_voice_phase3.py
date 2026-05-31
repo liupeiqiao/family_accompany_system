@@ -394,3 +394,89 @@ def test_delete_voice_profile_soft_deletes_postpaid(monkeypatch):
     all_profiles = repo._voice_profiles
     assert postpaid["id"] in all_profiles
     assert all_profiles[postpaid["id"]]["status"] == "hidden"
+
+
+def test_fastapi_voice_profile_can_bind_to_persona(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from api.main import app
+    from productization.cloud_repository import InMemoryCloudRepository
+
+    repo = InMemoryCloudRepository()
+    family = repo.create_family(name="Test", user_id="owner")
+    persona = repo.create_persona(
+        family_id=family["id"],
+        user_id="owner",
+        payload={"role_label": "女儿小雨", "relation": "子女", "appellation": "妈"},
+    )
+    profile = repo.create_voice_profile(
+        family_id=family["id"],
+        user_id="owner",
+        payload={
+            "display_name": "小雨音色",
+            "provider": "doubao",
+            "provider_voice_id": "voice_xiaoyu",
+            "status": "ready",
+            "consent_confirmed": True,
+            "sample_source": "preset",
+            "sample_ids": [],
+            "voice_type": "preset",
+        },
+    )
+    monkeypatch.setattr("api.handlers.get_cloud_repository", lambda: repo)
+    client = TestClient(app)
+
+    response = client.put(
+        f"/api/voices/profiles/{profile['id']}",
+        json={"family_id": family["id"], "persona_id": persona["id"]},
+        headers={"X-User-Id": "owner"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["persona_id"] == persona["id"]
+    profiles = client.get(
+        f"/api/voices/profiles?family_id={family['id']}",
+        headers={"X-User-Id": "owner"},
+    ).json()
+    assert profiles[0]["persona_id"] == persona["id"]
+
+
+def test_fastapi_voice_profile_rejects_persona_from_other_family(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from api.main import app
+    from productization.cloud_repository import InMemoryCloudRepository
+
+    repo = InMemoryCloudRepository()
+    family = repo.create_family(name="Test", user_id="owner")
+    other_family = repo.create_family(name="Other", user_id="other")
+    other_persona = repo.create_persona(
+        family_id=other_family["id"],
+        user_id="other",
+        payload={"role_label": "女儿小雨"},
+    )
+    profile = repo.create_voice_profile(
+        family_id=family["id"],
+        user_id="owner",
+        payload={
+            "display_name": "小雨音色",
+            "provider": "doubao",
+            "provider_voice_id": "voice_xiaoyu",
+            "status": "ready",
+            "consent_confirmed": True,
+            "sample_source": "preset",
+            "sample_ids": [],
+            "voice_type": "preset",
+        },
+    )
+    monkeypatch.setattr("api.handlers.get_cloud_repository", lambda: repo)
+    client = TestClient(app)
+
+    response = client.put(
+        f"/api/voices/profiles/{profile['id']}",
+        json={"family_id": family["id"], "persona_id": other_persona["id"]},
+        headers={"X-User-Id": "owner"},
+    )
+
+    assert response.status_code == 400

@@ -40,6 +40,7 @@ from .handlers import (
     handle_records,
     handle_tts,
     handle_upgrade_voice,
+    handle_update_voice_profile,
     handle_update_cloud_family_profile,
     handle_update_cloud_memory,
     handle_update_cloud_persona,
@@ -63,6 +64,7 @@ from .schemas import (
     TextToSpeechCreateResponse,
     VoiceCloneCreateRequest,
     VoiceManagementRequest,
+    VoiceProfileUpdateRequest,
     VoiceUploadIntentRequest,
 )
 
@@ -219,6 +221,15 @@ def clone_voice_endpoint(
     x_user_id: str = Depends(current_user_id),
 ) -> dict:
     return handle_clone_voice(request, x_user_id)
+
+
+@app.put("/api/voices/profiles/{profile_id}", response_model=dict)
+def update_voice_profile_endpoint(
+    profile_id: str,
+    request: VoiceProfileUpdateRequest,
+    x_user_id: str = Depends(current_user_id),
+) -> dict:
+    return handle_update_voice_profile(profile_id, request.model_dump(), x_user_id)
 
 
 @app.post("/api/voices/status", response_model=dict)

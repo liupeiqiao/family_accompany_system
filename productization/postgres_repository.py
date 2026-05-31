@@ -294,6 +294,19 @@ class PostgresCloudRepository:
             )
         return profile
 
+    def update_voice_profile(
+        self,
+        *,
+        family_id: str,
+        user_id: str,
+        profile_id: str,
+        payload: dict,
+    ) -> dict:
+        self._require_editor(family_id, user_id)
+        existing = self._get_family_record("voice_profiles", family_id, profile_id)
+        data = self._record_payload("voice_profiles", {**existing, **payload}, user_id=user_id, creating=False)
+        return self._update_family_record("voice_profiles", family_id, profile_id, data)
+
     def hide_voice_profile(self, *, family_id: str, user_id: str, profile_id: str) -> None:
         self._require_editor(family_id, user_id)
         self._update_family_record("voice_profiles", family_id, profile_id, {"status": "hidden", "updated_by": user_id})
