@@ -117,6 +117,23 @@ class CloudRepository(Protocol):
     ) -> dict:
         ...
 
+    def record_voice_chat_exchange(
+        self,
+        *,
+        family_id: str,
+        user_id: str,
+        elder_id: str,
+        persona_id: str,
+        voice_profile_id: str,
+        user_text: str,
+        assistant_text: str,
+        audio_url: str,
+        asr_provider: str,
+        tts_provider: str,
+        session_id: str,
+    ) -> dict:
+        ...
+
     def list_chat_messages(self, *, family_id: str, user_id: str) -> list[dict]:
         ...
 
@@ -381,6 +398,57 @@ class InMemoryCloudRepository:
         )
         return dict(session)
 
+    def record_voice_chat_exchange(
+        self,
+        *,
+        family_id: str,
+        user_id: str,
+        elder_id: str,
+        persona_id: str,
+        voice_profile_id: str,
+        user_text: str,
+        assistant_text: str,
+        audio_url: str,
+        asr_provider: str,
+        tts_provider: str,
+        session_id: str,
+    ) -> dict:
+        self._require_member(family_id, user_id)
+        actual_session_id = session_id or uuid4().hex
+        session = self._chat_sessions.get(actual_session_id)
+        if session is None:
+            session = {
+                "id": actual_session_id,
+                "family_id": family_id,
+                "elder_id": elder_id or "",
+                "persona_id": persona_id or "",
+                "voice_profile_id": voice_profile_id or "",
+                "created_by": user_id,
+                "created_at": str(len(self._chat_sessions)).zfill(8),
+            }
+            self._chat_sessions[actual_session_id] = session
+        self._append_chat_message(
+            session_id=actual_session_id,
+            role="user",
+            text=user_text,
+            audio_storage_path="",
+            tts_provider="",
+            persona_id=persona_id,
+            voice_profile_id=voice_profile_id,
+            asr_provider=asr_provider,
+        )
+        self._append_chat_message(
+            session_id=actual_session_id,
+            role="assistant",
+            text=assistant_text,
+            audio_storage_path=audio_url or "",
+            tts_provider=tts_provider or "",
+            persona_id=persona_id,
+            voice_profile_id=voice_profile_id,
+            asr_provider="",
+        )
+        return dict(session)
+
     def list_chat_messages(self, *, family_id: str, user_id: str) -> list[dict]:
         self._require_member(family_id, user_id)
         session_ids = {
@@ -403,6 +471,9 @@ class InMemoryCloudRepository:
         text: str,
         audio_storage_path: str,
         tts_provider: str,
+        persona_id: str = "",
+        voice_profile_id: str = "",
+        asr_provider: str = "",
     ) -> dict:
         message_id = uuid4().hex
         message = {
@@ -412,6 +483,9 @@ class InMemoryCloudRepository:
             "text": text,
             "audio_storage_path": audio_storage_path,
             "tts_provider": tts_provider,
+            "persona_id": persona_id or "",
+            "voice_profile_id": voice_profile_id or "",
+            "asr_provider": asr_provider or "",
             "created_at": str(len(self._chat_messages)).zfill(8),
         }
         self._chat_messages[message_id] = message

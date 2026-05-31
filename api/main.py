@@ -3,7 +3,7 @@ from __future__ import annotations
 from dotenv import load_dotenv
 load_dotenv()
 
-from fastapi import Depends, FastAPI, Query
+from fastapi import Depends, FastAPI, File, Form, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 
@@ -22,6 +22,7 @@ from .handlers import (
     handle_delete_memory,
     handle_delete_persona,
     handle_get_voice_status,
+    handle_elder_voice_chat,
     handle_list_chat_history,
     handle_get_cloud_elder_current,
     handle_get_current_family,
@@ -46,6 +47,7 @@ from .schemas import (
     ChatRequest,
     ChatResponse,
     DeleteResponse,
+    ElderVoiceChatResponse,
     FamilyCreateRequest,
     FamilyCurrentResponse,
     ImportRequest,
@@ -250,6 +252,30 @@ def chat_endpoint(
     x_user_id: str = Depends(current_user_id),
 ) -> ChatResponse:
     return handle_chat(request, x_user_id)
+
+
+@app.post("/api/elder/voice-chat", response_model=ElderVoiceChatResponse)
+async def elder_voice_chat_endpoint(
+    family_id: str = Form(...),
+    elder_id: str = Form(default=""),
+    persona_id: str = Form(default=""),
+    voice_profile_id: str = Form(default=""),
+    client_session_id: str = Form(default=""),
+    audio_format: str = Form(default="webm"),
+    audio_file: UploadFile = File(...),
+    x_user_id: str = Depends(current_user_id),
+) -> ElderVoiceChatResponse:
+    audio_bytes = await audio_file.read()
+    return handle_elder_voice_chat(
+        family_id=family_id,
+        user_id=x_user_id,
+        elder_id=elder_id,
+        persona_id=persona_id,
+        voice_profile_id=voice_profile_id,
+        client_session_id=client_session_id,
+        audio_bytes=audio_bytes,
+        audio_format=audio_format,
+    )
 
 
 @app.get("/api/chat/history", response_model=list[dict])

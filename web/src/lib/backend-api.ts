@@ -47,6 +47,19 @@ export type ChatResponse = {
   debug: Record<string, unknown>;
 };
 
+export type ChatHistoryMessage = {
+  id: string;
+  session_id: string;
+  role: "user" | "assistant";
+  text: string;
+  audio_storage_path?: string;
+  tts_provider?: string;
+  persona_id?: string;
+  voice_profile_id?: string;
+  asr_provider?: string;
+  created_at?: string;
+};
+
 export type TextToSpeechResponse = {
   provider: string;
   audio_url: string;
@@ -110,6 +123,21 @@ export type VoiceStatusResponse = {
       demo_audio?: string;
     }[];
   };
+};
+
+export type ElderVoiceChatResponse = {
+  recognized_text: string;
+  reply_text: string;
+  audio_url?: string | null;
+  session_id: string;
+  message_id?: string;
+  matched_persona: {
+    persona_id: string;
+    display_name: string;
+    confidence: number;
+  };
+  status: "ok" | "asr_empty" | "context_error" | string;
+  debug: Record<string, unknown>;
 };
 
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
@@ -330,6 +358,48 @@ export function sendChat(payload: {
       body: JSON.stringify(payload),
     }),
   );
+}
+
+export function fetchChatHistory(familyId: string): Promise<ChatHistoryMessage[]> {
+  return requestJson<ChatHistoryMessage[]>(
+    `/api/chat/history?family_id=${encodeURIComponent(familyId)}`,
+    withUser(),
+  );
+}
+
+export async function sendElderVoiceChat(payload: {
+  family_id: string;
+  elder_id?: string;
+  persona_id?: string;
+  voice_profile_id?: string;
+  client_session_id?: string;
+  audio_format: string;
+  audio_file: Blob;
+}): Promise<ElderVoiceChatResponse> {
+  const formData = new FormData();
+  formData.set("family_id", payload.family_id);
+  formData.set("elder_id", payload.elder_id ?? "");
+  formData.set("persona_id", payload.persona_id ?? "");
+  formData.set("voice_profile_id", payload.voice_profile_id ?? "");
+  formData.set("client_session_id", payload.client_session_id ?? "");
+  formData.set("audio_format", payload.audio_format);
+  formData.set("audio_file", payload.audio_file, `elder-speech.${payload.audio_format}`);
+
+  const token = getAuthToken();
+  const response = await fetch(`${API_BASE_URL}/api/elder/voice-chat`, {
+    method: "POST",
+    headers: {
+      ...(token ? { "X-User-Token": token } : {}),
+    },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const bodyText = await response.text();
+    throw new Error(bodyText || `Backend request failed with status ${response.status}`);
+  }
+
+  return response.json() as Promise<ElderVoiceChatResponse>;
 }
 
 export function cloneVoice(payload: {

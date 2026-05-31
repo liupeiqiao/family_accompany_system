@@ -466,6 +466,105 @@ button:disabled {
   grid-template-columns: minmax(160px, auto) minmax(0, 1fr);
 }
 
+.elderPhone {
+  align-items: center;
+  display: grid;
+  gap: 24px;
+  margin: 0 auto;
+  max-width: 680px;
+  min-height: calc(100vh - 64px);
+  text-align: center;
+}
+
+.callTarget {
+  display: grid;
+  gap: 8px;
+}
+
+.eyebrow {
+  color: #6f6256;
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.callTarget h1 {
+  font-size: 28px;
+  line-height: 1.25;
+  margin: 0;
+}
+
+.callStatus {
+  color: #4f5f59;
+  font-size: 20px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.callButton {
+  align-items: center;
+  aspect-ratio: 1;
+  background: #2f241c;
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 24px;
+  font-weight: 700;
+  justify-content: center;
+  justify-self: center;
+  max-width: 260px;
+  min-height: 0;
+  padding: 24px;
+  width: min(62vw, 260px);
+}
+
+.callButton.recording {
+  background: #9b241f;
+  border-color: #9b241f;
+}
+
+.callButton.recorded {
+  background: #5d4a2f;
+  border-color: #5d4a2f;
+}
+
+.callButton.playing {
+  background: #23613a;
+  border-color: #23613a;
+}
+
+.callButton.understanding,
+.callButton.replying {
+  background: #5a6872;
+  border-color: #5a6872;
+}
+
+.callActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+  min-height: 44px;
+}
+
+.recentTurns {
+  display: grid;
+  gap: 12px;
+  text-align: left;
+  width: 100%;
+}
+
+.recentTurn {
+  background: #fffaf3;
+  border: 1px solid #e3d6c5;
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.recentTurn p {
+  line-height: 1.7;
+  margin: 0 0 8px;
+}
+
 @media (max-width: 720px) {
   .profileSummaryHeader,
   .memorySummaryHeader,

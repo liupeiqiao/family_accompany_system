@@ -104,6 +104,23 @@ class TextToSpeechCreateResponse(BaseModel):
     audio_url: str
 
 
+class MatchedPersonaResponse(BaseModel):
+    persona_id: str = ""
+    display_name: str = ""
+    confidence: float = 0
+
+
+class ElderVoiceChatResponse(BaseModel):
+    recognized_text: str = ""
+    reply_text: str = ""
+    audio_url: str | None = None
+    session_id: str = ""
+    message_id: str = ""
+    matched_persona: MatchedPersonaResponse = Field(default_factory=MatchedPersonaResponse)
+    status: str = "ok"
+    debug: dict = Field(default_factory=dict)
+
+
 class ChatRequest(BaseModel):
     family_id: str = Field(default="local")
     elder_id: str = ""

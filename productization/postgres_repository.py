@@ -349,6 +349,76 @@ class PostgresCloudRepository:
         )
         return session
 
+    def record_voice_chat_exchange(
+        self,
+        *,
+        family_id: str,
+        user_id: str,
+        elder_id: str,
+        persona_id: str,
+        voice_profile_id: str,
+        user_text: str,
+        assistant_text: str,
+        audio_url: str,
+        asr_provider: str,
+        tts_provider: str,
+        session_id: str,
+    ) -> dict:
+        self._require_member(family_id, user_id)
+        existing = None
+        if session_id:
+            existing = self._fetch_one(
+                "SELECT * FROM chat_sessions WHERE id = %s AND family_id = %s",
+                (_optional_uuid(session_id), family_id),
+                required=False,
+            )
+        if existing:
+            session = existing
+        else:
+            session = self._fetch_one(
+                """
+                INSERT INTO chat_sessions (id, family_id, elder_id, persona_id, voice_profile_id, created_by)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                RETURNING *
+                """,
+                (
+                    _optional_uuid(session_id) or str(uuid4()),
+                    family_id,
+                    _optional_uuid(elder_id),
+                    _optional_uuid(persona_id),
+                    _optional_uuid(voice_profile_id),
+                    user_id,
+                ),
+            )
+        self._execute(
+            """
+            INSERT INTO chat_messages
+                (session_id, role, text, audio_storage_path, tts_provider, persona_id, voice_profile_id, asr_provider)
+            VALUES
+                (%s, %s, %s, %s, %s, %s, %s, %s),
+                (%s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                session["id"],
+                "user",
+                user_text,
+                "",
+                "",
+                _optional_uuid(persona_id),
+                _optional_uuid(voice_profile_id),
+                asr_provider or "",
+                session["id"],
+                "assistant",
+                assistant_text,
+                audio_url or "",
+                tts_provider or "",
+                _optional_uuid(persona_id),
+                _optional_uuid(voice_profile_id),
+                "",
+            ),
+        )
+        return session
+
     def list_chat_messages(self, *, family_id: str, user_id: str) -> list[dict]:
         self._require_member(family_id, user_id)
         return self._fetch_all(

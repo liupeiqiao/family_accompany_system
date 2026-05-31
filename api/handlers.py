@@ -17,6 +17,7 @@ from productization.cloud_repository import (
 )
 from productization.family_context_service import build_family_chat_context
 from productization.voice import (
+    SpeechRecognitionRequest,
     TextToSpeechRequest,
     VoiceCloneRequest,
     VoiceConsentError,
@@ -28,11 +29,13 @@ from .schemas import (
     ChatRequest,
     ChatResponse,
     DeleteResponse,
+    ElderVoiceChatResponse,
     FamilyCreateRequest,
     FamilyCurrentResponse,
     ImportCounts,
     ImportRequest,
     ImportResponse,
+    MatchedPersonaResponse,
     ParseRequest,
     ParseResponse,
     RecordsResponse,
@@ -653,6 +656,156 @@ def handle_chat(request: ChatRequest, user_id: str = "demo-user") -> ChatRespons
         text=result.text,
         audio_url=audio_url,
         debug=debug,
+    )
+
+
+def _select_voice_chat_persona(
+    *,
+    family_id: str,
+    user_id: str,
+    recognized_text: str,
+    session_persona_id: str = "",
+) -> dict:
+    personas = get_cloud_repository().list_personas(family_id=family_id, user_id=user_id)
+    if session_persona_id:
+        for persona in personas:
+            if persona.get("id") == session_persona_id:
+                return {"persona": persona, "confidence": 1.0}
+    for persona in personas:
+        role_label = str(persona.get("role_label") or "")
+        tokens = [token for token in re.split(r"[\s/｜|,，、]+", role_label) if token]
+        if any(token in recognized_text for token in tokens):
+            return {"persona": persona, "confidence": 0.9}
+    return {"persona": personas[0] if personas else {}, "confidence": 0.5 if personas else 0}
+
+
+def _select_voice_profile_for_persona(
+    *,
+    family_id: str,
+    user_id: str,
+    persona_id: str,
+    requested_voice_profile_id: str = "",
+) -> str:
+    profiles = get_cloud_repository().list_voice_profiles(family_id=family_id, user_id=user_id)
+    if requested_voice_profile_id:
+        for profile in profiles:
+            if profile.get("id") == requested_voice_profile_id and profile.get("status") == "ready":
+                return str(profile["id"])
+    for profile in profiles:
+        if str(profile.get("persona_id") or "") == persona_id and profile.get("status") == "ready":
+            return str(profile["id"])
+    for profile in profiles:
+        if profile.get("status") == "ready":
+            return str(profile["id"])
+    return ""
+
+
+def handle_elder_voice_chat(
+    *,
+    family_id: str,
+    user_id: str,
+    audio_bytes: bytes,
+    audio_format: str,
+    elder_id: str = "",
+    persona_id: str = "",
+    voice_profile_id: str = "",
+    client_session_id: str = "",
+) -> ElderVoiceChatResponse:
+    provider = get_voice_provider()
+    try:
+        asr = provider.transcribe(
+            SpeechRecognitionRequest(
+                family_id=family_id,
+                audio_bytes=audio_bytes,
+                audio_format=audio_format,
+            )
+        )
+    except ValueError:
+        return ElderVoiceChatResponse(
+            status="asr_empty",
+            reply_text="刚才没听清，可以再说一遍吗？",
+            debug={"asr_provider": getattr(provider, "provider_name", "")},
+        )
+
+    selected = _call_cloud(
+        lambda: _select_voice_chat_persona(
+            family_id=family_id,
+            user_id=user_id,
+            recognized_text=asr.text,
+            session_persona_id=persona_id,
+        )
+    )
+    selected_persona = selected["persona"]
+    selected_persona_id = str(selected_persona.get("id") or "")
+    selected_voice_profile_id = _call_cloud(
+        lambda: _select_voice_profile_for_persona(
+            family_id=family_id,
+            user_id=user_id,
+            persona_id=selected_persona_id,
+            requested_voice_profile_id=voice_profile_id,
+        )
+    )
+
+    try:
+        context = build_family_chat_context(
+            repo=get_cloud_repository(),
+            family_id=family_id,
+            user_id=user_id,
+        )
+    except Exception as exc:
+        if isinstance(exc, (FamilyPermissionError, FamilyNotFoundError)):
+            return ElderVoiceChatResponse(
+                recognized_text=asr.text,
+                reply_text="我这边暂时没读到家里的资料，您先慢慢说，我在听。",
+                status="context_error",
+                debug={"asr_provider": asr.provider, "cloud_context_error": str(exc)},
+            )
+        raise
+
+    result = generate_chat_reply(asr.text, context=context)
+    debug = dict(result.debug)
+    audio_url = ""
+    if selected_voice_profile_id:
+        try:
+            tts_result = _synthesize_with_profile(
+                family_id=family_id,
+                user_id=user_id,
+                voice_profile_id=selected_voice_profile_id,
+                text=result.text,
+            )
+            audio_url = tts_result["audio_url"]
+            debug["tts_provider"] = tts_result["provider"]
+        except Exception as exc:
+            debug["tts_error"] = str(exc)
+
+    session = _call_cloud(
+        lambda: get_cloud_repository().record_voice_chat_exchange(
+            family_id=family_id,
+            user_id=user_id,
+            elder_id=elder_id,
+            persona_id=selected_persona_id,
+            voice_profile_id=selected_voice_profile_id,
+            user_text=asr.text,
+            assistant_text=result.text,
+            audio_url=audio_url,
+            asr_provider=asr.provider,
+            tts_provider=str(debug.get("tts_provider", "")),
+            session_id=client_session_id,
+        )
+    )
+
+    return ElderVoiceChatResponse(
+        recognized_text=asr.text,
+        reply_text=result.text,
+        audio_url=audio_url or None,
+        session_id=str(session.get("id") or ""),
+        matched_persona=MatchedPersonaResponse(
+            persona_id=selected_persona_id,
+            display_name=str(selected_persona.get("role_label") or ""),
+            confidence=float(selected.get("confidence", 0)),
+        ),
+        status="ok",
+        debug=debug | {"asr_provider": asr.provider},
     )
 
 

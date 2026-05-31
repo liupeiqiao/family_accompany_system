@@ -712,6 +712,7 @@ def test_imported_data_is_used_by_chat_endpoint_prompt(tmp_path, monkeypatch):
             "persona_id": "persona-1",
             "text": "小明，你还记得去年中秋吗？",
         },
+        headers={"X-User-Id": "owner"},
     )
 
     assert chat_response.status_code == 200

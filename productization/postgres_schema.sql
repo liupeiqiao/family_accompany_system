@@ -140,6 +140,11 @@ CREATE TABLE IF NOT EXISTS chat_sessions (
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
+ALTER TABLE chat_sessions
+    ADD COLUMN IF NOT EXISTS persona_id UUID,
+    ADD COLUMN IF NOT EXISTS voice_profile_id UUID,
+    ADD COLUMN IF NOT EXISTS created_by VARCHAR(128);
+
 CREATE TABLE IF NOT EXISTS chat_messages (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     session_id UUID NOT NULL REFERENCES chat_sessions(id) ON DELETE CASCADE,
@@ -149,6 +154,11 @@ CREATE TABLE IF NOT EXISTS chat_messages (
     tts_provider TEXT DEFAULT '',
     created_at TIMESTAMPTZ DEFAULT now()
 );
+
+ALTER TABLE chat_messages
+    ADD COLUMN IF NOT EXISTS persona_id UUID,
+    ADD COLUMN IF NOT EXISTS voice_profile_id UUID,
+    ADD COLUMN IF NOT EXISTS asr_provider TEXT DEFAULT '';
 
 CREATE INDEX IF NOT EXISTS idx_family_memberships_user ON family_memberships(user_id);
 CREATE INDEX IF NOT EXISTS idx_family_memberships_family ON family_memberships(family_id);

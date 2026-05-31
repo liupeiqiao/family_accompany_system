@@ -54,6 +54,20 @@ class TextToSpeechResult:
     audio_path: str
 
 
+@dataclass(frozen=True)
+class SpeechRecognitionRequest:
+    family_id: str
+    audio_bytes: bytes
+    audio_format: str = "webm"
+
+
+@dataclass(frozen=True)
+class SpeechRecognitionResult:
+    provider: str
+    text: str
+    confidence: float = 1.0
+
+
 class VoiceProvider(Protocol):
     provider_name: str
 
@@ -61,6 +75,9 @@ class VoiceProvider(Protocol):
         ...
 
     def synthesize(self, request: TextToSpeechRequest) -> TextToSpeechResult:
+        ...
+
+    def transcribe(self, request: SpeechRecognitionRequest) -> SpeechRecognitionResult:
         ...
 
     def get_voice_status(self, provider_voice_id: str) -> dict:
@@ -93,6 +110,15 @@ class MockVoiceProvider:
         return TextToSpeechResult(
             provider=self.provider_name,
             audio_path=f"generated-audio/{request.family_id}/{uuid4().hex}.mp3",
+        )
+
+    def transcribe(self, request: SpeechRecognitionRequest) -> SpeechRecognitionResult:
+        if not request.audio_bytes:
+            raise ValueError("ASR audio cannot be empty.")
+        return SpeechRecognitionResult(
+            provider=self.provider_name,
+            text="小雨，我今天有点想你",
+            confidence=0.95,
         )
 
     def get_voice_status(self, provider_voice_id: str) -> dict:
@@ -156,6 +182,27 @@ class DoubaoTTSConfig:
             encoding=os.getenv("DOUBAO_TTS_ENCODING", "mp3"),
             sample_rate=int(os.getenv("DOUBAO_TTS_SAMPLE_RATE", "24000")),
             speech_rate=int(os.getenv("DOUBAO_TTS_SPEECH_RATE", "0")),
+        )
+
+
+@dataclass(frozen=True)
+class DoubaoASRConfig:
+    api_key: str
+    endpoint: str = "https://openspeech.bytedance.com/api/v3/auc/bigmodel/recognize/flash"
+    resource_id: str = "volc.bigasr.auc_turbo"
+
+    @classmethod
+    def from_env(cls) -> "DoubaoASRConfig | None":
+        api_key = os.getenv("DOUBAO_ASR_API_KEY") or os.getenv("DOUBAO_TTS_API_KEY")
+        if not api_key:
+            return None
+        return cls(
+            api_key=api_key,
+            endpoint=os.getenv(
+                "DOUBAO_ASR_ENDPOINT",
+                "https://openspeech.bytedance.com/api/v3/auc/bigmodel/recognize/flash",
+            ).rstrip(),
+            resource_id=os.getenv("DOUBAO_ASR_RESOURCE_ID", "volc.bigasr.auc_turbo"),
         )
 
 
@@ -324,6 +371,56 @@ class DoubaoVoiceProvider:
             audio_path=f"data:{_audio_mime_type(self._config.encoding)};base64,{audio_base64}",
         )
 
+    def transcribe(self, request: SpeechRecognitionRequest) -> SpeechRecognitionResult:
+        if not request.audio_bytes:
+            raise ValueError("ASR audio cannot be empty.")
+        config = DoubaoASRConfig.from_env()
+        if config is None:
+            raise ValueError("DOUBAO_ASR_API_KEY is required for Doubao ASR.")
+        payload = {
+            "user": {
+                "uid": request.family_id or "family-companion",
+            },
+            "audio": {
+                "data": base64.b64encode(request.audio_bytes).decode("ascii"),
+            },
+            "request": {
+                "model_name": "bigmodel",
+            },
+        }
+        http_request = urlrequest.Request(
+            config.endpoint,
+            data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+            method="POST",
+            headers={
+                "X-Api-Key": config.api_key,
+                "X-Api-Resource-Id": config.resource_id,
+                "X-Api-Request-Id": self._reqid_factory(),
+                "X-Api-Sequence": "-1",
+                "Content-Type": "application/json",
+            },
+        )
+        try:
+            with self._opener(http_request, timeout=30) as response:
+                status_code = response.getheader("X-Api-Status-Code", "")
+                status_message = response.getheader("X-Api-Message", "")
+                payload = json.loads(response.read().decode("utf-8"))
+        except HTTPError as exc:
+            raise ValueError(_format_doubao_asr_http_error(exc)) from exc
+        except URLError as exc:
+            raise ValueError(f"Doubao ASR network error: {exc.reason}") from exc
+        if status_code != "20000000":
+            reason = status_message or "missing X-Api-Status-Code"
+            raise ValueError(f"Doubao ASR failed: {status_code or 'missing'} {reason}".strip())
+        text = _extract_asr_text(payload)
+        if not text:
+            raise ValueError("Doubao ASR returned empty text.")
+        return SpeechRecognitionResult(
+            provider=self.provider_name,
+            text=text,
+            confidence=float(payload.get("confidence", 1.0) or 1.0),
+        )
+
     def get_voice_status(self, provider_voice_id: str) -> dict:
         return self._manage_voice(
             endpoint=self._config.get_voice_endpoint,
@@ -380,9 +477,24 @@ def _audio_mime_type(encoding: str) -> str:
     return {
         "mp3": "audio/mpeg",
         "wav": "audio/wav",
+        "webm": "audio/webm",
         "ogg_opus": "audio/ogg",
         "pcm": "audio/pcm",
     }.get(encoding, "audio/mpeg")
+
+
+def _extract_asr_text(payload: dict) -> str:
+    for key in ("text", "result", "transcript"):
+        value = payload.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    result = payload.get("result")
+    if isinstance(result, dict):
+        for key in ("text", "transcript"):
+            value = result.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+    return ""
 
 
 def _doubao_resource_id_for_speaker(
@@ -441,6 +553,17 @@ def _format_doubao_http_error(operation: str, exc: HTTPError) -> str:
     code = payload.get("code", exc.code)
     message = payload.get("message", raw or exc.reason)
     return f"Doubao {operation} failed: {code} {message}".strip()
+
+
+def _format_doubao_asr_http_error(exc: HTTPError) -> str:
+    raw = exc.read().decode("utf-8", errors="replace")
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError:
+        payload = {}
+    code = payload.get("code", exc.code)
+    message = payload.get("message", exc.reason)
+    return f"Doubao ASR failed: {code} {message}".strip()
 
 
 def _parse_doubao_sse_audio(raw: str) -> str:

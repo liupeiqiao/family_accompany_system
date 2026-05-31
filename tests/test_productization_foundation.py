@@ -103,6 +103,7 @@ def test_python_api_contracts_match_productization_plan():
         "parse": "POST /api/parse",
         "import": "POST /api/import",
         "chat": "POST /api/chat",
+        "elder_voice_chat": "POST /api/elder/voice-chat",
         "voice_upload_intent": "POST /api/voices/upload-intent",
         "voice_samples": "GET /api/voices/samples",
         "voice_profiles": "GET /api/voices/profiles",
@@ -152,8 +153,9 @@ def test_nextjs_web_app_scaffold_exists():
     assert "家庭空间" in app_source
     assert "声音克隆" in app_source
     assert "老人端" in elder_source
-    assert "sendChat" in elder_source
-    assert "onSubmit" in elder_source
+    assert "sendElderVoiceChat" in elder_source
+    assert "fetchChatHistory" in elder_source
+    assert "MediaRecorder" in elder_source
     assert "useState" in elder_source
 
 
@@ -286,6 +288,7 @@ def test_web_app_has_supabase_and_backend_api_boundaries():
     assert "/api/parse" in backend_source
     assert "/api/import" in backend_source
     assert "/api/chat" in backend_source
+    assert "/api/elder/voice-chat" in backend_source
     assert "/api/family/current" in backend_source
     assert "/api/family" in backend_source
     assert "/api/elders/current" in backend_source
@@ -301,7 +304,7 @@ def test_web_app_has_supabase_and_backend_api_boundaries():
     assert "fetchVoiceProfiles" in backend_source
     assert "queryVoiceStatus" in backend_source
     assert "upgradeVoice" in backend_source
-    assert "hideVoiceProfile" in backend_source
+    assert "deleteVoiceProfile" in backend_source
     assert "/api/tts" in backend_source
     assert "parseProfileText" in backend_source
     assert "importParsedData" in backend_source
@@ -335,19 +338,18 @@ def test_voices_page_uses_cloud_voice_api_states():
 
     assert '"use client";' in voices_source
     assert "fetchCurrentFamily" in voices_source
-    assert "createVoiceUploadIntent" in voices_source
     assert "cloneVoice" in voices_source
     assert "fetchVoiceProfiles" in voices_source
     assert "consentConfirmed" in voices_source
-    assert "isCloning" in voices_source
-    assert "pending_upload" in voices_source
+    assert "isSubmitting" in voices_source
+    assert "voice_status" in voices_source
     assert "尚未创建家庭空间" in voices_source
     assert "FileReader" in voices_source
     assert "customSpeakerId" in voices_source
-    assert "promptText" in voices_source
+    assert "demoText" in voices_source
     assert "queryVoiceStatus" in voices_source
     assert "upgradeVoice" in voices_source
-    assert "hideVoiceProfile" in voices_source
+    assert "deleteVoiceProfile" in voices_source
     assert "voiceManagement" in voices_source
 
 
@@ -357,12 +359,13 @@ def test_elder_chat_page_can_request_voice_replies():
     )
 
     assert "fetchCurrentFamily" in elder_source
-    assert "fetchVoiceProfiles" in elder_source
-    assert "voiceEnabled" in elder_source
-    assert "selectedVoiceProfileId" in elder_source
-    assert "voice_profile_id" in elder_source
-    assert "provider_voice_id" in elder_source
-    assert "<audio controls" in elder_source
+    assert "sendElderVoiceChat" in elder_source
+    assert "fetchChatHistory" in elder_source
+    assert "MediaRecorder" in elder_source
+    assert "callState === \"playing\"" in elder_source
+    assert "stopPlayback" in elder_source
+    assert "matched_persona" in elder_source
+    assert "audioUrl" in elder_source
 
 
 def test_family_profile_gender_is_part_of_parse_and_context_contracts():
