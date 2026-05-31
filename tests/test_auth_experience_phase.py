@@ -40,3 +40,17 @@ def test_home_page_shows_login_state_and_logout_action():
     assert "getAuthUser" in home_source
     assert "clearAuthSession" in home_source
     assert "退出登录" in home_source
+
+
+def test_family_page_guides_first_setup_and_next_steps():
+    family_source = (ROOT / "web" / "src" / "app" / "family" / "page.tsx").read_text(encoding="utf-8")
+
+    assert "下一步" in family_source
+    assert "完善档案与记忆" in family_source
+    assert "管理家人音色" in family_source
+    assert "查看对话历史" in family_source
+    assert "进入老人端" in family_source
+    assert 'href: "/records"' in family_source
+    assert 'href: "/voices"' in family_source
+    assert 'href: "/history"' in family_source
+    assert 'href: "/elder"' in family_source

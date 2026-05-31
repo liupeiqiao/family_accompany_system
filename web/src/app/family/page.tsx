@@ -20,6 +20,29 @@ function roleLabel(role?: string): string {
   return "未加入";
 }
 
+const nextSteps = [
+  {
+    title: "完善档案与记忆",
+    body: "录入老人画像、AI 角色、家人档案和家庭记忆。",
+    href: "/records",
+  },
+  {
+    title: "管理家人音色",
+    body: "导入或创建音色，并绑定到对应的 AI 角色。",
+    href: "/voices",
+  },
+  {
+    title: "查看对话历史",
+    body: "查看文字记录、重播 AI 回复，并把重要内容保存为记忆。",
+    href: "/history",
+  },
+  {
+    title: "进入老人端",
+    body: "打开电话式语音陪伴界面，开始连续语音对话。",
+    href: "/elder",
+  },
+];
+
 export default function FamilyPage() {
   const router = useRouter();
   const [familyContext, setFamilyContext] = useState<FamilyContext | null>(null);
@@ -97,7 +120,7 @@ export default function FamilyPage() {
           </div>
           <div className="actions">
             <Link className="button" href="/records">
-              维护档案与记忆
+              完善档案与记忆
             </Link>
             <button className="button buttonSecondary" type="button" onClick={loadFamily}>
               刷新
@@ -105,6 +128,17 @@ export default function FamilyPage() {
             <Link className="button buttonSecondary" href="/">
               返回首页
             </Link>
+          </div>
+          <div>
+            <h3>下一步</h3>
+            <div className="nextStepGrid">
+              {nextSteps.map((step) => (
+                <Link className="nextStepLink" href={step.href} key={step.href}>
+                  <strong>{step.title}</strong>
+                  <span>{step.body}</span>
+                </Link>
+              ))}
+            </div>
           </div>
         </section>
       ) : null}
