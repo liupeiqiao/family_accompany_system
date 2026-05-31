@@ -64,14 +64,30 @@ export type ChatTurn = {
   id: string;
   session_id: string;
   elder_id?: string;
+  elder_display_name?: string;
   persona_id?: string;
+  persona_display_name?: string;
   voice_profile_id?: string;
+  voice_display_name?: string;
   user_text: string;
   assistant_text: string;
   audio_url?: string;
   asr_provider?: string;
   tts_provider?: string;
   created_at?: string;
+};
+
+export type MemoryCandidateResponse = {
+  candidate: {
+    content?: string;
+    memory_type?: string;
+    subject?: string;
+    family_members?: string[];
+    emotion_tags?: string[];
+    topic_tags?: string[];
+    intimacy_weight?: number;
+  };
+  source: "parser" | "fallback" | string;
 };
 
 export type TextToSpeechResponse = {
@@ -385,6 +401,22 @@ export function fetchChatTurns(familyId: string): Promise<ChatTurn[]> {
   return requestJson<ChatTurn[]>(
     `/api/chat/turns?family_id=${encodeURIComponent(familyId)}`,
     withUser(),
+  );
+}
+
+export function generateMemoryCandidate(payload: {
+  family_id: string;
+  user_text: string;
+  assistant_text: string;
+  persona_display_name?: string;
+  elder_display_name?: string;
+}): Promise<MemoryCandidateResponse> {
+  return requestJson<MemoryCandidateResponse>(
+    "/api/chat/memory-candidate",
+    withUser({
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
   );
 }
 

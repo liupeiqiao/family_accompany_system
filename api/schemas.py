@@ -121,6 +121,19 @@ class ElderVoiceChatResponse(BaseModel):
     debug: dict = Field(default_factory=dict)
 
 
+class MemoryCandidateRequest(BaseModel):
+    family_id: str
+    user_text: str = ""
+    assistant_text: str = ""
+    persona_display_name: str = ""
+    elder_display_name: str = ""
+
+
+class MemoryCandidateResponse(BaseModel):
+    candidate: dict = Field(default_factory=dict)
+    source: str = "fallback"
+
+
 class ChatRequest(BaseModel):
     family_id: str = Field(default="local")
     elder_id: str = ""

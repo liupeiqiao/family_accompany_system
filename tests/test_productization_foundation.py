@@ -291,6 +291,7 @@ def test_web_app_has_supabase_and_backend_api_boundaries():
     assert "/api/chat" in backend_source
     assert "/api/elder/voice-chat" in backend_source
     assert "/api/chat/turns" in backend_source
+    assert "/api/chat/memory-candidate" in backend_source
     assert "/api/family/current" in backend_source
     assert "/api/family" in backend_source
     assert "/api/elders/current" in backend_source
@@ -298,6 +299,7 @@ def test_web_app_has_supabase_and_backend_api_boundaries():
     assert "createFamily" in backend_source
     assert "fetchCloudFamilyProfiles" in backend_source
     assert "fetchChatTurns" in backend_source
+    assert "generateMemoryCandidate" in backend_source
     assert "/api/voices/clone" in backend_source
     assert "/api/voices/upload-intent" in backend_source
     assert "/api/voices/profiles" in backend_source
@@ -387,6 +389,11 @@ def test_history_page_lists_filterable_chat_turns():
     assert "memoryDrafts" in history_source
     assert "saveTurnAsMemory" in history_source
     assert "保存为记忆" in history_source
+    assert "generateMemoryCandidate" in history_source
+    assert "生成记忆候选" in history_source
+    assert "persona_display_name" in history_source
+    assert "elder_display_name" in history_source
+    assert "voice_display_name" in history_source
     assert "playAudio" in history_source
     assert "audio_url" in history_source
     assert ".historyLayout" in css_source

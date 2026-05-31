@@ -25,6 +25,7 @@ from .handlers import (
     handle_elder_voice_chat,
     handle_list_chat_history,
     handle_list_chat_turns,
+    handle_memory_candidate,
     handle_get_cloud_elder_current,
     handle_get_current_family,
     handle_delete_voice_profile,
@@ -53,6 +54,8 @@ from .schemas import (
     FamilyCurrentResponse,
     ImportRequest,
     ImportResponse,
+    MemoryCandidateRequest,
+    MemoryCandidateResponse,
     ParseRequest,
     ParseResponse,
     RecordsResponse,
@@ -293,6 +296,14 @@ def chat_turns_endpoint(
     x_user_id: str = Depends(current_user_id),
 ) -> list[dict]:
     return handle_list_chat_turns(family_id, x_user_id)
+
+
+@app.post("/api/chat/memory-candidate", response_model=MemoryCandidateResponse)
+def memory_candidate_endpoint(
+    request: MemoryCandidateRequest,
+    x_user_id: str = Depends(current_user_id),
+) -> MemoryCandidateResponse:
+    return handle_memory_candidate(request, x_user_id)
 
 
 @app.post("/api/import", response_model=ImportResponse)

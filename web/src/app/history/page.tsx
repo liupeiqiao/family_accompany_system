@@ -8,6 +8,7 @@ import {
   createCloudMemory,
   fetchChatTurns,
   fetchCurrentFamily,
+  generateMemoryCandidate,
 } from "../../lib/backend-api";
 
 type TimeFilter = "all" | "today" | "7d" | "30d";
@@ -27,8 +28,14 @@ const timeFilterLabels: Record<TimeFilter, string> = {
   "30d": "最近 30 天",
 };
 
-function uniqueValues(turns: ChatTurn[], key: "persona_id" | "elder_id") {
-  return Array.from(new Set(turns.map((turn) => turn[key] ?? "").filter(Boolean)));
+function uniqueOptions(turns: ChatTurn[], idKey: "persona_id" | "elder_id", labelKey: "persona_display_name" | "elder_display_name") {
+  const options = new Map<string, string>();
+  turns.forEach((turn) => {
+    const id = turn[idKey] ?? "";
+    if (!id) return;
+    options.set(id, turn[labelKey] || displayId(id));
+  });
+  return Array.from(options, ([id, label]) => ({ id, label }));
 }
 
 function isWithinTimeFilter(turn: ChatTurn, timeFilter: TimeFilter) {
@@ -68,12 +75,17 @@ function displayId(value?: string) {
   return value.length > 12 ? `${value.slice(0, 8)}...` : value;
 }
 
+function displayName(name?: string, id?: string) {
+  return name || displayId(id);
+}
+
 function createMemoryDraftFromTurn(turn: ChatTurn): MemoryDraft {
+  const subject = turn.persona_display_name || turn.elder_display_name || turn.persona_id || turn.elder_id || "老人";
   return {
     content: `老人说：${turn.user_text || "未识别到文字"}\nAI 回复：${turn.assistant_text || "未记录回复"}`,
     memory_type: "对话",
-    subject: turn.persona_id || turn.elder_id || "老人",
-    family_members: turn.persona_id ? turn.persona_id : "",
+    subject,
+    family_members: turn.persona_display_name || "",
     emotion_tags: "",
     topic_tags: "",
   };
@@ -84,6 +96,10 @@ function splitTags(value: string) {
     .split(/[，,]/)
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+function joinTags(value?: string[]) {
+  return (value ?? []).join("，");
 }
 
 export default function HistoryPage() {
@@ -178,8 +194,39 @@ export default function HistoryPage() {
     }
   }
 
-  const personaOptions = useMemo(() => uniqueValues(turns, "persona_id"), [turns]);
-  const elderOptions = useMemo(() => uniqueValues(turns, "elder_id"), [turns]);
+  async function generateCandidateForTurn(turn: ChatTurn) {
+    if (!familyContext) {
+      setMemorySaveMessage("请先进入家庭空间后再生成候选。");
+      return;
+    }
+    try {
+      const response = await generateMemoryCandidate({
+        family_id: familyContext.family.id,
+        user_text: turn.user_text,
+        assistant_text: turn.assistant_text,
+        persona_display_name: turn.persona_display_name,
+        elder_display_name: turn.elder_display_name,
+      });
+      const candidate = response.candidate;
+      setMemoryDrafts((current) => ({
+        ...current,
+        [turn.id]: {
+          content: candidate.content || createMemoryDraftFromTurn(turn).content,
+          memory_type: candidate.memory_type || "对话",
+          subject: candidate.subject || turn.elder_display_name || turn.persona_display_name || "老人",
+          family_members: joinTags(candidate.family_members),
+          emotion_tags: joinTags(candidate.emotion_tags),
+          topic_tags: joinTags(candidate.topic_tags),
+        },
+      }));
+      setMemorySaveMessage(response.source === "parser" ? "已生成记忆候选，请确认后保存。" : "已生成基础候选，请编辑确认后保存。");
+    } catch (err) {
+      setMemorySaveMessage(err instanceof Error ? err.message : "生成记忆候选失败");
+    }
+  }
+
+  const personaOptions = useMemo(() => uniqueOptions(turns, "persona_id", "persona_display_name"), [turns]);
+  const elderOptions = useMemo(() => uniqueOptions(turns, "elder_id", "elder_display_name"), [turns]);
 
   const filteredTurns = useMemo(
     () =>
@@ -207,9 +254,9 @@ export default function HistoryPage() {
             <span>AI 角色</span>
             <select value={personaFilter} onChange={(event) => setPersonaFilter(event.target.value)}>
               <option value="all">全部角色</option>
-              {personaOptions.map((personaId) => (
-                <option key={personaId} value={personaId}>
-                  {displayId(personaId)}
+              {personaOptions.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
                 </option>
               ))}
             </select>
@@ -218,9 +265,9 @@ export default function HistoryPage() {
             <span>老人</span>
             <select value={elderFilter} onChange={(event) => setElderFilter(event.target.value)}>
               <option value="all">全部老人</option>
-              {elderOptions.map((elderId) => (
-                <option key={elderId} value={elderId}>
-                  {displayId(elderId)}
+              {elderOptions.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
                 </option>
               ))}
             </select>
@@ -252,8 +299,9 @@ export default function HistoryPage() {
             <article className="historyTurn" key={turn.id}>
               <div className="turnMeta">
                 <span>{formatTime(turn.created_at)}</span>
-                <span>角色：{displayId(turn.persona_id)}</span>
-                <span>老人：{displayId(turn.elder_id)}</span>
+                <span>角色：{displayName(turn.persona_display_name, turn.persona_id)}</span>
+                <span>老人：{displayName(turn.elder_display_name, turn.elder_id)}</span>
+                <span>音色：{displayName(turn.voice_display_name, turn.voice_profile_id)}</span>
               </div>
               <div className="turnDialogue">
                 <p>
@@ -276,9 +324,14 @@ export default function HistoryPage() {
                 {savedMemoryTurnIds[turn.id] ? (
                   <span className="savedBadge">已保存为记忆</span>
                 ) : (
-                  <button className="buttonSecondary" onClick={() => openMemoryDraft(turn)} type="button">
-                    保存为记忆
-                  </button>
+                  <>
+                    <button className="buttonSecondary" onClick={() => void generateCandidateForTurn(turn)} type="button">
+                      生成记忆候选
+                    </button>
+                    <button className="buttonSecondary" onClick={() => openMemoryDraft(turn)} type="button">
+                      保存为记忆
+                    </button>
+                  </>
                 )}
               </div>
               {memoryDrafts[turn.id] ? (

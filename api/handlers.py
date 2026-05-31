@@ -36,6 +36,8 @@ from .schemas import (
     ImportRequest,
     ImportResponse,
     MatchedPersonaResponse,
+    MemoryCandidateRequest,
+    MemoryCandidateResponse,
     ParseRequest,
     ParseResponse,
     RecordsResponse,
@@ -544,7 +546,20 @@ def handle_list_chat_history(family_id: str, user_id: str) -> list[dict]:
 
 
 def handle_list_chat_turns(family_id: str, user_id: str) -> list[dict]:
+    repo = get_cloud_repository()
     messages = handle_list_chat_history(family_id, user_id)
+    personas = {
+        str(persona.get("id", "")): str(persona.get("role_label") or persona.get("relation") or "")
+        for persona in _call_cloud(lambda: repo.list_personas(family_id=family_id, user_id=user_id))
+    }
+    elder = _call_cloud(lambda: repo.get_elder_current(family_id=family_id, user_id=user_id))
+    current_elder_id = str(elder.get("id", ""))
+    current_elder_name = str(elder.get("full_name") or elder.get("appellation") or "")
+    elders = {current_elder_id: current_elder_name}
+    voice_profiles = {
+        str(profile.get("id", "")): str(profile.get("display_name") or profile.get("provider_voice_id") or "")
+        for profile in _call_cloud(lambda: repo.list_voice_profiles(family_id=family_id, user_id=user_id))
+    }
     turns: list[dict] = []
     index = 0
     while index < len(messages):
@@ -556,14 +571,19 @@ def handle_list_chat_turns(family_id: str, user_id: str) -> list[dict]:
         if assistant_message.get("role") != "assistant":
             index += 1
             continue
+        elder_id = user_message.get("elder_id") or assistant_message.get("elder_id", "") or current_elder_id
+        persona_id = user_message.get("persona_id") or assistant_message.get("persona_id", "")
+        voice_profile_id = user_message.get("voice_profile_id") or assistant_message.get("voice_profile_id", "")
         turns.append(
             {
                 "id": f"{user_message.get('id', '')}:{assistant_message.get('id', '')}",
                 "session_id": user_message.get("session_id") or assistant_message.get("session_id", ""),
-                "elder_id": user_message.get("elder_id") or assistant_message.get("elder_id", ""),
-                "persona_id": user_message.get("persona_id") or assistant_message.get("persona_id", ""),
-                "voice_profile_id": user_message.get("voice_profile_id")
-                or assistant_message.get("voice_profile_id", ""),
+                "elder_id": elder_id,
+                "elder_display_name": elders.get(str(elder_id), "") or str(elder_id or ""),
+                "persona_id": persona_id,
+                "persona_display_name": personas.get(str(persona_id), "") or str(persona_id or ""),
+                "voice_profile_id": voice_profile_id,
+                "voice_display_name": voice_profiles.get(str(voice_profile_id), "") or str(voice_profile_id or ""),
                 "user_text": user_message.get("text", ""),
                 "assistant_text": assistant_message.get("text", ""),
                 "audio_url": assistant_message.get("audio_storage_path", ""),
@@ -574,6 +594,32 @@ def handle_list_chat_turns(family_id: str, user_id: str) -> list[dict]:
         )
         index += 2
     return sorted(turns, key=lambda turn: str(turn.get("created_at", "")), reverse=True)
+
+
+def handle_memory_candidate(request: MemoryCandidateRequest, user_id: str) -> MemoryCandidateResponse:
+    repo = get_cloud_repository()
+    _call_cloud(lambda: repo.get_current_family(user_id=user_id))
+    _call_cloud(lambda: repo.list_memories(family_id=request.family_id, user_id=user_id))
+    source_text = (
+        f"老人：{request.elder_display_name or '老人'}\n"
+        f"对话对象：{request.persona_display_name or '家人'}\n"
+        f"老人说：{request.user_text}\n"
+        f"AI回复：{request.assistant_text}"
+    )
+    try:
+        parsed = _normalize_parsed(
+            parse_user_text(
+                source_text,
+                perspective="elder",
+                existing_families_text=request.persona_display_name,
+            )
+        )
+    except Exception:
+        parsed = {}
+    memories = [memory for memory in parsed.get("memories", []) if memory.get("content")]
+    if memories:
+        return MemoryCandidateResponse(candidate=_normalize_memory_candidate(memories[0], request), source="parser")
+    return MemoryCandidateResponse(candidate=_fallback_memory_candidate(request), source="fallback")
 
 
 def handle_delete_memory(memory_id: str) -> DeleteResponse:
@@ -1052,6 +1098,45 @@ def _build_memory_actions(new_memories: list[dict], existing_memories: list[dict
 def _normalize_memory_content(content: str) -> str:
     normalized = re.sub(r"[\s\-_，。,.！？!；;：:、\"“”'‘’（）()]+", "", content or "")
     return normalized.casefold()
+
+
+def _normalize_memory_candidate(memory: dict, request: MemoryCandidateRequest) -> dict:
+    candidate = dict(memory)
+    candidate["content"] = str(candidate.get("content") or "").strip()
+    candidate["memory_type"] = str(candidate.get("memory_type") or "对话").strip() or "对话"
+    candidate["subject"] = str(
+        candidate.get("subject") or request.elder_display_name or request.persona_display_name or "老人"
+    ).strip()
+    candidate["family_members"] = _candidate_list(candidate.get("family_members")) or _candidate_list(
+        [request.persona_display_name]
+    )
+    candidate["emotion_tags"] = _candidate_list(candidate.get("emotion_tags"))
+    candidate["topic_tags"] = _candidate_list(candidate.get("topic_tags"))
+    candidate.setdefault("intimacy_weight", 0.6)
+    return candidate
+
+
+def _fallback_memory_candidate(request: MemoryCandidateRequest) -> dict:
+    return {
+        "content": (
+            f"老人说：{request.user_text or '未识别到文字'}\n"
+            f"AI回复：{request.assistant_text or '未记录回复'}"
+        ),
+        "memory_type": "对话",
+        "subject": request.elder_display_name or request.persona_display_name or "老人",
+        "family_members": _candidate_list([request.persona_display_name]),
+        "emotion_tags": [],
+        "topic_tags": [],
+        "intimacy_weight": 0.6,
+    }
+
+
+def _candidate_list(value: object) -> list[str]:
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    if isinstance(value, str):
+        return [item.strip() for item in re.split(r"[，,]", value) if item.strip()]
+    return []
 
 
 def _families_by_name(profiles: list[dict]) -> dict[str, dict]:
