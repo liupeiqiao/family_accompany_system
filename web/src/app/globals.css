@@ -204,6 +204,40 @@ a {
   padding-top: 10px;
 }
 
+.memorySavePanel {
+  background: #f7f2ea;
+  border: 1px solid #e3d6c5;
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.memorySavePanel label {
+  display: grid;
+  gap: 6px;
+}
+
+.memorySavePanel span {
+  font-weight: 700;
+}
+
+.memorySaveGrid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.savedBadge {
+  background: #e7f0e9;
+  border: 1px solid #b8cdbd;
+  border-radius: 999px;
+  color: #23613a;
+  display: inline-flex;
+  min-height: 32px;
+  padding: 6px 10px;
+}
+
 .errorText {
   color: #9b241f;
   margin: 0;

@@ -380,14 +380,20 @@ def test_history_page_lists_filterable_chat_turns():
     assert '"use client";' in history_source
     assert "fetchCurrentFamily" in history_source
     assert "fetchChatTurns" in history_source
+    assert "createCloudMemory" in history_source
     assert "personaFilter" in history_source
     assert "elderFilter" in history_source
     assert "timeFilter" in history_source
+    assert "memoryDrafts" in history_source
+    assert "saveTurnAsMemory" in history_source
+    assert "保存为记忆" in history_source
     assert "playAudio" in history_source
     assert "audio_url" in history_source
     assert ".historyLayout" in css_source
     assert ".historyFilters" in css_source
     assert ".historyTurn" in css_source
+    assert ".memorySavePanel" in css_source
+    assert ".savedBadge" in css_source
 
 
 def test_family_profile_gender_is_part_of_parse_and_context_contracts():

@@ -2,9 +2,23 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { ChatTurn, FamilyContext, fetchChatTurns, fetchCurrentFamily } from "../../lib/backend-api";
+import {
+  ChatTurn,
+  FamilyContext,
+  createCloudMemory,
+  fetchChatTurns,
+  fetchCurrentFamily,
+} from "../../lib/backend-api";
 
 type TimeFilter = "all" | "today" | "7d" | "30d";
+type MemoryDraft = {
+  content: string;
+  memory_type: string;
+  subject: string;
+  family_members: string;
+  emotion_tags: string;
+  topic_tags: string;
+};
 
 const timeFilterLabels: Record<TimeFilter, string> = {
   all: "全部时间",
@@ -54,12 +68,33 @@ function displayId(value?: string) {
   return value.length > 12 ? `${value.slice(0, 8)}...` : value;
 }
 
+function createMemoryDraftFromTurn(turn: ChatTurn): MemoryDraft {
+  return {
+    content: `老人说：${turn.user_text || "未识别到文字"}\nAI 回复：${turn.assistant_text || "未记录回复"}`,
+    memory_type: "对话",
+    subject: turn.persona_id || turn.elder_id || "老人",
+    family_members: turn.persona_id ? turn.persona_id : "",
+    emotion_tags: "",
+    topic_tags: "",
+  };
+}
+
+function splitTags(value: string) {
+  return value
+    .split(/[，,]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 export default function HistoryPage() {
   const [familyContext, setFamilyContext] = useState<FamilyContext | null>(null);
   const [turns, setTurns] = useState<ChatTurn[]>([]);
   const [personaFilter, setPersonaFilter] = useState("all");
   const [elderFilter, setElderFilter] = useState("all");
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
+  const [memoryDrafts, setMemoryDrafts] = useState<Record<string, MemoryDraft>>({});
+  const [savedMemoryTurnIds, setSavedMemoryTurnIds] = useState<Record<string, boolean>>({});
+  const [memorySaveMessage, setMemorySaveMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -86,6 +121,61 @@ export default function HistoryPage() {
   function playAudio(audioUrl: string) {
     const audio = new Audio(audioUrl);
     void audio.play();
+  }
+
+  function openMemoryDraft(turn: ChatTurn) {
+    setMemorySaveMessage("");
+    setMemoryDrafts((current) => ({
+      ...current,
+      [turn.id]: current[turn.id] ?? createMemoryDraftFromTurn(turn),
+    }));
+  }
+
+  function updateMemoryDraft(turnId: string, key: keyof MemoryDraft, value: string) {
+    setMemoryDrafts((current) => ({
+      ...current,
+      [turnId]: {
+        ...current[turnId],
+        [key]: value,
+      },
+    }));
+  }
+
+  function closeMemoryDraft(turnId: string) {
+    setMemoryDrafts((current) => {
+      const next = { ...current };
+      delete next[turnId];
+      return next;
+    });
+  }
+
+  async function saveTurnAsMemory(turn: ChatTurn) {
+    if (!familyContext) {
+      setMemorySaveMessage("请先进入家庭空间后再保存记忆。");
+      return;
+    }
+    const draft = memoryDrafts[turn.id] ?? createMemoryDraftFromTurn(turn);
+    if (!draft.content.trim()) {
+      setMemorySaveMessage("记忆内容不能为空。");
+      return;
+    }
+    try {
+      await createCloudMemory({
+        family_id: familyContext.family.id,
+        content: draft.content.trim(),
+        memory_type: draft.memory_type.trim() || "对话",
+        subject: draft.subject.trim() || "老人",
+        family_members: splitTags(draft.family_members),
+        emotion_tags: splitTags(draft.emotion_tags),
+        topic_tags: splitTags(draft.topic_tags),
+        intimacy_weight: 0.6,
+      });
+      setSavedMemoryTurnIds((current) => ({ ...current, [turn.id]: true }));
+      closeMemoryDraft(turn.id);
+      setMemorySaveMessage("已保存为长期记忆。");
+    } catch (err) {
+      setMemorySaveMessage(err instanceof Error ? err.message : "保存记忆失败");
+    }
   }
 
   const personaOptions = useMemo(() => uniqueValues(turns, "persona_id"), [turns]);
@@ -152,6 +242,7 @@ export default function HistoryPage() {
 
         {isLoading ? <p className="helperText">正在加载对话历史...</p> : null}
         {error ? <p className="errorText">{error}</p> : null}
+        {memorySaveMessage ? <p className={memorySaveMessage.includes("已保存") ? "successText" : "errorText"}>{memorySaveMessage}</p> : null}
 
         <div className="historyList" aria-label="对话轮次">
           {!isLoading && filteredTurns.length === 0 ? (
@@ -182,7 +273,74 @@ export default function HistoryPage() {
                     重播
                   </button>
                 ) : null}
+                {savedMemoryTurnIds[turn.id] ? (
+                  <span className="savedBadge">已保存为记忆</span>
+                ) : (
+                  <button className="buttonSecondary" onClick={() => openMemoryDraft(turn)} type="button">
+                    保存为记忆
+                  </button>
+                )}
               </div>
+              {memoryDrafts[turn.id] ? (
+                <div className="memorySavePanel">
+                  <label>
+                    <span>记忆内容</span>
+                    <textarea
+                      value={memoryDrafts[turn.id].content}
+                      onChange={(event) => updateMemoryDraft(turn.id, "content", event.target.value)}
+                      rows={4}
+                    />
+                  </label>
+                  <div className="memorySaveGrid">
+                    <label>
+                      <span>类型</span>
+                      <input
+                        value={memoryDrafts[turn.id].memory_type}
+                        onChange={(event) => updateMemoryDraft(turn.id, "memory_type", event.target.value)}
+                      />
+                    </label>
+                    <label>
+                      <span>主语</span>
+                      <input
+                        value={memoryDrafts[turn.id].subject}
+                        onChange={(event) => updateMemoryDraft(turn.id, "subject", event.target.value)}
+                      />
+                    </label>
+                    <label>
+                      <span>相关家人</span>
+                      <input
+                        placeholder="逗号分隔"
+                        value={memoryDrafts[turn.id].family_members}
+                        onChange={(event) => updateMemoryDraft(turn.id, "family_members", event.target.value)}
+                      />
+                    </label>
+                    <label>
+                      <span>情绪标签</span>
+                      <input
+                        placeholder="逗号分隔"
+                        value={memoryDrafts[turn.id].emotion_tags}
+                        onChange={(event) => updateMemoryDraft(turn.id, "emotion_tags", event.target.value)}
+                      />
+                    </label>
+                    <label>
+                      <span>主题标签</span>
+                      <input
+                        placeholder="逗号分隔"
+                        value={memoryDrafts[turn.id].topic_tags}
+                        onChange={(event) => updateMemoryDraft(turn.id, "topic_tags", event.target.value)}
+                      />
+                    </label>
+                  </div>
+                  <div className="callActions">
+                    <button onClick={() => void saveTurnAsMemory(turn)} type="button">
+                      确认保存
+                    </button>
+                    <button className="buttonSecondary" onClick={() => closeMemoryDraft(turn.id)} type="button">
+                      取消
+                    </button>
+                  </div>
+                </div>
+              ) : null}
             </article>
           ))}
         </div>
