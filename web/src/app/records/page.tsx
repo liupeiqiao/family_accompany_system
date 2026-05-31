@@ -5,15 +5,27 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import {
+  CloudRecord,
   DraftObject,
+  FamilyContext,
   ParsedDraft,
-  deleteElderProfile as deleteSavedElderProfile,
-  deleteFamilyProfile as deleteSavedFamilyProfile,
-  deleteMemory as deleteSavedMemory,
-  deletePersona as deleteSavedPersona,
-  fetchRecords,
-  importParsedData,
+  createCloudFamilyProfile,
+  createCloudMemory,
+  createCloudPersona,
+  deleteCloudElder,
+  deleteCloudFamilyProfile,
+  deleteCloudMemory,
+  deleteCloudPersona,
+  fetchCloudElder,
+  fetchCloudFamilyProfiles,
+  fetchCloudMemories,
+  fetchCloudPersonas,
+  fetchCurrentFamily,
   parseProfileText,
+  saveCloudElder,
+  updateCloudFamilyProfile,
+  updateCloudMemory,
+  updateCloudPersona,
 } from "../../lib/backend-api";
 import { getAuthToken } from "../../lib/auth";
 
@@ -70,6 +82,22 @@ const memoryFields = [
   ["intimacy_weight", "亲密权重"],
 ] as const;
 
+const arrayFields = new Set([
+  "personality",
+  "preferences",
+  "habits",
+  "health_notes",
+  "speech_traits",
+  "life_experiences",
+  "important_memories",
+  "speech_style",
+  "comfort_style",
+  "relations",
+  "family_members",
+  "emotion_tags",
+  "topic_tags",
+]);
+
 function cloneDraft(draft: ParsedDraft): ParsedDraft {
   return {
     persona: { ...draft.persona },
@@ -78,67 +106,85 @@ function cloneDraft(draft: ParsedDraft): ParsedDraft {
     elder_profiles: (draft.elder_profiles ?? []).map((item) => ({ ...item })),
     family_profiles: draft.family_profiles.map((item) => ({ ...item })),
     memories: draft.memories.map((item) => ({ ...item })),
+    dedup: draft.dedup ?? {},
+    merge_preview: draft.merge_preview ?? [],
   };
 }
 
 function valueToText(value: unknown): string {
-  if (Array.isArray(value)) {
-    return value.join("、");
-  }
-  if (typeof value === "number") {
-    return String(value);
-  }
-  if (typeof value === "string") {
-    return value;
-  }
+  if (Array.isArray(value)) return value.join("、");
+  if (typeof value === "number") return String(value);
+  if (typeof value === "string") return value;
   return "";
 }
 
 function textToValue(key: string, value: string): unknown {
-  const arrayFields = new Set([
-    "personality",
-    "preferences",
-    "habits",
-    "health_notes",
-    "speech_traits",
-    "life_experiences",
-    "important_memories",
-    "speech_style",
-    "comfort_style",
-    "relations",
-    "family_members",
-    "emotion_tags",
-    "topic_tags",
-  ]);
-
   if (key === "intimacy_weight") {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : 0.5;
   }
-
   if (arrayFields.has(key)) {
     return value
-      .split(/[、,，]/)
+      .split(/[、，,\n]/)
       .map((item) => item.trim())
       .filter(Boolean);
   }
-
   return value;
+}
+
+function hasImportableValue(item: DraftObject): boolean {
+  return Object.values(item).some((value) => {
+    if (Array.isArray(value)) return value.length > 0;
+    return value !== "" && value !== null && value !== undefined;
+  });
 }
 
 function hasDraft(draft: ParsedDraft): boolean {
   return (
-    Object.keys(draft.persona).length > 0 ||
-    (draft.personas ?? []).length > 0 ||
-    Object.keys(draft.elder_profile).length > 0 ||
-    (draft.elder_profiles ?? []).length > 0 ||
-    draft.family_profiles.length > 0 ||
-    draft.memories.length > 0
+    hasImportableValue(draft.persona) ||
+    (draft.personas ?? []).some(hasImportableValue) ||
+    hasImportableValue(draft.elder_profile) ||
+    (draft.elder_profiles ?? []).some(hasImportableValue) ||
+    draft.family_profiles.some(hasImportableValue) ||
+    draft.memories.some(hasImportableValue)
+  );
+}
+
+function cloudRecordsToDraft(records: {
+  elder: CloudRecord;
+  personas: CloudRecord[];
+  familyProfiles: CloudRecord[];
+  memories: CloudRecord[];
+}): ParsedDraft {
+  const elderProfiles = records.elder && Object.keys(records.elder).length > 0 ? [records.elder] : [];
+  return {
+    persona: records.personas[0] ?? {},
+    personas: records.personas,
+    elder_profile: elderProfiles[0] ?? {},
+    elder_profiles: elderProfiles,
+    family_profiles: records.familyProfiles,
+    memories: records.memories,
+    dedup: {},
+  };
+}
+
+function payloadWithFamily(item: DraftObject, familyId: string): CloudRecord & { family_id: string } {
+  return { ...item, family_id: familyId };
+}
+
+function displayRecordName(item: DraftObject, fallback: string): string {
+  return (
+    valueToText(item.full_name) ||
+    valueToText(item.role_label) ||
+    valueToText(item.name) ||
+    valueToText(item.content).slice(0, 32) ||
+    fallback
   );
 }
 
 export default function RecordsPage() {
   const router = useRouter();
+  const [familyContext, setFamilyContext] = useState<FamilyContext | null>(null);
   const [sourceText, setSourceText] = useState("");
   const [perspective, setPerspective] = useState<"family" | "elder">("family");
   const [draft, setDraft] = useState<ParsedDraft>(emptyDraft);
@@ -147,33 +193,11 @@ export default function RecordsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingRecords, setIsLoadingRecords] = useState(true);
   const [isSavingRecords, setIsSavingRecords] = useState(false);
-  const [expandedElderIndex, setExpandedElderIndex] = useState<number | null>(null);
-  const [expandedPersonaIndex, setExpandedPersonaIndex] = useState<number | null>(null);
-  const [expandedFamilyIndex, setExpandedFamilyIndex] = useState<number | null>(null);
-  const [expandedMemoryIndex, setExpandedMemoryIndex] = useState<number | null>(null);
+  const [expandedKey, setExpandedKey] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [recordsError, setRecordsError] = useState("");
   const [recordsSuccess, setRecordsSuccess] = useState("");
-  const [mergePreview, setMergePreview] = useState<string[]>([]);
-
-  async function loadSavedRecords() {
-    setIsLoadingRecords(true);
-    setRecordsError("");
-
-    try {
-      const records = await fetchRecords();
-      setSavedDraft(cloneDraft(records));
-      setExpandedElderIndex(null);
-      setExpandedPersonaIndex(null);
-      setExpandedFamilyIndex(null);
-      setExpandedMemoryIndex(null);
-    } catch {
-      setRecordsError("无法加载已保存数据，请确认 API 服务已启动。");
-    } finally {
-      setIsLoadingRecords(false);
-    }
-  }
 
   useEffect(() => {
     if (!getAuthToken()) {
@@ -183,33 +207,90 @@ export default function RecordsPage() {
     void loadSavedRecords();
   }, [router]);
 
+  async function loadSavedRecords() {
+    setIsLoadingRecords(true);
+    setRecordsError("");
+    try {
+      const context = await fetchCurrentFamily();
+      setFamilyContext(context);
+      const [elder, personas, familyProfiles, memories] = await Promise.all([
+        fetchCloudElder(context.family.id),
+        fetchCloudPersonas(context.family.id),
+        fetchCloudFamilyProfiles(context.family.id),
+        fetchCloudMemories(context.family.id),
+      ]);
+      setSavedDraft(cloneDraft(cloudRecordsToDraft({ elder, personas, familyProfiles, memories })));
+      setExpandedKey("");
+    } catch (err) {
+      setFamilyContext(null);
+      setRecordsError(err instanceof Error ? err.message : "无法加载当前家庭空间的云端档案。");
+    } finally {
+      setIsLoadingRecords(false);
+    }
+  }
+
   async function onParse() {
     if (!sourceText.trim()) {
       setError("请先粘贴需要导入的家庭资料。");
+      return;
+    }
+    if (!familyContext) {
+      setError("请先创建或进入家庭空间。");
       return;
     }
 
     setIsParsing(true);
     setError("");
     setSuccess("");
-    setMergePreview([]);
-
     try {
       const parsed = await parseProfileText({
-        family_id: "local",
+        family_id: familyContext.family.id,
         text: sourceText,
         perspective,
       });
       setDraft(parsed);
-      setMergePreview(parsed.merge_preview ?? []);
       if (!hasDraft(parsed)) {
         setError("暂时没有解析出可导入内容，请补充资料后再试。");
       }
-    } catch {
-      setError("连不上后端服务，请确认 API 服务已启动。");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "智能解析失败。");
     } finally {
       setIsParsing(false);
     }
+  }
+
+  async function saveDraftToCloud(nextDraft: ParsedDraft) {
+    if (!familyContext) throw new Error("请先创建或进入家庭空间。");
+    const familyId = familyContext.family.id;
+    const counts = { persona: 0, elder_profile: 0, family_profiles: 0, memories: 0 };
+
+    const elderPayloads = nextDraft.elder_profiles?.length ? nextDraft.elder_profiles : [nextDraft.elder_profile];
+    for (const elder of elderPayloads) {
+      if (!hasImportableValue(elder)) continue;
+      await saveCloudElder(payloadWithFamily(elder, familyId));
+      counts.elder_profile += 1;
+    }
+
+    const personaPayloads = nextDraft.personas?.length ? nextDraft.personas : [nextDraft.persona];
+    for (const persona of personaPayloads) {
+      if (!hasImportableValue(persona)) continue;
+      await createCloudPersona(payloadWithFamily(persona, familyId));
+      counts.persona += 1;
+    }
+
+    for (const profile of nextDraft.family_profiles) {
+      if (!hasImportableValue(profile)) continue;
+      await createCloudFamilyProfile(payloadWithFamily(profile, familyId));
+      counts.family_profiles += 1;
+    }
+
+    for (const memory of nextDraft.memories) {
+      if (!valueToText(memory.content).trim()) continue;
+      await createCloudMemory(payloadWithFamily(memory, familyId));
+      counts.memories += 1;
+    }
+
+    return counts;
   }
 
   async function onSave() {
@@ -217,68 +298,64 @@ export default function RecordsPage() {
       setError("当前没有可保存的档案或记忆。");
       return;
     }
-
     setIsSaving(true);
     setError("");
     setSuccess("");
-
     try {
-      const result = await importParsedData({
-        family_id: "local",
-        ...draft,
-      });
+      const result = await saveDraftToCloud(draft);
       setSuccess(
-        `已保存：角色 ${result.imported.persona} 个，老人画像 ${result.imported.elder_profile} 个，家人档案 ${result.imported.family_profiles} 条，记忆 ${result.imported.memories} 条。`,
+        `已保存到云端：角色 ${result.persona} 个，老人画像 ${result.elder_profile} 个，家人档案 ${result.family_profiles} 条，记忆 ${result.memories} 条。`,
       );
+      setDraft(emptyDraft);
       await loadSavedRecords();
-    } catch (saveError) {
-      if (saveError instanceof Error && saveError.message.includes("404")) {
-        setError("后端保存接口未加载，请重启 API 服务后再点一键保存。");
-      } else {
-        setError("保存失败，请稍后重试。");
-      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "保存失败，请稍后重试。");
     } finally {
       setIsSaving(false);
     }
   }
 
   async function onSaveRecords() {
-    if (!hasDraft(savedDraft)) {
-      setRecordsError("当前没有可保存的已保存数据。");
+    if (!familyContext) {
+      setRecordsError("请先创建或进入家庭空间。");
       return;
     }
-
+    const familyId = familyContext.family.id;
     setIsSavingRecords(true);
     setRecordsError("");
     setRecordsSuccess("");
-
     try {
-      await importParsedData({
-        family_id: "local",
-        ...savedDraft,
-      });
-      setRecordsSuccess("已保存修改。");
+      for (const elder of savedDraft.elder_profiles ?? []) {
+        if (hasImportableValue(elder)) await saveCloudElder(payloadWithFamily(elder, familyId));
+      }
+      for (const persona of savedDraft.personas ?? []) {
+        const id = valueToText(persona.id);
+        if (!id || !hasImportableValue(persona)) continue;
+        await updateCloudPersona(id, payloadWithFamily(persona, familyId));
+      }
+      for (const profile of savedDraft.family_profiles) {
+        const id = valueToText(profile.id);
+        if (!id || !hasImportableValue(profile)) continue;
+        await updateCloudFamilyProfile(id, payloadWithFamily(profile, familyId));
+      }
+      for (const memory of savedDraft.memories) {
+        const id = valueToText(memory.id);
+        if (!id || !hasImportableValue(memory)) continue;
+        await updateCloudMemory(id, payloadWithFamily(memory, familyId));
+      }
+      setRecordsSuccess("云端档案修改已保存。");
       await loadSavedRecords();
-    } catch {
-      setRecordsError("保存修改失败，请稍后重试。");
+    } catch (err) {
+      setRecordsError(err instanceof Error ? err.message : "保存修改失败，请稍后重试。");
     } finally {
       setIsSavingRecords(false);
     }
   }
 
-  function updateTopLevel(
-    target: "draft" | "saved",
-    section: "elder_profile" | "persona",
-    key: string,
-    value: string,
-  ) {
-    const updater = target === "draft" ? setDraft : setSavedDraft;
-    updater((current) => ({
+  function updateTopLevel(section: "elder_profile" | "persona", key: string, value: string) {
+    setDraft((current) => ({
       ...current,
-      [section]: {
-        ...current[section],
-        [key]: textToValue(key, value),
-      },
+      [section]: { ...current[section], [key]: textToValue(key, value) },
     }));
   }
 
@@ -298,112 +375,31 @@ export default function RecordsPage() {
     }));
   }
 
-  function deleteDraftFamilyProfile(index: number) {
-    setDraft((current) => ({
-      ...current,
-      family_profiles: current.family_profiles.filter((_, itemIndex) => itemIndex !== index),
-    }));
-  }
-
-  function deleteDraftMemory(index: number) {
-    setDraft((current) => ({
-      ...current,
-      memories: current.memories.filter((_, itemIndex) => itemIndex !== index),
-    }));
-  }
-
-  async function deleteFamilyProfile(index: number) {
-    const profile = savedDraft.family_profiles[index];
-    const name = valueToText(profile?.name).trim();
-    if (!name) {
-      return;
-    }
-
+  async function deleteSavedRecord(section: "elder" | "persona" | "family" | "memory", index: number) {
+    if (!familyContext) return;
+    const familyId = familyContext.family.id;
     setRecordsError("");
     setRecordsSuccess("");
-
     try {
-      await deleteSavedFamilyProfile(name);
-      setSavedDraft((current) => ({
-        ...current,
-        family_profiles: current.family_profiles.filter((_, itemIndex) => itemIndex !== index),
-      }));
-      setExpandedFamilyIndex(null);
-      setRecordsSuccess("已删除家人档案。");
-    } catch {
-      setRecordsError("删除家人档案失败，请稍后重试。");
-    }
-  }
-
-  async function deleteMemory(index: number) {
-    const memory = savedDraft.memories[index];
-    const memoryId = valueToText(memory?.id).trim();
-    if (!memoryId) {
-      setRecordsError("这条记忆缺少 id，暂时无法删除。");
-      return;
-    }
-
-    setRecordsError("");
-    setRecordsSuccess("");
-
-    try {
-      await deleteSavedMemory(memoryId);
-      setSavedDraft((current) => ({
-        ...current,
-        memories: current.memories.filter((_, itemIndex) => itemIndex !== index),
-      }));
-      setExpandedMemoryIndex(null);
-      setRecordsSuccess("已删除记忆。");
-    } catch {
-      setRecordsError("删除记忆失败，请稍后重试。");
-    }
-  }
-
-  async function deleteElderProfile(index: number) {
-    const profile = savedDraft.elder_profiles?.[index];
-    const fullName = valueToText(profile?.full_name).trim();
-    if (!fullName) {
-      setRecordsError("这条老人画像缺少姓名，暂时无法删除。");
-      return;
-    }
-
-    setRecordsError("");
-    setRecordsSuccess("");
-
-    try {
-      await deleteSavedElderProfile(fullName);
-      setSavedDraft((current) => ({
-        ...current,
-        elder_profiles: (current.elder_profiles ?? []).filter((_, itemIndex) => itemIndex !== index),
-      }));
-      setExpandedElderIndex(null);
-      setRecordsSuccess("已删除老人画像。");
-    } catch {
-      setRecordsError("删除老人画像失败，请稍后重试。");
-    }
-  }
-
-  async function deletePersona(index: number) {
-    const persona = savedDraft.personas?.[index];
-    const roleLabel = valueToText(persona?.role_label).trim();
-    if (!roleLabel) {
-      setRecordsError("这条角色缺少角色名，暂时无法删除。");
-      return;
-    }
-
-    setRecordsError("");
-    setRecordsSuccess("");
-
-    try {
-      await deleteSavedPersona(roleLabel);
-      setSavedDraft((current) => ({
-        ...current,
-        personas: (current.personas ?? []).filter((_, itemIndex) => itemIndex !== index),
-      }));
-      setExpandedPersonaIndex(null);
-      setRecordsSuccess("已删除 AI 角色。");
-    } catch {
-      setRecordsError("删除 AI 角色失败，请稍后重试。");
+      if (section === "elder") {
+        await deleteCloudElder(familyId);
+      } else if (section === "persona") {
+        const id = valueToText(savedDraft.personas?.[index]?.id);
+        if (!id) throw new Error("这条角色缺少 id，无法删除。");
+        await deleteCloudPersona(id, familyId);
+      } else if (section === "family") {
+        const id = valueToText(savedDraft.family_profiles[index]?.id);
+        if (!id) throw new Error("这条家人档案缺少 id，无法删除。");
+        await deleteCloudFamilyProfile(id, familyId);
+      } else {
+        const id = valueToText(savedDraft.memories[index]?.id);
+        if (!id) throw new Error("这条记忆缺少 id，无法删除。");
+        await deleteCloudMemory(id, familyId);
+      }
+      setRecordsSuccess("已删除云端记录。");
+      await loadSavedRecords();
+    } catch (err) {
+      setRecordsError(err instanceof Error ? err.message : "删除失败，请稍后重试。");
     }
   }
 
@@ -411,51 +407,36 @@ export default function RecordsPage() {
     <main className="shell">
       <section className="sectionHeader">
         <h1>档案与记忆</h1>
-        <p>粘贴家庭资料，先智能解析，再编辑确认并保存到本地档案库。</p>
+        <p>资料会保存到当前登录用户所在的家庭空间，供老人端对话、音色绑定和后续长期记忆检索使用。</p>
+        {familyContext ? <p className="helperText">当前家庭：{familyContext.family.name}</p> : null}
       </section>
 
       <section className="importWorkspace">
         <div className="importSource">
           <label htmlFor="sourceText">家庭资料</label>
           <div className="segmentedControl" aria-label="描述视角">
-            <button
-              className={perspective === "family" ? "segmentActive" : ""}
-              type="button"
-              onClick={() => setPerspective("family")}
-            >
+            <button className={perspective === "family" ? "segmentActive" : ""} type="button" onClick={() => setPerspective("family")}>
               家人视角
             </button>
-            <button
-              className={perspective === "elder" ? "segmentActive" : ""}
-              type="button"
-              onClick={() => setPerspective("elder")}
-            >
+            <button className={perspective === "elder" ? "segmentActive" : ""} type="button" onClick={() => setPerspective("elder")}>
               老人视角
             </button>
           </div>
-          <p className="helperText">
-            家人档案保存时会根据性别把“子女/儿女/孩子”细分为“儿子/女儿”。
-          </p>
           <textarea
             id="sourceText"
             value={sourceText}
             onChange={(event) => setSourceText(event.target.value)}
-            placeholder="例如：老人叫宋桂兰，儿子小明每周末来看她。去年中秋，小明陪妈妈在院子里赏月。"
+            placeholder="例如：老人叫宋桂兰，女儿小雨每周都会打电话。去年中秋，小雨陪妈妈在院子里赏月。"
           />
           <div className="actions">
-            <button type="button" onClick={onParse} disabled={isParsing}>
+            <button type="button" onClick={onParse} disabled={isParsing || !familyContext}>
               {isParsing ? "解析中..." : "智能解析"}
             </button>
-            <button
-              className="button buttonSecondary"
-              type="button"
-              onClick={onSave}
-              disabled={isSaving || !hasDraft(draft)}
-            >
-              {isSaving ? "保存中..." : "一键保存"}
+            <button className="button buttonSecondary" type="button" onClick={onSave} disabled={isSaving || !hasDraft(draft)}>
+              {isSaving ? "保存中..." : "保存到云端"}
             </button>
-            <Link className="button buttonSecondary" href="/">
-              返回首页
+            <Link className="button buttonSecondary" href="/family">
+              返回家庭空间
             </Link>
           </div>
           {error ? <p className="errorText">{error}</p> : null}
@@ -464,47 +445,10 @@ export default function RecordsPage() {
 
         {hasDraft(draft) ? (
           <div className="previewGrid">
-            {mergePreview.length > 0 ? (
-              <section className="mergeNotice">
-                <h2>合并提示</h2>
-                <ul>
-                  {mergePreview.map((message) => (
-                    <li key={message}>{message}</li>
-                  ))}
-                </ul>
-              </section>
-            ) : null}
-            <EditableObject
-              title="老人画像"
-              data={draft.elder_profile}
-              fields={elderFields}
-              onChange={(key, value) => updateTopLevel("draft", "elder_profile", key, value)}
-            />
-            <EditableObject
-              title="AI 扮演角色"
-              data={draft.persona}
-              fields={personaFields}
-              onChange={(key, value) => updateTopLevel("draft", "persona", key, value)}
-            />
-            <DedupPreview dedup={draft.dedup} />
-            <EditableList
-              title="家人档案"
-              items={draft.family_profiles}
-              fields={familyFields}
-              onChange={(index, key, value) =>
-                updateListItem("draft", "family_profiles", index, key, value)
-              }
-              onDelete={deleteDraftFamilyProfile}
-            />
-            <EditableList
-              title="家庭记忆"
-              items={draft.memories}
-              fields={memoryFields}
-              onChange={(index, key, value) =>
-                updateListItem("draft", "memories", index, key, value)
-              }
-              onDelete={deleteDraftMemory}
-            />
+            <EditableObject title="老人画像" data={draft.elder_profile} fields={elderFields} onChange={(key, value) => updateTopLevel("elder_profile", key, value)} />
+            <EditableObject title="AI 扮演角色" data={draft.persona} fields={personaFields} onChange={(key, value) => updateTopLevel("persona", key, value)} />
+            <EditableList title="家人档案" items={draft.family_profiles} fields={familyFields} onChange={(index, key, value) => updateListItem("draft", "family_profiles", index, key, value)} />
+            <EditableList title="家庭记忆" items={draft.memories} fields={memoryFields} onChange={(index, key, value) => updateListItem("draft", "memories", index, key, value)} />
           </div>
         ) : (
           <p className="emptyState">解析后会在这里显示可编辑预览。</p>
@@ -513,142 +457,70 @@ export default function RecordsPage() {
 
       <section className="importWorkspace recordsManagement">
         <div className="sectionHeader">
-          <h2>已保存档案与记忆</h2>
-          <p>这里展示当前本地档案库已有的数据。修改后点击保存，家人档案和记忆也可以单条删除。</p>
+          <h2>已保存的云端档案与记忆</h2>
+          <p>这里展示当前家庭空间的数据。修改后点击保存，删除会同步删除云端记录。</p>
         </div>
-
         <div className="actions">
           <button type="button" onClick={onSaveRecords} disabled={isSavingRecords || !hasDraft(savedDraft)}>
             {isSavingRecords ? "保存中..." : "保存修改"}
           </button>
-          <button
-            className="button buttonSecondary"
-            type="button"
-            onClick={loadSavedRecords}
-            disabled={isLoadingRecords}
-          >
+          <button className="button buttonSecondary" type="button" onClick={loadSavedRecords} disabled={isLoadingRecords}>
             {isLoadingRecords ? "加载中..." : "刷新"}
           </button>
         </div>
-
         {recordsError ? <p className="errorText">{recordsError}</p> : null}
         {recordsSuccess ? <p className="successText">{recordsSuccess}</p> : null}
 
         {isLoadingRecords ? (
-          <p className="emptyState">正在加载已保存数据...</p>
+          <p className="emptyState">正在加载云端档案...</p>
         ) : hasDraft(savedDraft) ? (
           <div className="previewGrid">
-            <SavedProfileList
+            <SavedList
               title="老人画像"
+              section="elder"
               items={savedDraft.elder_profiles ?? []}
               fields={elderFields}
-              expandedIndex={expandedElderIndex}
-              onToggle={(index) =>
-                setExpandedElderIndex((current) => (current === index ? null : index))
-              }
-              onChange={(index, key, value) =>
-                updateListItem("saved", "elder_profiles", index, key, value)
-              }
-              onDelete={deleteElderProfile}
+              expandedKey={expandedKey}
+              setExpandedKey={setExpandedKey}
+              onChange={(index, key, value) => updateListItem("saved", "elder_profiles", index, key, value)}
+              onDelete={deleteSavedRecord}
             />
-            <SavedProfileList
+            <SavedList
               title="AI 扮演角色"
+              section="persona"
               items={savedDraft.personas ?? []}
               fields={personaFields}
-              expandedIndex={expandedPersonaIndex}
-              onToggle={(index) =>
-                setExpandedPersonaIndex((current) => (current === index ? null : index))
-              }
-              onChange={(index, key, value) =>
-                updateListItem("saved", "personas", index, key, value)
-              }
-              onDelete={deletePersona}
+              expandedKey={expandedKey}
+              setExpandedKey={setExpandedKey}
+              onChange={(index, key, value) => updateListItem("saved", "personas", index, key, value)}
+              onDelete={deleteSavedRecord}
             />
-            <SavedProfileList
+            <SavedList
               title="家人档案"
+              section="family"
               items={savedDraft.family_profiles}
               fields={familyFields}
-              expandedIndex={expandedFamilyIndex}
-              onToggle={(index) =>
-                setExpandedFamilyIndex((current) => (current === index ? null : index))
-              }
-              onChange={(index, key, value) =>
-                updateListItem("saved", "family_profiles", index, key, value)
-              }
-              onDelete={deleteFamilyProfile}
+              expandedKey={expandedKey}
+              setExpandedKey={setExpandedKey}
+              onChange={(index, key, value) => updateListItem("saved", "family_profiles", index, key, value)}
+              onDelete={deleteSavedRecord}
             />
-            <SavedMemoryList
+            <SavedList
               title="家庭记忆"
+              section="memory"
               items={savedDraft.memories}
               fields={memoryFields}
-              expandedIndex={expandedMemoryIndex}
-              onToggle={(index) =>
-                setExpandedMemoryIndex((current) => (current === index ? null : index))
-              }
-              onChange={(index, key, value) =>
-                updateListItem("saved", "memories", index, key, value)
-              }
-              onDelete={deleteMemory}
+              expandedKey={expandedKey}
+              setExpandedKey={setExpandedKey}
+              onChange={(index, key, value) => updateListItem("saved", "memories", index, key, value)}
+              onDelete={deleteSavedRecord}
             />
           </div>
         ) : (
-          <p className="emptyState">暂无已保存的档案或记忆。</p>
+          <p className="emptyState">暂无已保存的云端档案或记忆。</p>
         )}
       </section>
     </main>
-  );
-}
-
-function DedupPreview({ dedup }: { dedup: ParsedDraft["dedup"] }) {
-  if (!dedup) {
-    return null;
-  }
-
-  const familyActions = dedup.family_actions ?? [];
-  const memoryActions = dedup.memory_actions ?? [];
-  const hasPersonaMerge = dedup.persona_action === "merge" && dedup.persona_match;
-  const hasFamilyActions = familyActions.some((action) => action.action !== "skip");
-  const hasMemoryActions = memoryActions.length > 0;
-
-  if (!hasPersonaMerge && !hasFamilyActions && !hasMemoryActions) {
-    return null;
-  }
-
-  return (
-    <section className="importSection wide">
-      <h2>智能合并建议</h2>
-      <ul className="dedupList">
-        {hasPersonaMerge ? (
-          <li>角色将合并到已有画像：{dedup.persona_match}</li>
-        ) : null}
-        {familyActions.map((action) => {
-          if (action.action === "merge_into") {
-            return (
-              <li key={`${action.new_name}-${action.target}`}>
-                {action.new_name} 将合并到已有家人 {action.target}
-              </li>
-            );
-          }
-          if (action.action === "new") {
-            return <li key={action.new_name}>{action.new_name} 将作为新家人保存</li>;
-          }
-          return null;
-        })}
-        {memoryActions.map((action) => {
-          const preview =
-            action.new_content.length > 48
-              ? `${action.new_content.slice(0, 48)}...`
-              : action.new_content;
-          if (action.action === "skip") {
-            return <li key={`${action.new_content}-${action.target}`}>疑似重复记忆：{preview}，将跳过保存</li>;
-          }
-          if (action.action === "new") {
-            return <li key={action.new_content}>新记忆将保存：{preview}</li>;
-          }
-          return null;
-        })}
-      </ul>
-    </section>
   );
 }
 
@@ -670,10 +542,7 @@ function EditableObject({
         {fields.map(([key, label]) => (
           <label key={key}>
             <span>{label}</span>
-            <input
-              value={valueToText(data[key])}
-              onChange={(event) => onChange(key, event.target.value)}
-            />
+            <input value={valueToText(data[key])} onChange={(event) => onChange(key, event.target.value)} />
           </label>
         ))}
       </div>
@@ -686,13 +555,11 @@ function EditableList({
   items,
   fields,
   onChange,
-  onDelete,
 }: {
   title: string;
   items: DraftObject[];
   fields: readonly (readonly [string, string])[];
   onChange: (index: number, key: string, value: string) => void;
-  onDelete: (index: number) => void;
 }) {
   return (
     <section className="importSection wide">
@@ -701,22 +568,12 @@ function EditableList({
       <div className="importList">
         {items.map((item, index) => (
           <article className="importListItem" key={`${title}-${index}`}>
-            <div className="itemHeader">
-              <strong>
-                {title} {index + 1}
-              </strong>
-              <button className="button buttonDanger" type="button" onClick={() => onDelete(index)}>
-                删除
-              </button>
-            </div>
+            <strong>{displayRecordName(item, `${title} ${index + 1}`)}</strong>
             <div className="fieldGrid">
               {fields.map(([key, label]) => (
                 <label key={key}>
                   <span>{label}</span>
-                  <input
-                    value={valueToText(item[key])}
-                    onChange={(event) => onChange(index, key, event.target.value)}
-                  />
+                  <input value={valueToText(item[key])} onChange={(event) => onChange(index, key, event.target.value)} />
                 </label>
               ))}
             </div>
@@ -727,79 +584,24 @@ function EditableList({
   );
 }
 
-function profileMeta(item: DraftObject, keys: readonly string[]): string[] {
-  return keys.map((key) => valueToText(item[key])).filter(Boolean);
-}
-
-function SavedProfileObject({
+function SavedList({
   title,
-  data,
-  fields,
-  summaryKeys,
-  isExpanded,
-  onToggle,
-  onChange,
-}: {
-  title: string;
-  data: DraftObject;
-  fields: readonly (readonly [string, string])[];
-  summaryKeys: readonly string[];
-  isExpanded: boolean;
-  onToggle: () => void;
-  onChange: (key: string, value: string) => void;
-}) {
-  const meta = profileMeta(data, summaryKeys);
-
-  return (
-    <section className="importSection profileSummary">
-      <div className="profileSummaryHeader">
-        <div>
-          <h2>{title}</h2>
-          {meta.length > 0 ? (
-            <div className="profileMeta">
-              {meta.map((text) => (
-                <span key={text}>{text}</span>
-              ))}
-            </div>
-          ) : (
-            <p className="emptyState">暂无内容。</p>
-          )}
-        </div>
-        <button className="button buttonSecondary" type="button" onClick={onToggle}>
-          {isExpanded ? "收起" : "展开编辑"}
-        </button>
-      </div>
-
-      {isExpanded ? (
-        <div className="fieldGrid profileEditor">
-          {fields.map(([key, label]) => (
-            <label key={key}>
-              <span>{label}</span>
-              <input value={valueToText(data[key])} onChange={(event) => onChange(key, event.target.value)} />
-            </label>
-          ))}
-        </div>
-      ) : null}
-    </section>
-  );
-}
-
-function SavedProfileList({
-  title,
+  section,
   items,
   fields,
-  expandedIndex,
-  onToggle,
+  expandedKey,
+  setExpandedKey,
   onChange,
   onDelete,
 }: {
   title: string;
+  section: "elder" | "persona" | "family" | "memory";
   items: DraftObject[];
   fields: readonly (readonly [string, string])[];
-  expandedIndex: number | null;
-  onToggle: (index: number) => void;
+  expandedKey: string;
+  setExpandedKey: (key: string) => void;
   onChange: (index: number, key: string, value: string) => void;
-  onDelete?: (index: number) => void;
+  onDelete: (section: "elder" | "persona" | "family" | "memory", index: number) => void;
 }) {
   return (
     <section className="importSection wide">
@@ -807,140 +609,27 @@ function SavedProfileList({
       {items.length === 0 ? <p className="emptyState">暂无内容。</p> : null}
       <div className="profileList">
         {items.map((item, index) => {
-          const isExpanded = expandedIndex === index;
-          const name =
-            valueToText(item.name) ||
-            valueToText(item.role_label) ||
-            valueToText(item.full_name) ||
-            `${title} ${index + 1}`;
-          const meta = profileMeta(item, ["gender", "relation", "personality", "preferences"]);
-
+          const itemKey = `${section}-${index}`;
+          const isExpanded = expandedKey === itemKey;
           return (
-            <article className="profileSummary" key={`${title}-${index}`}>
+            <article className="profileSummary" key={itemKey}>
               <div className="profileSummaryHeader">
-                <div>
-                  <strong>{name}</strong>
-                  {meta.length > 0 ? (
-                    <div className="profileMeta">
-                      {meta.map((text) => (
-                        <span key={text}>{text}</span>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
+                <strong>{displayRecordName(item, `${title} ${index + 1}`)}</strong>
                 <div className="memoryActions">
-                  <button
-                    className="button buttonSecondary"
-                    type="button"
-                    onClick={() => onToggle(index)}
-                  >
+                  <button className="button buttonSecondary" type="button" onClick={() => setExpandedKey(isExpanded ? "" : itemKey)}>
                     {isExpanded ? "收起" : "展开编辑"}
                   </button>
-                  {onDelete ? (
-                    <button className="button buttonDanger" type="button" onClick={() => onDelete(index)}>
-                      删除
-                    </button>
-                  ) : null}
+                  <button className="button buttonDanger" type="button" onClick={() => onDelete(section, index)}>
+                    删除
+                  </button>
                 </div>
               </div>
-
               {isExpanded ? (
                 <div className="fieldGrid profileEditor">
                   {fields.map(([key, label]) => (
                     <label key={key}>
                       <span>{label}</span>
-                      <input
-                        value={valueToText(item[key])}
-                        onChange={(event) => onChange(index, key, event.target.value)}
-                      />
-                    </label>
-                  ))}
-                </div>
-              ) : null}
-            </article>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
-function memoryMeta(item: DraftObject): string[] {
-  return [
-    valueToText(item.subject),
-    valueToText(item.memory_type),
-    valueToText(item.topic_tags),
-    valueToText(item.emotion_tags),
-  ].filter(Boolean);
-}
-
-function SavedMemoryList({
-  title,
-  items,
-  fields,
-  expandedIndex,
-  onToggle,
-  onChange,
-  onDelete,
-}: {
-  title: string;
-  items: DraftObject[];
-  fields: readonly (readonly [string, string])[];
-  expandedIndex: number | null;
-  onToggle: (index: number) => void;
-  onChange: (index: number, key: string, value: string) => void;
-  onDelete: (index: number) => void;
-}) {
-  return (
-    <section className="importSection wide">
-      <h2>{title}</h2>
-      {items.length === 0 ? <p className="emptyState">暂无内容。</p> : null}
-      <div className="memoryList">
-        {items.map((item, index) => {
-          const isExpanded = expandedIndex === index;
-          const summary = valueToText(item.content) || "未填写记忆内容";
-          const meta = memoryMeta(item);
-
-          return (
-            <article className="memorySummary" key={`${title}-${index}`}>
-              <div className="memorySummaryHeader">
-                <div>
-                  <strong>
-                    {title} {index + 1}
-                  </strong>
-                  <p>{summary}</p>
-                </div>
-                <div className="memoryActions">
-                  <button
-                    className="button buttonSecondary"
-                    type="button"
-                    onClick={() => onToggle(index)}
-                  >
-                    {isExpanded ? "收起" : "展开编辑"}
-                  </button>
-                  <button className="button buttonDanger" type="button" onClick={() => onDelete(index)}>
-                    删除
-                  </button>
-                </div>
-              </div>
-
-              {meta.length > 0 ? (
-                <div className="memoryMeta">
-                  {meta.map((text) => (
-                    <span key={text}>{text}</span>
-                  ))}
-                </div>
-              ) : null}
-
-              {isExpanded ? (
-                <div className="fieldGrid memoryEditor">
-                  {fields.map(([key, label]) => (
-                    <label key={key}>
-                      <span>{label}</span>
-                      <input
-                        value={valueToText(item[key])}
-                        onChange={(event) => onChange(index, key, event.target.value)}
-                      />
+                      <input value={valueToText(item[key])} onChange={(event) => onChange(index, key, event.target.value)} />
                     </label>
                   ))}
                 </div>

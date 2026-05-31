@@ -186,6 +186,10 @@ class PostgresCloudRepository:
         data["family_id"] = family_id
         return self._upsert_by_family("elders", family_id, data)
 
+    def delete_elder_current(self, *, family_id: str, user_id: str) -> None:
+        self._require_editor(family_id, user_id)
+        self._execute("DELETE FROM elders WHERE family_id = %s", (family_id,))
+
     def list_family_profiles(self, *, family_id: str, user_id: str) -> list[dict]:
         self._require_member(family_id, user_id)
         return self._fetch_all("SELECT * FROM family_profiles WHERE family_id = %s ORDER BY created_at ASC", (family_id,))
@@ -240,6 +244,10 @@ class PostgresCloudRepository:
         existing = self._get_family_record("personas", family_id, persona_id)
         data = self._record_payload("personas", {**existing, **payload}, user_id=user_id, creating=False)
         return self._update_family_record("personas", family_id, persona_id, data)
+
+    def delete_persona(self, *, family_id: str, user_id: str, persona_id: str) -> None:
+        self._require_editor(family_id, user_id)
+        self._delete_family_record("personas", family_id, persona_id)
 
     def create_voice_sample_upload_intent(
         self,

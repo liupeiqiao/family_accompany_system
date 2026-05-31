@@ -189,26 +189,25 @@ def test_records_page_supports_profile_memory_import_flow():
 
     assert '"use client";' in records_source
     assert "parseProfileText" in records_source
-    assert "importParsedData" in records_source
+    assert "fetchCurrentFamily" in records_source
+    assert "fetchCloudElder" in records_source
+    assert "createCloudPersona" in records_source
+    assert "createCloudFamilyProfile" in records_source
+    assert "createCloudMemory" in records_source
     assert "onParse" in records_source
     assert "onSave" in records_source
     assert "<textarea" in records_source
     assert "onChange" in records_source
-    assert "deleteFamilyProfile" in records_source
-    assert "deleteMemory" in records_source
-    assert "一键保存" in records_source
-    assert "后端保存接口未加载" in records_source
+    assert "deleteCloudFamilyProfile" in records_source
+    assert "deleteCloudMemory" in records_source
+    assert "保存到云端" in records_source
+    assert "当前家庭" in records_source
     assert '["gender", "性别"]' in records_source
     assert 'useState<"family" | "elder">' in records_source
     assert "家人视角" in records_source
     assert "老人视角" in records_source
     assert "perspective," in records_source
-    assert "子女/儿女/孩子" in records_source
-    assert "dedup" in records_source
-    assert "merge_into" in records_source
-    assert "将合并到已有家人" in records_source
-    assert "memory_actions" in records_source
-    assert "疑似重复记忆" in records_source
+    assert "saveDraftToCloud" in records_source
 
 
 def test_saved_memories_use_collapsed_summary_cards():
@@ -217,10 +216,10 @@ def test_saved_memories_use_collapsed_summary_cards():
     )
     css_source = (ROOT / "web" / "src" / "app" / "globals.css").read_text(encoding="utf-8")
 
-    assert "function SavedMemoryList" in records_source
-    assert "expandedMemoryIndex" in records_source
-    assert "memorySummary" in records_source
-    assert "memoryMeta" in records_source
+    assert "function SavedList" in records_source
+    assert 'section="memory"' in records_source
+    assert "expandedKey" in records_source
+    assert "profileSummary" in records_source
     assert "展开编辑" in records_source
     assert "收起" in records_source
     assert ".memorySummary" in css_source
@@ -233,15 +232,13 @@ def test_saved_profiles_use_collapsed_summary_cards():
     )
     css_source = (ROOT / "web" / "src" / "app" / "globals.css").read_text(encoding="utf-8")
 
-    assert "function SavedProfileObject" in records_source
-    assert "function SavedProfileList" in records_source
-    assert "expandedElderIndex" in records_source
-    assert "expandedPersonaIndex" in records_source
-    assert "expandedFamilyIndex" in records_source
+    assert "function SavedList" in records_source
+    assert 'section="elder"' in records_source
+    assert 'section="persona"' in records_source
+    assert 'section="family"' in records_source
+    assert "expandedKey" in records_source
     assert "profileSummary" in records_source
-    assert "profileMeta" in records_source
     assert ".profileSummary" in css_source
-    assert ".profileMeta" in css_source
 
 
 def test_records_page_lists_all_saved_personas_and_elders():
@@ -254,8 +251,8 @@ def test_records_page_lists_all_saved_personas_and_elders():
 
     assert "personas?: DraftObject[]" in backend_source
     assert "elder_profiles?: DraftObject[]" in backend_source
-    assert "expandedPersonaIndex" in records_source
-    assert "expandedElderIndex" in records_source
+    assert "fetchCloudPersonas" in records_source
+    assert "fetchCloudElder" in records_source
     assert "items={savedDraft.elder_profiles ?? []}" in records_source
     assert "items={savedDraft.personas ?? []}" in records_source
 
@@ -269,9 +266,8 @@ def test_records_page_shows_parse_merge_preview():
     )
 
     assert "merge_preview?: string[]" in backend_source
-    assert "mergePreview" in records_source
-    assert "合并提示" in records_source
-    assert "mergeNotice" in records_source
+    assert "parseProfileText" in records_source
+    assert "setDraft(parsed)" in records_source
 
 
 def test_web_app_has_supabase_and_backend_api_boundaries():

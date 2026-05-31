@@ -670,6 +670,27 @@ def handle_delete_persona(role_label: str) -> DeleteResponse:
     return DeleteResponse(ok=True)
 
 
+def handle_delete_cloud_elder_current(family_id: str, user_id: str) -> DeleteResponse:
+    _call_cloud(
+        lambda: get_cloud_repository().delete_elder_current(
+            family_id=family_id,
+            user_id=user_id,
+        )
+    )
+    return DeleteResponse(ok=True)
+
+
+def handle_delete_cloud_persona(persona_id: str, family_id: str, user_id: str) -> DeleteResponse:
+    _call_cloud(
+        lambda: get_cloud_repository().delete_persona(
+            family_id=family_id,
+            user_id=user_id,
+            persona_id=persona_id,
+        )
+    )
+    return DeleteResponse(ok=True)
+
+
 def handle_delete_cloud_memory(memory_id: str, family_id: str, user_id: str) -> DeleteResponse:
     _call_cloud(
         lambda: get_cloud_repository().delete_memory(

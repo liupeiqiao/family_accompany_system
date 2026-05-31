@@ -39,6 +39,9 @@ class CloudRepository(Protocol):
     def upsert_elder_current(self, *, family_id: str, user_id: str, payload: dict) -> dict:
         ...
 
+    def delete_elder_current(self, *, family_id: str, user_id: str) -> None:
+        ...
+
     def list_family_profiles(self, *, family_id: str, user_id: str) -> list[dict]:
         ...
 
@@ -77,6 +80,9 @@ class CloudRepository(Protocol):
         ...
 
     def update_persona(self, *, family_id: str, user_id: str, persona_id: str, payload: dict) -> dict:
+        ...
+
+    def delete_persona(self, *, family_id: str, user_id: str, persona_id: str) -> None:
         ...
 
     def create_voice_sample_upload_intent(
@@ -206,6 +212,10 @@ class InMemoryCloudRepository:
         self._elders[family_id] = elder
         return dict(elder)
 
+    def delete_elder_current(self, *, family_id: str, user_id: str) -> None:
+        self._require_editor(family_id, user_id)
+        self._elders.pop(family_id, None)
+
     def list_family_profiles(self, *, family_id: str, user_id: str) -> list[dict]:
         self._require_member(family_id, user_id)
         return self._list_family_records(self._family_profiles, family_id)
@@ -287,6 +297,11 @@ class InMemoryCloudRepository:
         updated["id"] = persona_id
         self._personas[persona_id] = updated
         return dict(updated)
+
+    def delete_persona(self, *, family_id: str, user_id: str, persona_id: str) -> None:
+        self._require_editor(family_id, user_id)
+        self._get_family_record(self._personas, family_id, persona_id)
+        del self._personas[persona_id]
 
     def create_voice_sample_upload_intent(
         self,
@@ -618,6 +633,10 @@ class SupabaseCloudRepository:
             return self._request(f"elders?id=eq.{rows[0]['id']}", method="PATCH", payload=data)[0]
         return self._request("elders", method="POST", payload=data)[0]
 
+    def delete_elder_current(self, *, family_id: str, user_id: str) -> None:
+        self._require_editor(family_id, user_id)
+        self._request(f"elders?family_id=eq.{family_id}", method="DELETE")
+
     def list_family_profiles(self, *, family_id: str, user_id: str) -> list[dict]:
         self._require_member(family_id, user_id)
         return self._request(f"family_profiles?family_id=eq.{family_id}&select=*", method="GET")
@@ -686,6 +705,10 @@ class SupabaseCloudRepository:
             method="PATCH",
             payload={**payload, "family_id": family_id, "updated_by": user_id},
         )[0]
+
+    def delete_persona(self, *, family_id: str, user_id: str, persona_id: str) -> None:
+        self._require_editor(family_id, user_id)
+        self._request(f"personas?id=eq.{persona_id}&family_id=eq.{family_id}", method="DELETE")
 
     def create_voice_sample_upload_intent(
         self,

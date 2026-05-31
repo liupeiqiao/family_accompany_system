@@ -16,7 +16,9 @@ from .handlers import (
     handle_create_family,
     handle_create_voice_upload_intent,
     handle_delete_cloud_family_profile,
+    handle_delete_cloud_elder_current,
     handle_delete_cloud_memory,
+    handle_delete_cloud_persona,
     handle_delete_elder,
     handle_delete_family_profile,
     handle_delete_memory,
@@ -358,11 +360,25 @@ def delete_voice_profile_endpoint(
     return handle_delete_voice_profile(profile_id, family_id, x_user_id)
 
 
+@app.delete("/api/elders/current", response_model=DeleteResponse)
+def delete_cloud_elder_current_endpoint(
+    family_id: str = Query(...),
+    x_user_id: str = Depends(current_user_id),
+) -> DeleteResponse:
+    return handle_delete_cloud_elder_current(family_id, x_user_id)
+
+
 @app.delete("/api/elders/{full_name}", response_model=DeleteResponse)
 def delete_elder_endpoint(full_name: str) -> DeleteResponse:
     return handle_delete_elder(full_name)
 
 
 @app.delete("/api/personas/{role_label}", response_model=DeleteResponse)
-def delete_persona_endpoint(role_label: str) -> DeleteResponse:
+def delete_persona_endpoint(
+    role_label: str,
+    family_id: str | None = Query(default=None),
+    x_user_id: str = Depends(current_user_id),
+) -> DeleteResponse:
+    if family_id:
+        return handle_delete_cloud_persona(role_label, family_id, x_user_id)
     return handle_delete_persona(role_label)

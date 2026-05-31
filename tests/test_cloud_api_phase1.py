@@ -108,3 +108,17 @@ def test_fastapi_cloud_profile_memory_persona_crud_enforces_membership(monkeypat
     )
     assert deleted.status_code == 200
     assert repo.list_memories(family_id=family["id"], user_id="owner") == []
+
+    deleted_persona = client.delete(
+        f"/api/personas/{persona.json()['id']}?family_id={family['id']}",
+        headers={"X-User-Id": "owner"},
+    )
+    assert deleted_persona.status_code == 200
+    assert repo.list_personas(family_id=family["id"], user_id="owner") == []
+
+    deleted_elder = client.delete(
+        f"/api/elders/current?family_id={family['id']}",
+        headers={"X-User-Id": "owner"},
+    )
+    assert deleted_elder.status_code == 200
+    assert repo.get_elder_current(family_id=family["id"], user_id="owner") == {}

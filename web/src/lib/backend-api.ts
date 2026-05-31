@@ -267,6 +267,15 @@ export function updateCloudFamilyProfile(
   );
 }
 
+export function deleteCloudFamilyProfile(profileId: string, familyId: string): Promise<{ ok: boolean }> {
+  return requestJson<{ ok: boolean }>(
+    `/api/family-profiles/${encodeURIComponent(profileId)}?family_id=${encodeURIComponent(familyId)}`,
+    withUser({
+      method: "DELETE",
+    }),
+  );
+}
+
 export function fetchCloudMemories(familyId: string): Promise<CloudRecord[]> {
   return requestJson<CloudRecord[]>(
     `/api/memories?family_id=${encodeURIComponent(familyId)}`,
@@ -284,6 +293,28 @@ export function createCloudMemory(payload: CloudRecord & { family_id: string }):
   );
 }
 
+export function updateCloudMemory(
+  memoryId: string,
+  payload: CloudRecord & { family_id: string },
+): Promise<CloudRecord> {
+  return requestJson<CloudRecord>(
+    `/api/memories/${encodeURIComponent(memoryId)}`,
+    withUser({
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
+  );
+}
+
+export function deleteCloudMemory(memoryId: string, familyId: string): Promise<{ ok: boolean }> {
+  return requestJson<{ ok: boolean }>(
+    `/api/memories/${encodeURIComponent(memoryId)}?family_id=${encodeURIComponent(familyId)}`,
+    withUser({
+      method: "DELETE",
+    }),
+  );
+}
+
 export function fetchCloudPersonas(familyId: string): Promise<CloudRecord[]> {
   return requestJson<CloudRecord[]>(
     `/api/personas?family_id=${encodeURIComponent(familyId)}`,
@@ -297,6 +328,37 @@ export function createCloudPersona(payload: CloudRecord & { family_id: string })
     withUser({
       method: "POST",
       body: JSON.stringify(payload),
+    }),
+  );
+}
+
+export function updateCloudPersona(
+  personaId: string,
+  payload: CloudRecord & { family_id: string },
+): Promise<CloudRecord> {
+  return requestJson<CloudRecord>(
+    `/api/personas/${encodeURIComponent(personaId)}`,
+    withUser({
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
+  );
+}
+
+export function deleteCloudPersona(personaId: string, familyId: string): Promise<{ ok: boolean }> {
+  return requestJson<{ ok: boolean }>(
+    `/api/personas/${encodeURIComponent(personaId)}?family_id=${encodeURIComponent(familyId)}`,
+    withUser({
+      method: "DELETE",
+    }),
+  );
+}
+
+export function deleteCloudElder(familyId: string): Promise<{ ok: boolean }> {
+  return requestJson<{ ok: boolean }>(
+    `/api/elders/current?family_id=${encodeURIComponent(familyId)}`,
+    withUser({
+      method: "DELETE",
     }),
   );
 }
