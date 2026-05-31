@@ -543,6 +543,39 @@ def handle_list_chat_history(family_id: str, user_id: str) -> list[dict]:
     )
 
 
+def handle_list_chat_turns(family_id: str, user_id: str) -> list[dict]:
+    messages = handle_list_chat_history(family_id, user_id)
+    turns: list[dict] = []
+    index = 0
+    while index < len(messages):
+        user_message = messages[index]
+        assistant_message = messages[index + 1] if index + 1 < len(messages) else {}
+        if user_message.get("role") != "user":
+            index += 1
+            continue
+        if assistant_message.get("role") != "assistant":
+            index += 1
+            continue
+        turns.append(
+            {
+                "id": f"{user_message.get('id', '')}:{assistant_message.get('id', '')}",
+                "session_id": user_message.get("session_id") or assistant_message.get("session_id", ""),
+                "elder_id": user_message.get("elder_id") or assistant_message.get("elder_id", ""),
+                "persona_id": user_message.get("persona_id") or assistant_message.get("persona_id", ""),
+                "voice_profile_id": user_message.get("voice_profile_id")
+                or assistant_message.get("voice_profile_id", ""),
+                "user_text": user_message.get("text", ""),
+                "assistant_text": assistant_message.get("text", ""),
+                "audio_url": assistant_message.get("audio_storage_path", ""),
+                "asr_provider": user_message.get("asr_provider", ""),
+                "tts_provider": assistant_message.get("tts_provider", ""),
+                "created_at": assistant_message.get("created_at") or user_message.get("created_at", ""),
+            }
+        )
+        index += 2
+    return sorted(turns, key=lambda turn: str(turn.get("created_at", "")), reverse=True)
+
+
 def handle_delete_memory(memory_id: str) -> DeleteResponse:
     db.init_db()
     db.delete_memory(memory_id)

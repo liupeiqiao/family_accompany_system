@@ -60,6 +60,20 @@ export type ChatHistoryMessage = {
   created_at?: string;
 };
 
+export type ChatTurn = {
+  id: string;
+  session_id: string;
+  elder_id?: string;
+  persona_id?: string;
+  voice_profile_id?: string;
+  user_text: string;
+  assistant_text: string;
+  audio_url?: string;
+  asr_provider?: string;
+  tts_provider?: string;
+  created_at?: string;
+};
+
 export type TextToSpeechResponse = {
   provider: string;
   audio_url: string;
@@ -363,6 +377,13 @@ export function sendChat(payload: {
 export function fetchChatHistory(familyId: string): Promise<ChatHistoryMessage[]> {
   return requestJson<ChatHistoryMessage[]>(
     `/api/chat/history?family_id=${encodeURIComponent(familyId)}`,
+    withUser(),
+  );
+}
+
+export function fetchChatTurns(familyId: string): Promise<ChatTurn[]> {
+  return requestJson<ChatTurn[]>(
+    `/api/chat/turns?family_id=${encodeURIComponent(familyId)}`,
     withUser(),
   );
 }

@@ -15,6 +15,11 @@ const panels = [
     href: "/records",
   },
   {
+    title: "对话历史",
+    body: "查看老人端和家人声音 AI 的最近对话，按角色、老人和时间筛选，并重播已保存的 AI 回复。",
+    href: "/history",
+  },
+  {
     title: "声音克隆",
     body: "上传或录制授权声音样本，生成可用于语音回复的克隆声音。",
     href: "/voices",

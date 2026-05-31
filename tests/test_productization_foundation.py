@@ -176,8 +176,9 @@ def test_home_feature_cards_are_clickable_routes():
     assert 'href: "/records"' in app_source
     assert 'href: "/voices"' in app_source
     assert 'href: "/elder"' in app_source
+    assert 'href: "/history"' in app_source
 
-    for route in ["family", "records", "voices", "elder"]:
+    for route in ["family", "records", "voices", "elder", "history"]:
         assert (ROOT / "web" / "src" / "app" / route / "page.tsx").exists()
 
 
@@ -289,12 +290,14 @@ def test_web_app_has_supabase_and_backend_api_boundaries():
     assert "/api/import" in backend_source
     assert "/api/chat" in backend_source
     assert "/api/elder/voice-chat" in backend_source
+    assert "/api/chat/turns" in backend_source
     assert "/api/family/current" in backend_source
     assert "/api/family" in backend_source
     assert "/api/elders/current" in backend_source
     assert "fetchCurrentFamily" in backend_source
     assert "createFamily" in backend_source
     assert "fetchCloudFamilyProfiles" in backend_source
+    assert "fetchChatTurns" in backend_source
     assert "/api/voices/clone" in backend_source
     assert "/api/voices/upload-intent" in backend_source
     assert "/api/voices/profiles" in backend_source
@@ -366,6 +369,25 @@ def test_elder_chat_page_can_request_voice_replies():
     assert "stopPlayback" in elder_source
     assert "matched_persona" in elder_source
     assert "audioUrl" in elder_source
+
+
+def test_history_page_lists_filterable_chat_turns():
+    history_source = (ROOT / "web" / "src" / "app" / "history" / "page.tsx").read_text(
+        encoding="utf-8"
+    )
+    css_source = (ROOT / "web" / "src" / "app" / "globals.css").read_text(encoding="utf-8")
+
+    assert '"use client";' in history_source
+    assert "fetchCurrentFamily" in history_source
+    assert "fetchChatTurns" in history_source
+    assert "personaFilter" in history_source
+    assert "elderFilter" in history_source
+    assert "timeFilter" in history_source
+    assert "playAudio" in history_source
+    assert "audio_url" in history_source
+    assert ".historyLayout" in css_source
+    assert ".historyFilters" in css_source
+    assert ".historyTurn" in css_source
 
 
 def test_family_profile_gender_is_part_of_parse_and_context_contracts():
