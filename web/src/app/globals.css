@@ -58,6 +58,14 @@ a {
   margin: 24px 0;
 }
 
+.authBar {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-bottom: 24px;
+}
+
 .button {
   align-items: center;
   background: #2f241c;

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import {
   ChatHistoryMessage,
@@ -9,6 +10,7 @@ import {
   fetchCurrentFamily,
   sendElderVoiceChat,
 } from "../../lib/backend-api";
+import { getAuthToken } from "../../lib/auth";
 
 type CallState =
   | "idle"
@@ -60,6 +62,7 @@ function buildRecentTurns(messages: ChatHistoryMessage[]): ConversationTurn[] {
 }
 
 export default function ElderChatPage() {
+  const router = useRouter();
   const [callState, setCallState] = useState<CallState>("idle");
   const [familyContext, setFamilyContext] = useState<FamilyContext | null>(null);
   const [currentPersonaId, setCurrentPersonaId] = useState("");
@@ -74,13 +77,17 @@ export default function ElderChatPage() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
+    if (!getAuthToken()) {
+      router.replace("/login");
+      return;
+    }
     void loadInitialState();
     return () => {
       stopPlayback();
       mediaRecorderRef.current?.stream.getTracks().forEach((track) => track.stop());
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [router]);
 
   async function loadInitialState() {
     try {

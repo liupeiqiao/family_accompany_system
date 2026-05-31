@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import {
   DraftObject,
@@ -14,6 +15,7 @@ import {
   importParsedData,
   parseProfileText,
 } from "../../lib/backend-api";
+import { getAuthToken } from "../../lib/auth";
 
 const emptyDraft: ParsedDraft = {
   persona: {},
@@ -136,6 +138,7 @@ function hasDraft(draft: ParsedDraft): boolean {
 }
 
 export default function RecordsPage() {
+  const router = useRouter();
   const [sourceText, setSourceText] = useState("");
   const [perspective, setPerspective] = useState<"family" | "elder">("family");
   const [draft, setDraft] = useState<ParsedDraft>(emptyDraft);
@@ -173,8 +176,12 @@ export default function RecordsPage() {
   }
 
   useEffect(() => {
+    if (!getAuthToken()) {
+      router.replace("/login");
+      return;
+    }
     void loadSavedRecords();
-  }, []);
+  }, [router]);
 
   async function onParse() {
     if (!sourceText.trim()) {

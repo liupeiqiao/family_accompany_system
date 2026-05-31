@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   CloudRecord,
   FamilyContext,
@@ -16,11 +17,13 @@ import {
   updateVoiceProfile,
   upgradeVoice,
 } from "../../lib/backend-api";
+import { getAuthToken } from "../../lib/auth";
 
 type NavTab = "library" | "import" | "clone";
 type VoiceManagementState = { isLoading?: boolean; error?: string; result?: VoiceStatusResponse };
 
 export default function VoicesPage() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<NavTab>("library");
   const [familyContext, setFamilyContext] = useState<FamilyContext | null>(null);
   const [profiles, setProfiles] = useState<VoiceProfile[]>([]);
@@ -30,7 +33,13 @@ export default function VoicesPage() {
   const [message, setMessage] = useState("");
   const [voiceManagement, setVoiceManagement] = useState<Record<string, VoiceManagementState>>({});
 
-  useEffect(() => { void loadVoiceSpace(); }, []);
+  useEffect(() => {
+    if (!getAuthToken()) {
+      router.replace("/login");
+      return;
+    }
+    void loadVoiceSpace();
+  }, [router]);
 
   async function loadVoiceSpace() {
     setIsLoading(true);

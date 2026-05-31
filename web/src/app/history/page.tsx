@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import {
   ChatTurn,
@@ -10,6 +11,7 @@ import {
   fetchCurrentFamily,
   generateMemoryCandidate,
 } from "../../lib/backend-api";
+import { getAuthToken } from "../../lib/auth";
 
 type TimeFilter = "all" | "today" | "7d" | "30d";
 type MemoryDraft = {
@@ -103,6 +105,7 @@ function joinTags(value?: string[]) {
 }
 
 export default function HistoryPage() {
+  const router = useRouter();
   const [familyContext, setFamilyContext] = useState<FamilyContext | null>(null);
   const [turns, setTurns] = useState<ChatTurn[]>([]);
   const [personaFilter, setPersonaFilter] = useState("all");
@@ -115,8 +118,12 @@ export default function HistoryPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    if (!getAuthToken()) {
+      router.replace("/login");
+      return;
+    }
     void loadHistory();
-  }, []);
+  }, [router]);
 
   async function loadHistory() {
     setIsLoading(true);

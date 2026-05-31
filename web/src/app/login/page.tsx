@@ -1,9 +1,9 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { sendLoginCode, verifyLoginCode } from "../../lib/auth";
+import { getAuthToken, sendLoginCode, verifyLoginCode } from "../../lib/auth";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -13,6 +13,12 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
+
+  useEffect(() => {
+    if (getAuthToken()) {
+      router.replace("/");
+    }
+  }, [router]);
 
   async function handleSendCode() {
     setError("");
@@ -35,7 +41,7 @@ export default function LoginPage() {
     setIsVerifying(true);
     try {
       await verifyLoginCode(phone, code);
-      router.push("/");
+      router.replace("/family");
     } catch (err) {
       setError(err instanceof Error ? err.message : "登录失败。");
     } finally {

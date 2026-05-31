@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { FamilyContext, createFamily, fetchCurrentFamily } from "../../lib/backend-api";
+import { getAuthToken } from "../../lib/auth";
 
 function roleLabel(role?: string): string {
   if (role === "owner") {
@@ -19,6 +21,7 @@ function roleLabel(role?: string): string {
 }
 
 export default function FamilyPage() {
+  const router = useRouter();
   const [familyContext, setFamilyContext] = useState<FamilyContext | null>(null);
   const [familyName, setFamilyName] = useState("我的家庭");
   const [isLoading, setIsLoading] = useState(true);
@@ -43,8 +46,12 @@ export default function FamilyPage() {
   }
 
   useEffect(() => {
+    if (!getAuthToken()) {
+      router.replace("/login");
+      return;
+    }
     void loadFamily();
-  }, []);
+  }, [router]);
 
   async function onCreateFamily() {
     if (!familyName.trim()) {

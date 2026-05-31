@@ -2,6 +2,7 @@ const API_BASE_URL =
   process.env.NEXT_PUBLIC_COMPANION_API_URL ?? "http://127.0.0.1:8000";
 
 const AUTH_TOKEN_KEY = "family-companion-auth-token";
+const AUTH_USER_KEY = "family-companion-auth-user";
 
 export type AuthUser = {
   id: string;
@@ -29,11 +30,42 @@ export function setAuthToken(token: string): void {
   window.localStorage.setItem(AUTH_TOKEN_KEY, token);
 }
 
+export function getAuthUser(): AuthUser | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  const raw = window.localStorage.getItem(AUTH_USER_KEY);
+  if (!raw) {
+    return null;
+  }
+  try {
+    return JSON.parse(raw) as AuthUser;
+  } catch {
+    return null;
+  }
+}
+
+export function setAuthSession(result: VerifyLoginCodeResponse): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+  window.localStorage.setItem(AUTH_TOKEN_KEY, result.access_token);
+  window.localStorage.setItem(AUTH_USER_KEY, JSON.stringify(result.user));
+}
+
 export function clearAuthToken(): void {
   if (typeof window === "undefined") {
     return;
   }
   window.localStorage.removeItem(AUTH_TOKEN_KEY);
+}
+
+export function clearAuthSession(): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+  window.localStorage.removeItem(AUTH_TOKEN_KEY);
+  window.localStorage.removeItem(AUTH_USER_KEY);
 }
 
 async function requestAuthJson<T>(path: string, payload: Record<string, string>): Promise<T> {
@@ -66,6 +98,6 @@ export function sendLoginCode(phone: string): Promise<{ ok: boolean; expires_in_
 
 export async function verifyLoginCode(phone: string, code: string): Promise<VerifyLoginCodeResponse> {
   const result = await requestAuthJson<VerifyLoginCodeResponse>("/api/auth/verify", { phone, code });
-  setAuthToken(result.access_token);
+  setAuthSession(result);
   return result;
 }
