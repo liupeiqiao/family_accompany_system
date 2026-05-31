@@ -48,6 +48,50 @@ def test_postgres_check_script_loads_env_without_printing_secrets():
     assert "JWT_SECRET=" not in source
 
 
+def test_deploy_script_automates_safe_incremental_server_update():
+    source = (ROOT / "scripts" / "deploy.sh").read_text(encoding="utf-8")
+
+    for expected in [
+        "set -euo pipefail",
+        'APP_DIR="/opt/companion"',
+        'BRANCH="第一版"',
+        'WEB_DIR="$APP_DIR/web"',
+        'API_DIR="$APP_DIR/api"',
+        'VENV_DIR="$APP_DIR/.venv"',
+        'WEB_PM2_NAME="companion-web"',
+        'API_PM2_NAME="companion-api"',
+        'TEST_CMD="python3 -m pytest tests/test_chat_history_phase_c.py -v"',
+        'OLD_COMMIT=$(git rev-parse HEAD)',
+        "git fetch origin",
+        'git pull origin "$BRANCH"',
+        'NEW_COMMIT=$(git rev-parse HEAD)',
+        'git diff --name-only "$OLD_COMMIT" "$NEW_COMMIT" | grep -q \'^web/\'',
+        "npm install",
+        "npm run build",
+        'pm2 restart "$WEB_PM2_NAME" --update-env',
+        'source "$VENV_DIR/bin/activate"',
+        'if [[ -f "$APP_DIR/requirements.txt" ]]; then',
+        'pip install -r "$APP_DIR/requirements.txt"',
+        'if [[ -f "$API_DIR/requirements.txt" ]]; then',
+        'pip install -r "$API_DIR/requirements.txt"',
+        "eval \"$TEST_CMD\"",
+        'pm2 restart "$API_PM2_NAME" --update-env',
+        "pm2 list",
+    ]:
+        assert expected in source
+
+    forbidden = [
+        "rm -rf",
+        "drop database",
+        "truncate table",
+        "git reset --hard",
+        ".env.local",
+    ]
+    lowered = source.lower()
+    for text in forbidden:
+        assert text not in lowered
+
+
 def test_ecs_deployment_doc_covers_current_manual_flow():
     source = (ROOT / "docs" / "ecs-deployment.md").read_text(encoding="utf-8")
 
