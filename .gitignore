@@ -64,6 +64,7 @@ web/.next/
 # Large binary files
 *.docx
 *.txt
+!requirements.txt
 
 # Local Python packages (accidental pip install in project dir)
 Lib/

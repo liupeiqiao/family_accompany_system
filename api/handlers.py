@@ -9,6 +9,7 @@ from fastapi import HTTPException
 from engine import db
 from engine.family import normalize_family_relation
 from llm.parser import dedup_check, parse_user_text
+from productization.audio_storage import store_generated_audio_if_configured
 from productization.chat_service import generate_chat_reply
 from productization.cloud_repository import (
     FamilyNotFoundError,
@@ -496,7 +497,11 @@ def _synthesize_with_profile(*, family_id: str, user_id: str, voice_profile_id: 
             is_cloned_voice=_is_cloned_voice_profile(profile),
         )
     )
-    return {"provider": result.provider, "audio_url": result.audio_path}
+    audio_url = store_generated_audio_if_configured(
+        family_id=family_id,
+        source_audio_url=result.audio_path,
+    )
+    return {"provider": result.provider, "audio_url": audio_url}
 
 
 def _is_cloned_voice_profile(profile: dict) -> bool:
