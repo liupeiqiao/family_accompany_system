@@ -11,6 +11,10 @@ def test_launch_smoke_user_can_persist_core_cloud_data_with_jwt(monkeypatch):
     repo = InMemoryCloudRepository()
     monkeypatch.delenv("DATABASE_URL", raising=False)
     monkeypatch.setenv("JWT_SECRET", "launch-smoke-secret")
+    monkeypatch.setenv("COMPANION_ENV", "staging")
+    monkeypatch.setenv("TEST_LOGIN_ENABLED", "true")
+    monkeypatch.setenv("TEST_LOGIN_CODE", "123456")
+    monkeypatch.setenv("TEST_LOGIN_WHITELIST", "13800138008")
     monkeypatch.setenv("VOICE_PROVIDER", "mock")
     monkeypatch.setattr("productization.auth._auth_service", None)
     monkeypatch.setattr("api.handlers.get_cloud_repository", lambda: repo)
@@ -23,7 +27,7 @@ def test_launch_smoke_user_can_persist_core_cloud_data_with_jwt(monkeypatch):
 
     send_code = client.post("/api/auth/send-code", json={"phone": "13800138008"})
     assert send_code.status_code == 200
-    login = client.post("/api/auth/verify", json={"phone": "13800138008", "code": "000000"})
+    login = client.post("/api/auth/verify", json={"phone": "13800138008", "code": "123456"})
     assert login.status_code == 200
     token = login.json()["access_token"]
     headers = {"X-User-Token": token}

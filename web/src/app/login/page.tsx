@@ -8,7 +8,7 @@ import { getAuthToken, sendLoginCode, verifyLoginCode } from "../../lib/auth";
 export default function LoginPage() {
   const router = useRouter();
   const [phone, setPhone] = useState("");
-  const [code, setCode] = useState("000000");
+  const [code, setCode] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -26,7 +26,7 @@ export default function LoginPage() {
     setIsSending(true);
     try {
       const result = await sendLoginCode(phone);
-      setMessage(result.test_mode ? "测试模式验证码为 000000。" : "验证码已发送。");
+      setMessage(result.test_mode ? "验证码已发送，请使用内测账号配置的验证码。" : "验证码已发送。");
     } catch (err) {
       setError(err instanceof Error ? err.message : "发送验证码失败。");
     } finally {
@@ -54,7 +54,7 @@ export default function LoginPage() {
       <section className="loginPanel">
         <div className="sectionHeader">
           <h1>手机号登录</h1>
-          <p>测试期任意手机号可使用验证码 000000 登录。</p>
+          <p>请输入手机号和验证码登录。</p>
         </div>
         <form onSubmit={handleSubmit}>
           <label>

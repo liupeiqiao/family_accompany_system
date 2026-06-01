@@ -44,5 +44,9 @@ def current_user_id(
         except AuthError as exc:
             raise HTTPException(status_code=401, detail=str(exc)) from exc
     if x_user_id:
+        import os
+
+        if (os.getenv("COMPANION_ENV") or os.getenv("NODE_ENV") or "").lower() in {"prod", "production"}:
+            raise HTTPException(status_code=401, detail="Missing authentication token.")
         return x_user_id
     raise HTTPException(status_code=401, detail="Missing authentication token.")

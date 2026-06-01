@@ -25,6 +25,16 @@ def test_login_page_redirects_when_already_logged_in_and_to_elder_after_login():
     assert 'router.replace("/family")' not in login_source
 
 
+def test_login_page_does_not_expose_fixed_test_code():
+    login_source = (ROOT / "web" / "src" / "app" / "login" / "page.tsx").read_text(encoding="utf-8")
+
+    assert 'useState("000000")' not in login_source
+    assert "000000" not in login_source
+    assert "123456" not in login_source
+    assert "测试模式验证码" not in login_source
+    assert "测试期任意手机号" not in login_source
+
+
 def test_protected_pages_redirect_to_login_without_token():
     protected_routes = ["family", "records", "voices", "history", "elder"]
     for route in protected_routes:
