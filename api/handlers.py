@@ -46,6 +46,7 @@ from .schemas import (
     TextToSpeechCreateResponse,
     VoiceCloneCreateRequest,
     VoiceManagementRequest,
+    VoicePreviewRequest,
     VoiceUploadIntentRequest,
 )
 
@@ -504,6 +505,32 @@ def handle_upgrade_voice(request: VoiceManagementRequest, user_id: str) -> dict:
         "provider_voice_id": provider_voice_id,
         "voice_status": status,
     }
+
+
+VOICE_PREVIEW_TEXT = "今天过得怎么样？您慢慢说，我在听呢"
+
+
+def handle_voice_preview(request: VoicePreviewRequest, user_id: str) -> dict:
+    profile = _call_cloud(lambda: _get_voice_profile(request.family_id, user_id, request.voice_profile_id))
+    cached_audio_url = str(profile.get("demo_audio_url") or "")
+    if cached_audio_url:
+        return {"provider": str(profile.get("provider") or ""), "audio_url": cached_audio_url}
+
+    tts_result = _synthesize_with_profile(
+        family_id=request.family_id,
+        user_id=user_id,
+        voice_profile_id=request.voice_profile_id,
+        text=VOICE_PREVIEW_TEXT,
+    )
+    updated = _call_cloud(
+        lambda: get_cloud_repository().update_voice_profile(
+            family_id=request.family_id,
+            user_id=user_id,
+            profile_id=request.voice_profile_id,
+            payload={"demo_audio_url": tts_result["audio_url"]},
+        )
+    )
+    return {"provider": tts_result["provider"], "audio_url": updated.get("demo_audio_url") or tts_result["audio_url"]}
 
 
 def _synthesize_with_profile(*, family_id: str, user_id: str, voice_profile_id: str, text: str) -> dict:

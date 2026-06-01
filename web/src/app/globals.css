@@ -842,6 +842,7 @@ button:disabled {
 }
 
 .voiceCardStatus { font-size: 12px; color: #8a7e72; display: flex; gap: 12px; }
+.voicePreviewAudio { margin-top: 10px; width: 100%; }
 
 .speakerIdRow { display: flex; align-items: center; gap: 6px; }
 

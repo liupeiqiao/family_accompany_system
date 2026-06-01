@@ -353,6 +353,11 @@ def test_voices_page_uses_cloud_voice_api_states():
     assert "demoText" in voices_source
     assert "queryVoiceStatus" in voices_source
     assert "upgradeVoice" in voices_source
+    assert "previewVoice" in voices_source
+    assert "handlePreview" in voices_source
+    assert "试听" in voices_source
+    assert "demo_audio_url" in voices_source
+    assert "今天过得怎么样？您慢慢说，我在听呢" not in voices_source
     assert "deleteVoiceProfile" in voices_source
     assert "fetchCloudPersonas" in voices_source
     assert "updateVoiceProfile" in voices_source
@@ -368,6 +373,7 @@ def test_elder_chat_page_can_request_voice_replies():
     assert "fetchCurrentFamily" in elder_source
     assert "fetchCloudElder" in elder_source
     assert "fetchCloudPersonas" in elder_source
+    assert "fetchVoiceProfiles" in elder_source
     assert "createFamily" in elder_source
     assert "saveCloudElder" in elder_source
     assert "createCloudPersona" in elder_source
@@ -380,6 +386,10 @@ def test_elder_chat_page_can_request_voice_replies():
     assert 'href="/family"' in elder_source
     assert 'family_id: familyContext?.family.id ?? "local"' not in elder_source
     assert "sendElderVoiceChat" in elder_source
+    assert "currentVoiceProfileId" in elder_source
+    assert "voice_profile_id: currentVoiceProfileId" in elder_source
+    assert "已使用绑定音色" in elder_source
+    assert "还没有给这个家人绑定音色" in elder_source
     assert "fetchChatHistory" in elder_source
     assert "MediaRecorder" in elder_source
     assert "callState === \"playing\"" in elder_source

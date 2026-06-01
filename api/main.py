@@ -44,6 +44,7 @@ from .handlers import (
     handle_tts,
     handle_upgrade_voice,
     handle_update_voice_profile,
+    handle_voice_preview,
     handle_update_cloud_family_profile,
     handle_update_cloud_memory,
     handle_update_cloud_persona,
@@ -67,6 +68,7 @@ from .schemas import (
     TextToSpeechCreateResponse,
     VoiceCloneCreateRequest,
     VoiceManagementRequest,
+    VoicePreviewRequest,
     VoiceProfileUpdateRequest,
     VoiceUploadIntentRequest,
 )
@@ -254,6 +256,14 @@ def upgrade_voice_endpoint(
     x_user_id: str = Depends(current_user_id),
 ) -> dict:
     return handle_upgrade_voice(request, x_user_id)
+
+
+@app.post("/api/voices/preview", response_model=TextToSpeechCreateResponse)
+def voice_preview_endpoint(
+    request: VoicePreviewRequest,
+    x_user_id: str = Depends(current_user_id),
+) -> TextToSpeechCreateResponse:
+    return TextToSpeechCreateResponse(**handle_voice_preview(request, x_user_id))
 
 
 @app.post("/api/tts", response_model=TextToSpeechCreateResponse)

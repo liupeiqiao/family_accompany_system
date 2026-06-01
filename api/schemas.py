@@ -93,6 +93,11 @@ class VoiceManagementRequest(BaseModel):
     voice_profile_id: str
 
 
+class VoicePreviewRequest(BaseModel):
+    family_id: str
+    voice_profile_id: str
+
+
 class VoiceProfileUpdateRequest(BaseModel):
     family_id: str
     persona_id: str = ""

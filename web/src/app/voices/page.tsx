@@ -13,6 +13,7 @@ import {
   fetchCurrentFamily,
   fetchVoiceProfiles,
   deleteVoiceProfile,
+  previewVoice,
   queryVoiceStatus,
   updateVoiceProfile,
   upgradeVoice,
@@ -126,6 +127,24 @@ export default function VoicesPage() {
     }
   }
 
+  async function handlePreview(profile: VoiceProfile) {
+    if (!familyContext) return;
+    setVoiceManagement((c) => ({ ...c, [profile.id]: { ...c[profile.id], isLoading: true, error: "" } }));
+    try {
+      const audioUrl = profile.demo_audio_url
+        ? profile.demo_audio_url
+        : (await previewVoice({ family_id: familyContext.family.id, voice_profile_id: profile.id })).audio_url;
+      setProfiles((c) => c.map((p) => (p.id === profile.id ? { ...p, demo_audio_url: audioUrl } : p)));
+      setVoiceManagement((c) => ({ ...c, [profile.id]: { ...c[profile.id], isLoading: false } }));
+      void new Audio(audioUrl).play();
+    } catch (err) {
+      setVoiceManagement((c) => ({
+        ...c,
+        [profile.id]: { ...c[profile.id], isLoading: false, error: err instanceof Error ? err.message : "试听失败" },
+      }));
+    }
+  }
+
   const canWrite = familyContext?.membership.role === "owner" || familyContext?.membership.role === "editor";
 
   return (
@@ -153,6 +172,7 @@ export default function VoicesPage() {
               onBindPersona={handleBindPersona}
               onQuery={handleQuery}
               onUpgrade={handleUpgrade}
+              onPreview={handlePreview}
             />
           )}
           {familyContext && activeTab === "import" && (
@@ -230,8 +250,9 @@ function FamilyVoiceLibrary(props: {
   onBindPersona: (profile: VoiceProfile, personaId: string) => void;
   onQuery: (profile: VoiceProfile) => void;
   onUpgrade: (profile: VoiceProfile) => void;
+  onPreview: (profile: VoiceProfile) => void;
 }) {
-  const { profiles, personas, canWrite, management, message, onDelete, onBindPersona, onQuery, onUpgrade } = props;
+  const { profiles, personas, canWrite, management, message, onDelete, onBindPersona, onQuery, onUpgrade, onPreview } = props;
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
 
@@ -273,6 +294,7 @@ function FamilyVoiceLibrary(props: {
               onBindPersona={onBindPersona}
               onQuery={onQuery}
               onUpgrade={onUpgrade}
+              onPreview={onPreview}
             />
           ))}
         </div>
@@ -290,8 +312,9 @@ function VoiceCard(props: {
   onBindPersona: (profile: VoiceProfile, personaId: string) => void;
   onQuery: (profile: VoiceProfile) => void;
   onUpgrade: (profile: VoiceProfile) => void;
+  onPreview: (profile: VoiceProfile) => void;
 }) {
-  const { profile, personas, canWrite, management, onDelete, onBindPersona, onQuery, onUpgrade } = props;
+  const { profile, personas, canWrite, management, onDelete, onBindPersona, onQuery, onUpgrade, onPreview } = props;
   const [speakerIdExpanded, setSpeakerIdExpanded] = useState(false);
   const state = management[profile.id] ?? {};
   const cloudStatus = state.result?.voice_status;
@@ -371,10 +394,18 @@ function VoiceCard(props: {
         <button disabled={state.isLoading} onClick={() => onQuery(profile)} type="button">
           {state.isLoading ? "查询中..." : "查询状态"}
         </button>
+        <button disabled={state.isLoading || profile.status !== "ready"} onClick={() => onPreview(profile)} type="button">
+          试听
+        </button>
         <button disabled={!canWrite || state.isLoading} onClick={() => onUpgrade(profile)} type="button">
           升级统一管理
         </button>
       </div>
+      {profile.demo_audio_url ? (
+        <audio className="voicePreviewAudio" controls src={profile.demo_audio_url}>
+          当前浏览器不支持音频播放。
+        </audio>
+      ) : null}
     </article>
   );
 }

@@ -44,6 +44,65 @@ def test_tts_endpoint_synthesizes_with_ready_voice_profile(monkeypatch):
     assert body["audio_url"].startswith(f"generated-audio/{family['id']}/")
 
 
+def test_voice_preview_endpoint_caches_fixed_demo_audio_on_profile(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from api.main import app
+    from productization.cloud_repository import InMemoryCloudRepository
+    from productization.voice import TextToSpeechResult
+
+    repo = InMemoryCloudRepository()
+    family = repo.create_family(name="Song family", user_id="owner")
+    profile = repo.create_voice_profile(
+        family_id=family["id"],
+        user_id="owner",
+        payload={
+            "display_name": "Owner voice",
+            "provider": "mock",
+            "provider_voice_id": "mock_voice_owner",
+            "status": "ready",
+            "consent_confirmed": True,
+            "sample_source": "preset",
+            "voice_type": "preset",
+        },
+    )
+    monkeypatch.setattr("api.handlers.get_cloud_repository", lambda: repo)
+
+    calls = []
+
+    class FakeProvider:
+        provider_name = "mock"
+
+        def create_clone(self, request):  # pragma: no cover - not used
+            raise NotImplementedError
+
+        def synthesize(self, request):
+            calls.append(request.text)
+            return TextToSpeechResult(provider="mock", audio_path="generated-audio/preview.mp3")
+
+    monkeypatch.setattr("api.handlers.get_voice_provider", lambda: FakeProvider())
+
+    client = TestClient(app)
+    first = client.post(
+        "/api/voices/preview",
+        json={"family_id": family["id"], "voice_profile_id": profile["id"]},
+        headers={"X-User-Id": "owner"},
+    )
+    second = client.post(
+        "/api/voices/preview",
+        json={"family_id": family["id"], "voice_profile_id": profile["id"]},
+        headers={"X-User-Id": "owner"},
+    )
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert first.json()["audio_url"] == "generated-audio/preview.mp3"
+    assert second.json()["audio_url"] == "generated-audio/preview.mp3"
+    assert calls == ["今天过得怎么样？您慢慢说，我在听呢"]
+    saved = repo.list_voice_profiles(family_id=family["id"], user_id="owner")[0]
+    assert saved["demo_audio_url"] == "generated-audio/preview.mp3"
+
+
 def test_tts_endpoint_marks_non_preset_doubao_profiles_as_cloned(monkeypatch):
     from fastapi.testclient import TestClient
 

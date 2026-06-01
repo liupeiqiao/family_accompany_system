@@ -585,6 +585,19 @@ export function upgradeVoice(payload: {
   );
 }
 
+export function previewVoice(payload: {
+  family_id: string;
+  voice_profile_id: string;
+}): Promise<TextToSpeechResponse> {
+  return requestJson<TextToSpeechResponse>(
+    "/api/voices/preview",
+    withUser({
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  );
+}
+
 export function deleteVoiceProfile(profileId: string, familyId: string): Promise<{ ok: boolean }> {
   return requestJson<{ ok: boolean }>(
     `/api/voices/profiles/${encodeURIComponent(profileId)}?family_id=${encodeURIComponent(familyId)}`,
