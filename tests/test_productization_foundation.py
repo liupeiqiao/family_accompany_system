@@ -384,6 +384,10 @@ def test_elder_chat_page_can_request_voice_replies():
     assert "MediaRecorder" in elder_source
     assert "callState === \"playing\"" in elder_source
     assert "stopPlayback" in elder_source
+    assert "continuousMode" in elder_source
+    assert "连续对话" in elder_source
+    assert "播放完会继续听你说" in elder_source
+    assert "handlePlaybackEnded" in elder_source
     assert "matched_persona" in elder_source
     assert "audioUrl" in elder_source
 

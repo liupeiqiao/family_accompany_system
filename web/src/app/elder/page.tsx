@@ -84,6 +84,7 @@ export default function ElderChatPage() {
   const [audioFormat, setAudioFormat] = useState("webm");
   const [recentTurns, setRecentTurns] = useState<ConversationTurn[]>([]);
   const [error, setError] = useState("");
+  const [continuousMode, setContinuousMode] = useState(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -322,10 +323,21 @@ export default function ElderChatPage() {
     stopPlayback();
     const audio = new Audio(url);
     audioRef.current = audio;
-    audio.onended = () => setCallState("idle");
+    audio.onended = () => {
+      void handlePlaybackEnded();
+    };
     audio.onerror = () => setCallState("idle");
     setCallState("playing");
     void audio.play().catch(() => setCallState("idle"));
+  }
+
+  async function handlePlaybackEnded() {
+    audioRef.current = null;
+    if (continuousMode && setupState === "ready") {
+      await startRecording();
+      return;
+    }
+    setCallState("idle");
   }
 
   function stopPlayback() {
@@ -362,6 +374,15 @@ export default function ElderChatPage() {
         </button>
 
         <div className="callActions" aria-label="辅助操作">
+          {setupState === "ready" ? (
+            <button
+              className={continuousMode ? "button" : "buttonSecondary"}
+              onClick={() => setContinuousMode((enabled) => !enabled)}
+              type="button"
+            >
+              {continuousMode ? "连续对话：开" : "连续对话：关"}
+            </button>
+          ) : null}
           {callState === "recording" ? (
             <button className="buttonSecondary" onClick={cancelRecording} type="button">
               取消本轮
@@ -383,6 +404,10 @@ export default function ElderChatPage() {
             </button>
           ) : null}
         </div>
+
+        {setupState === "ready" && continuousMode ? (
+          <p className="helperText">播放完会继续听你说。</p>
+        ) : null}
 
         {error ? <p className="errorText">{error}</p> : null}
 
