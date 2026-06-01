@@ -8,6 +8,7 @@ import {
   createCloudPersona,
   createFamily,
   FamilyContext,
+  ElderVoiceChatResponse,
   fetchChatHistory,
   fetchCloudElder,
   fetchCloudPersonas,
@@ -307,29 +308,44 @@ export default function ElderChatPage() {
         audio_format: audioFormat,
         audio_file: recordedBlob,
       });
-      if (response.matched_persona.persona_id) {
-        setCurrentPersonaId(response.matched_persona.persona_id);
-      }
-      if (response.matched_persona.display_name) {
-        setCurrentPersonaName(response.matched_persona.display_name);
-      }
-      const nextTurn: ConversationTurn = {
-        id: `${response.session_id}-${Date.now()}`,
-        userText: response.recognized_text,
-        assistantText: response.reply_text,
-        audioUrl: response.audio_url ?? undefined,
-      };
-      setRecentTurns((turns) => [nextTurn, ...turns].slice(0, 3));
-      setRecordedBlob(null);
-      if (response.audio_url) {
-        playAudio(response.audio_url);
-      } else {
-        setCallState("idle");
-      }
+      handleVoiceChatResponse(response);
     } catch {
       setError("我这边有点卡住了，请稍等一下再说。");
       setCallState("error");
     }
+  }
+
+  function handleVoiceChatResponse(response: ElderVoiceChatResponse) {
+    setRecordedBlob(null);
+    if (response.status === "asr_empty") {
+      setError("刚才没有听清，您可以再说一遍。");
+      setCallState("idle");
+      return;
+    }
+    if (response.status === "context_error") {
+      setError(response.reply_text || "陪伴资料暂时没有读到，请家人稍后检查。");
+      setCallState("idle");
+      return;
+    }
+    if (response.matched_persona.persona_id) {
+      setCurrentPersonaId(response.matched_persona.persona_id);
+    }
+    if (response.matched_persona.display_name) {
+      setCurrentPersonaName(response.matched_persona.display_name);
+    }
+    const nextTurn: ConversationTurn = {
+      id: `${response.session_id}-${Date.now()}`,
+      userText: response.recognized_text,
+      assistantText: response.reply_text,
+      audioUrl: response.audio_url ?? undefined,
+    };
+    setRecentTurns((turns) => [nextTurn, ...turns].slice(0, 3));
+    if (response.audio_url) {
+      playAudio(response.audio_url);
+      return;
+    }
+    setError("这次没有生成语音回复，文字已经显示出来了。");
+    setCallState("idle");
   }
 
   function playAudio(url: string) {

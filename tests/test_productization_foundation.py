@@ -390,6 +390,10 @@ def test_elder_chat_page_can_request_voice_replies():
     assert "voice_profile_id: currentVoiceProfileId" in elder_source
     assert "已使用绑定音色" in elder_source
     assert "还没有给这个家人绑定音色" in elder_source
+    assert "handleVoiceChatResponse" in elder_source
+    assert 'response.status === "asr_empty"' in elder_source
+    assert 'response.status === "context_error"' in elder_source
+    assert "这次没有生成语音回复" in elder_source
     assert "fetchChatHistory" in elder_source
     assert "MediaRecorder" in elder_source
     assert "callState === \"playing\"" in elder_source
