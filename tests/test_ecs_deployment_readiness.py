@@ -126,7 +126,18 @@ def test_deploy_script_automates_safe_incremental_server_update():
         "git fetch origin",
         'git pull origin "$BRANCH"',
         'NEW_COMMIT=$(git rev-parse HEAD)',
-        'git diff --name-only "$OLD_COMMIT" "$NEW_COMMIT" | grep -q \'^web/\'',
+        "FORCE_WEB=0",
+        "--force-web",
+        "FRONTEND_CHANGE_PATTERN=",
+        "web/|app/|pages/|components/|public/|styles/|src/",
+        "next\\.config\\.(js|mjs|ts)",
+        "package\\.json|package-lock\\.json|pnpm-lock\\.yaml|yarn\\.lock",
+        "tailwind\\.config\\.(js|ts)",
+        "postcss\\.config\\.(js|mjs)",
+        "tsconfig\\.json",
+        'CHANGED_FILES=$(git diff --name-only "$OLD_COMMIT" "$NEW_COMMIT")',
+        'echo "$CHANGED_FILES"',
+        'grep -Eq "$FRONTEND_CHANGE_PATTERN"',
         "npm install",
         "npm run build",
         'pm2 restart "$WEB_PM2_NAME" --update-env',
@@ -151,6 +162,7 @@ def test_deploy_script_automates_safe_incremental_server_update():
     lowered = source.lower()
     for text in forbidden:
         assert text not in lowered
+    assert "grep -q '^web/'" not in source
 
 
 def test_ecs_deployment_doc_covers_current_manual_flow():

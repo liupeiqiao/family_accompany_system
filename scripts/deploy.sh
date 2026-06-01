@@ -9,6 +9,21 @@ VENV_DIR="$APP_DIR/.venv"
 WEB_PM2_NAME="companion-web"
 API_PM2_NAME="companion-api"
 TEST_CMD="python3 -m pytest tests/test_chat_history_phase_c.py -v"
+FRONTEND_CHANGE_PATTERN='^(web/|app/|pages/|components/|public/|styles/|src/|next\.config\.(js|mjs|ts)|package\.json|package-lock\.json|pnpm-lock\.yaml|yarn\.lock|tailwind\.config\.(js|ts)|postcss\.config\.(js|mjs)|tsconfig\.json)'
+FORCE_WEB=0
+
+for arg in "$@"; do
+  case "$arg" in
+    --force-web)
+      FORCE_WEB=1
+      ;;
+    *)
+      echo "错误：未知参数：$arg" >&2
+      echo "用法：$0 [--force-web]" >&2
+      exit 1
+      ;;
+  esac
+done
 
 log() {
   echo
@@ -50,14 +65,26 @@ fi
 
 log "[3/6] 检查前端是否变化"
 WEB_CHANGED=0
+CHANGED_FILES=""
 if [[ "$OLD_COMMIT" != "$NEW_COMMIT" ]]; then
-  if git diff --name-only "$OLD_COMMIT" "$NEW_COMMIT" | grep -q '^web/'; then
+  CHANGED_FILES=$(git diff --name-only "$OLD_COMMIT" "$NEW_COMMIT")
+  echo "本次变更文件："
+  echo "$CHANGED_FILES"
+  if echo "$CHANGED_FILES" | grep -Eq "$FRONTEND_CHANGE_PATTERN"; then
     WEB_CHANGED=1
   fi
+else
+  echo "本次变更文件："
+  echo "$CHANGED_FILES"
+fi
+
+if [[ "$FORCE_WEB" -eq 1 ]]; then
+  echo "检测到 --force-web，强制重建前端。"
+  WEB_CHANGED=1
 fi
 
 if [[ "$WEB_CHANGED" -eq 1 ]]; then
-  echo "检测到 web/ 目录变化。"
+  echo "检测到前端相关变化或强制重建请求。"
 else
   echo "前端未变化，跳过 npm install / build / restart"
 fi
