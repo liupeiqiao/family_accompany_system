@@ -25,6 +25,9 @@ def test_pm2_ecosystem_runs_backend_and_frontend_on_loopback_ports():
     assert "next" in source
     assert "start" in source
     assert "3000" in source
+    assert 'COMPANION_ENV: "production"' in source
+    assert "DATABASE_URL" not in source
+    assert "JWT_SECRET" not in source
 
 
 def test_nginx_template_routes_frontend_and_api():
@@ -54,6 +57,21 @@ def test_postgres_check_script_loads_env_without_printing_secrets():
     assert "urlparse" in source
     assert "password" not in source.lower()
     assert "JWT_SECRET=" not in source
+
+
+def test_env_example_and_deployment_doc_cover_launch_cloud_contract():
+    env_example = (ROOT / ".env.example").read_text(encoding="utf-8")
+    doc = (ROOT / "docs" / "ecs-deployment.md").read_text(encoding="utf-8")
+
+    assert "COMPANION_ENV=production" in env_example
+    assert "DATABASE_URL=postgresql://" in env_example
+    assert "JWT_SECRET=" in env_example
+    assert "NEXT_PUBLIC_COMPANION_API_URL=/api" in env_example
+
+    assert "COMPANION_ENV=production" in doc
+    assert "NEXT_PUBLIC_COMPANION_API_URL=/api" in doc
+    assert "curl http://127.0.0.1:8000/api/health" in doc
+    assert '"backend":"postgres"' in doc
 
 
 def test_deploy_script_automates_safe_incremental_server_update():

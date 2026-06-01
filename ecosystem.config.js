@@ -6,6 +6,7 @@ module.exports = {
       script: "python3",
       args: "-m uvicorn api.main:app --host 127.0.0.1 --port 8000",
       env: {
+        COMPANION_ENV: "production",
         PYTHONUNBUFFERED: "1",
       },
       max_memory_restart: "512M",

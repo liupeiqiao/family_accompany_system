@@ -41,8 +41,10 @@ cd ..
 在项目根目录创建 `.env`：
 
 ```env
+COMPANION_ENV=production
 DATABASE_URL=postgresql://admin:替换为真实口令@localhost:5432/companion
 JWT_SECRET=替换为32位以上随机字符串
+NEXT_PUBLIC_COMPANION_API_URL=/api
 DEEPSEEK_API_KEY=替换为真实DeepSeekKey
 DEEPSEEK_BASE_URL=https://api.deepseek.com
 VOICE_PROVIDER=doubao
@@ -110,7 +112,14 @@ sudo systemctl reload nginx
 ```bash
 curl -I http://127.0.0.1:3000
 curl -I http://127.0.0.1:8000/docs
+curl http://127.0.0.1:8000/api/health
 curl -I http://服务器公网IP
+```
+
+`/api/health` 应返回持久化云端后端，例如：
+
+```json
+{"ok":true,"cloud":{"backend":"postgres","persistent":true,"configured":true}}
 ```
 
 浏览器访问：
