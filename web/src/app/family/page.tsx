@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 
 import { FamilyContext, createFamily, fetchCurrentFamily } from "../../lib/backend-api";
 import { getAuthToken } from "../../lib/auth";
+import { fetchCloudElder, fetchCloudPersonas, fetchCloudMemories, fetchVoiceProfiles } from "../../lib/backend-api";
 
 function roleLabel(role?: string): string {
   if (role === "owner") {
@@ -51,6 +52,7 @@ export default function FamilyPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [completion, setCompletion] = useState<{ elder: boolean; persona: boolean; memory: boolean; voice: boolean } | null>(null);
 
   async function loadFamily() {
     setIsLoading(true);
@@ -61,6 +63,22 @@ export default function FamilyPage() {
       const current = await fetchCurrentFamily();
       setFamilyContext(current);
       setFamilyName(current.family.name || "我的家庭");
+      try {
+        const [elder, personas, memories, voices] = await Promise.all([
+          fetchCloudElder(current.family.id),
+          fetchCloudPersonas(current.family.id),
+          fetchCloudMemories(current.family.id),
+          fetchVoiceProfiles(current.family.id),
+        ]);
+        setCompletion({
+          elder: !!(elder && (elder.full_name || elder.id)),
+          persona: Array.isArray(personas) && personas.length > 0,
+          memory: Array.isArray(memories) && memories.length > 0,
+          voice: Array.isArray(voices) && voices.length > 0,
+        });
+      } catch {
+        setCompletion(null);
+      }
     } catch {
       setFamilyContext(null);
     } finally {
@@ -128,6 +146,25 @@ export default function FamilyPage() {
             <Link className="button buttonSecondary" href="/">
               返回首页
             </Link>
+          </div>
+          <div>
+            <h3>陪伴资料完成度</h3>
+            {completion ? (
+              <div className="completionCheck">
+                <span className={completion.elder ? "checkDone" : "checkTodo"}>{completion.elder ? "✅" : "⬜"} 老人画像</span>
+                <span className={completion.persona ? "checkDone" : "checkTodo"}>{completion.persona ? "✅" : "⬜"} AI 角色</span>
+                <span className={completion.memory ? "checkDone" : "checkTodo"}>{completion.memory ? "✅" : "⬜"} 家庭记忆</span>
+                <span className={completion.voice ? "checkDone" : "checkTodo"}>{completion.voice ? "✅" : "⬜"} 音色</span>
+              </div>
+            ) : (
+              <p className="helperText">暂未读取到陪伴资料。</p>
+            )}
+            {completion && !(completion.elder && completion.persona && completion.memory && completion.voice) ? (
+              <p className="helperText">请继续完善上方缺失的资料，完成后老人端即可开始语音陪伴。</p>
+            ) : null}
+            {completion && completion.elder && completion.persona && completion.memory && completion.voice ? (
+              <p className="successText">所有资料已就绪，老人可以开始语音聊天了。</p>
+            ) : null}
           </div>
           <div>
             <h3>下一步</h3>

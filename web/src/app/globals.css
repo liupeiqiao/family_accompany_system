@@ -9,6 +9,48 @@ body {
   font-family: Arial, "Microsoft YaHei", sans-serif;
 }
 
+/* 全局顶部导航 */
+.globalNav {
+  align-items: center;
+  background: #fffaf3;
+  border-bottom: 1px solid #e3d6c5;
+  display: flex;
+  justify-content: center;
+  padding: 0 24px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.navInner {
+  display: flex;
+  gap: 4px;
+  max-width: 900px;
+  width: 100%;
+}
+
+.navLink {
+  border-bottom: 2px solid transparent;
+  color: #6f6257;
+  display: inline-flex;
+  min-height: 46px;
+  align-items: center;
+  padding: 4px 16px;
+  font-size: 0.95rem;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+
+.navLink:hover {
+  color: #2f241c;
+}
+
+.navLinkActive,
+.navLinkActive:hover {
+  border-bottom-color: #8d5a2b;
+  color: #2f241c;
+  font-weight: 600;
+}
+
 a {
   color: inherit;
   text-decoration: none;
@@ -106,6 +148,22 @@ a {
 
 .familyStatus h3 {
   margin: 8px 0 12px;
+}
+
+.completionCheck {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+.checkDone {
+  color: #2f241c;
+  font-weight: 500;
+}
+
+.checkTodo {
+  color: #a59888;
 }
 
 .nextStepGrid {

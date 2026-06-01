@@ -198,6 +198,7 @@ export default function RecordsPage() {
   const [success, setSuccess] = useState("");
   const [recordsError, setRecordsError] = useState("");
   const [recordsSuccess, setRecordsSuccess] = useState("");
+  const [syncPersonaToFamily, setSyncPersonaToFamily] = useState(true);
 
   useEffect(() => {
     if (!getAuthToken()) {
@@ -259,7 +260,7 @@ export default function RecordsPage() {
     }
   }
 
-  async function saveDraftToCloud(nextDraft: ParsedDraft) {
+  async function saveDraftToCloud(nextDraft: ParsedDraft, syncPersona: boolean) {
     if (!familyContext) throw new Error("请先创建或进入家庭空间。");
     const familyId = familyContext.family.id;
     const counts = { persona: 0, elder_profile: 0, family_profiles: 0, memories: 0 };
@@ -276,6 +277,31 @@ export default function RecordsPage() {
       if (!hasImportableValue(persona)) continue;
       await createCloudPersona(payloadWithFamily(persona, familyId));
       counts.persona += 1;
+    }
+
+    // 同步：AI 角色 → 家人档案
+    if (syncPersona) {
+      for (const persona of personaPayloads) {
+        if (!hasImportableValue(persona)) continue;
+        const existingFamilyNames = new Set(
+          nextDraft.family_profiles.map((fp) => valueToText(fp.name)).filter(Boolean)
+        );
+        const personaName = valueToText(persona.role_label) || valueToText(persona.relation);
+        if (personaName && !existingFamilyNames.has(personaName)) {
+          const familyFromPersona = {
+            name: personaName,
+            gender: valueToText(persona.gender) || "",
+            relation: valueToText(persona.relation),
+            personality: Array.isArray(persona.personality) ? persona.personality : [],
+            preferences: [],
+            habits: [],
+            relations: [],
+            notes: "",
+          };
+          await createCloudFamilyProfile(payloadWithFamily(familyFromPersona, familyId));
+          counts.family_profiles += 1;
+        }
+      }
     }
 
     for (const profile of nextDraft.family_profiles) {
@@ -302,7 +328,7 @@ export default function RecordsPage() {
     setError("");
     setSuccess("");
     try {
-      const result = await saveDraftToCloud(draft);
+      const result = await saveDraftToCloud(draft, syncPersonaToFamily);
       setSuccess(
         `已保存到云端：角色 ${result.persona} 个，老人画像 ${result.elder_profile} 个，家人档案 ${result.family_profiles} 条，记忆 ${result.memories} 条。`,
       );
@@ -447,6 +473,14 @@ export default function RecordsPage() {
           <div className="previewGrid">
             <EditableObject title="老人画像" data={draft.elder_profile} fields={elderFields} onChange={(key, value) => updateTopLevel("elder_profile", key, value)} />
             <EditableObject title="AI 扮演角色" data={draft.persona} fields={personaFields} onChange={(key, value) => updateTopLevel("persona", key, value)} />
+            <label className="voiceConsent" style={{ marginTop: -8, marginBottom: 8 }}>
+              <input
+                checked={syncPersonaToFamily}
+                onChange={(e) => setSyncPersonaToFamily(e.target.checked)}
+                type="checkbox"
+              />
+              <span>同步创建为家人档案（将角色姓名、关系、性格自动填入家人档案）</span>
+            </label>
             <EditableList title="家人档案" items={draft.family_profiles} fields={familyFields} onChange={(index, key, value) => updateListItem("draft", "family_profiles", index, key, value)} />
             <EditableList title="家庭记忆" items={draft.memories} fields={memoryFields} onChange={(index, key, value) => updateListItem("draft", "memories", index, key, value)} />
           </div>
