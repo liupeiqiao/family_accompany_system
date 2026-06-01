@@ -12,6 +12,7 @@ import {
   fetchCloudElder,
   fetchCloudPersonas,
   fetchCurrentFamily,
+  fetchVoiceProfiles,
   saveCloudElder,
   sendElderVoiceChat,
 } from "../../lib/backend-api";
@@ -75,6 +76,8 @@ export default function ElderChatPage() {
   const [familyContext, setFamilyContext] = useState<FamilyContext | null>(null);
   const [currentPersonaId, setCurrentPersonaId] = useState("");
   const [currentPersonaName, setCurrentPersonaName] = useState("家人");
+  const [currentVoiceProfileId, setCurrentVoiceProfileId] = useState("");
+  const [currentVoiceName, setCurrentVoiceName] = useState("");
   const [elderName, setElderName] = useState("");
   const [personaRole, setPersonaRole] = useState("女儿");
   const [setupError, setSetupError] = useState("");
@@ -106,17 +109,24 @@ export default function ElderChatPage() {
     try {
       const context = await fetchCurrentFamily();
       setFamilyContext(context);
-      const [elder, personas] = await Promise.all([
+      const [elder, personas, voiceProfiles] = await Promise.all([
         fetchCloudElder(context.family.id),
         fetchCloudPersonas(context.family.id),
+        fetchVoiceProfiles(context.family.id),
       ]);
       const firstPersona = personas[0];
       if (!elder.id || !firstPersona?.id) {
         setSetupState("missing");
         return;
       }
-      setCurrentPersonaId(String(firstPersona.id));
+      const personaId = String(firstPersona.id);
+      const boundVoice = voiceProfiles.find(
+        (profile) => String(profile.persona_id ?? "") === personaId && profile.status === "ready",
+      );
+      setCurrentPersonaId(personaId);
       setCurrentPersonaName(String(firstPersona.appellation || firstPersona.role_label || "家人"));
+      setCurrentVoiceProfileId(boundVoice?.id ?? "");
+      setCurrentVoiceName(boundVoice?.display_name ?? "");
       const history = await fetchChatHistory(context.family.id);
       setRecentTurns(buildRecentTurns(history));
       setSetupState("ready");
@@ -155,6 +165,8 @@ export default function ElderChatPage() {
       });
       setCurrentPersonaId(String(persona.id ?? ""));
       setCurrentPersonaName(String(persona.appellation || persona.role_label || cleanPersonaRole));
+      setCurrentVoiceProfileId("");
+      setCurrentVoiceName("");
       setRecentTurns([]);
       setSetupState("ready");
       setCallState("idle");
@@ -291,6 +303,7 @@ export default function ElderChatPage() {
         family_id: familyContext.family.id,
         client_session_id: clientSessionId,
         persona_id: currentPersonaId,
+        voice_profile_id: currentVoiceProfileId,
         audio_format: audioFormat,
         audio_file: recordedBlob,
       });
@@ -361,6 +374,9 @@ export default function ElderChatPage() {
         <header className="callTarget">
           <p className="eyebrow">正在和</p>
           <h1>{currentPersonaName} 说话</h1>
+          <p className="helperText">
+            {currentVoiceName ? `已使用绑定音色：${currentVoiceName}` : "还没有给这个家人绑定音色"}
+          </p>
           <p className="callStatus">{statusText}</p>
         </header>
 
