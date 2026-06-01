@@ -1,13 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import {
   ChatHistoryMessage,
+  createCloudPersona,
+  createFamily,
   FamilyContext,
   fetchChatHistory,
+  fetchCloudElder,
+  fetchCloudPersonas,
   fetchCurrentFamily,
+  saveCloudElder,
   sendElderVoiceChat,
 } from "../../lib/backend-api";
 import { getAuthToken } from "../../lib/auth";
@@ -70,6 +75,10 @@ export default function ElderChatPage() {
   const [familyContext, setFamilyContext] = useState<FamilyContext | null>(null);
   const [currentPersonaId, setCurrentPersonaId] = useState("");
   const [currentPersonaName, setCurrentPersonaName] = useState("家人");
+  const [elderName, setElderName] = useState("");
+  const [personaRole, setPersonaRole] = useState("女儿");
+  const [setupError, setSetupError] = useState("");
+  const [isSettingUp, setIsSettingUp] = useState(false);
   const [clientSessionId] = useState(createClientSessionId);
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
   const [audioFormat, setAudioFormat] = useState("webm");
@@ -96,13 +105,62 @@ export default function ElderChatPage() {
     try {
       const context = await fetchCurrentFamily();
       setFamilyContext(context);
-      setSetupState("ready");
+      const [elder, personas] = await Promise.all([
+        fetchCloudElder(context.family.id),
+        fetchCloudPersonas(context.family.id),
+      ]);
+      const firstPersona = personas[0];
+      if (!elder.id || !firstPersona?.id) {
+        setSetupState("missing");
+        return;
+      }
+      setCurrentPersonaId(String(firstPersona.id));
+      setCurrentPersonaName(String(firstPersona.appellation || firstPersona.role_label || "家人"));
       const history = await fetchChatHistory(context.family.id);
       setRecentTurns(buildRecentTurns(history));
+      setSetupState("ready");
     } catch {
       setFamilyContext(null);
       setSetupState("missing");
       setRecentTurns([]);
+    }
+  }
+
+  async function handleSetupSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSetupError("");
+    setIsSettingUp(true);
+    try {
+      const context = familyContext ?? await createFamily({ name: "我的家庭" });
+      setFamilyContext(context);
+      const familyId = context.family.id;
+      const cleanElderName = elderName.trim() || "老人";
+      const cleanPersonaRole = personaRole.trim() || "家人";
+      await saveCloudElder({
+        family_id: familyId,
+        full_name: cleanElderName,
+        appellation: cleanElderName,
+      });
+      const persona = await createCloudPersona({
+        family_id: familyId,
+        role_label: cleanPersonaRole,
+        relation: cleanPersonaRole,
+        appellation: cleanPersonaRole,
+        personality: [],
+        speech_style: ["语气温和", "表达简单"],
+        comfort_style: ["先回应情绪", "少讲复杂道理"],
+        topic_affinity: [],
+        sensitivity_map: {},
+      });
+      setCurrentPersonaId(String(persona.id ?? ""));
+      setCurrentPersonaName(String(persona.appellation || persona.role_label || cleanPersonaRole));
+      setRecentTurns([]);
+      setSetupState("ready");
+      setCallState("idle");
+    } catch (err) {
+      setSetupError(err instanceof Error ? err.message : "创建陪伴资料失败，请稍后再试。");
+    } finally {
+      setIsSettingUp(false);
     }
   }
 
@@ -332,6 +390,28 @@ export default function ElderChatPage() {
           <section className="elderSetupNotice" aria-label="陪伴资料设置提示">
             <h2>陪伴资料还没准备好</h2>
             <p>请家人先完成设置，再把这个页面交给老人使用。</p>
+            <form className="elderSetupForm" onSubmit={(event) => void handleSetupSubmit(event)}>
+              <label>
+                <span>老人称呼</span>
+                <input
+                  onChange={(event) => setElderName(event.target.value)}
+                  placeholder="例如：妈妈、奶奶、外公"
+                  value={elderName}
+                />
+              </label>
+              <label>
+                <span>家人角色</span>
+                <input
+                  onChange={(event) => setPersonaRole(event.target.value)}
+                  placeholder="例如：女儿、儿子、小雨"
+                  value={personaRole}
+                />
+              </label>
+              <button className="button" disabled={isSettingUp} type="submit">
+                {isSettingUp ? "创建中" : "创建陪伴资料"}
+              </button>
+              {setupError ? <p className="errorText">{setupError}</p> : null}
+            </form>
             <a className="button buttonSecondary" href="/family">家属去设置</a>
           </section>
         ) : null}

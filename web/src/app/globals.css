@@ -701,6 +701,25 @@ button:disabled {
   margin: 0;
 }
 
+.elderSetupForm {
+  display: grid;
+  gap: 12px;
+  max-width: 360px;
+  text-align: left;
+  width: 100%;
+}
+
+.elderSetupForm label {
+  display: grid;
+  gap: 6px;
+}
+
+.elderSetupForm span {
+  color: #5d5147;
+  font-size: 14px;
+  font-weight: 700;
+}
+
 .recentTurns {
   display: grid;
   gap: 12px;

@@ -366,6 +366,15 @@ def test_elder_chat_page_can_request_voice_replies():
     )
 
     assert "fetchCurrentFamily" in elder_source
+    assert "fetchCloudElder" in elder_source
+    assert "fetchCloudPersonas" in elder_source
+    assert "createFamily" in elder_source
+    assert "saveCloudElder" in elder_source
+    assert "createCloudPersona" in elder_source
+    assert "handleSetupSubmit" in elder_source
+    assert "创建陪伴资料" in elder_source
+    assert "老人称呼" in elder_source
+    assert "家人角色" in elder_source
     assert "陪伴资料还没准备好" in elder_source
     assert "请家人先完成设置" in elder_source
     assert 'href="/family"' in elder_source
