@@ -28,6 +28,8 @@ type ConversationTurn = {
   audioUrl?: string;
 };
 
+type SetupState = "loading" | "ready" | "missing";
+
 function createClientSessionId() {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return crypto.randomUUID();
@@ -64,6 +66,7 @@ function buildRecentTurns(messages: ChatHistoryMessage[]): ConversationTurn[] {
 export default function ElderChatPage() {
   const router = useRouter();
   const [callState, setCallState] = useState<CallState>("idle");
+  const [setupState, setSetupState] = useState<SetupState>("loading");
   const [familyContext, setFamilyContext] = useState<FamilyContext | null>(null);
   const [currentPersonaId, setCurrentPersonaId] = useState("");
   const [currentPersonaName, setCurrentPersonaName] = useState("家人");
@@ -93,10 +96,12 @@ export default function ElderChatPage() {
     try {
       const context = await fetchCurrentFamily();
       setFamilyContext(context);
+      setSetupState("ready");
       const history = await fetchChatHistory(context.family.id);
       setRecentTurns(buildRecentTurns(history));
     } catch {
       setFamilyContext(null);
+      setSetupState("missing");
       setRecentTurns([]);
     }
   }
@@ -137,7 +142,7 @@ export default function ElderChatPage() {
     }
   }, [callState]);
 
-  const primaryDisabled = callState === "understanding" || callState === "replying";
+  const primaryDisabled = setupState !== "ready" || callState === "understanding" || callState === "replying";
 
   async function handlePrimaryAction() {
     if (primaryDisabled) return;
@@ -160,6 +165,10 @@ export default function ElderChatPage() {
   async function startRecording() {
     setError("");
     setRecordedBlob(null);
+    if (!familyContext) {
+      setError("陪伴资料还没准备好，请家人先完成设置。");
+      return;
+    }
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
       setError("当前浏览器暂时不能录音，请换一个浏览器再试。");
       setCallState("error");
@@ -210,12 +219,17 @@ export default function ElderChatPage() {
 
   async function sendRecordedAudio() {
     if (!recordedBlob) return;
+    if (!familyContext) {
+      setError("陪伴资料还没准备好，请家人先完成设置。");
+      setCallState("error");
+      return;
+    }
     setError("");
     setCallState("understanding");
     try {
       setCallState("replying");
       const response = await sendElderVoiceChat({
-        family_id: familyContext?.family.id ?? "local",
+        family_id: familyContext.family.id,
         client_session_id: clientSessionId,
         persona_id: currentPersonaId,
         audio_format: audioFormat,
@@ -313,6 +327,14 @@ export default function ElderChatPage() {
         </div>
 
         {error ? <p className="errorText">{error}</p> : null}
+
+        {setupState === "missing" ? (
+          <section className="elderSetupNotice" aria-label="陪伴资料设置提示">
+            <h2>陪伴资料还没准备好</h2>
+            <p>请家人先完成设置，再把这个页面交给老人使用。</p>
+            <a className="button buttonSecondary" href="/family">家属去设置</a>
+          </section>
+        ) : null}
 
         <div className="recentTurns" aria-label="最近对话">
           {recentTurns.length ? (

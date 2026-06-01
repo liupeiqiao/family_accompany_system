@@ -7,6 +7,8 @@ import json
 import os
 import time
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from pathlib import Path
 from uuid import uuid4
 
 
@@ -97,8 +99,80 @@ class InMemoryAuthStore:
         return dict(user)
 
 
+class PostgresAuthStore:
+    def __init__(self, database_url: str) -> None:
+        self.database_url = database_url
+
+    def init_schema(self) -> None:
+        import psycopg
+
+        schema_path = Path(__file__).with_name("postgres_schema.sql")
+        with psycopg.connect(self.database_url) as conn:
+            conn.execute(schema_path.read_text(encoding="utf-8"))
+
+    def save_code(self, *, phone: str, code: str, expires_at: int) -> None:
+        import psycopg
+
+        expires_at_dt = datetime.fromtimestamp(expires_at, tz=UTC)
+        with psycopg.connect(self.database_url) as conn:
+            conn.execute(
+                """
+                INSERT INTO sms_codes (phone, code, expires_at, used)
+                VALUES (%s, %s, %s, false)
+                """,
+                (phone, code, expires_at_dt),
+            )
+
+    def consume_code(self, *, phone: str, code: str) -> None:
+        import psycopg
+
+        with psycopg.connect(self.database_url) as conn:
+            row = conn.execute(
+                """
+                UPDATE sms_codes
+                SET used = true
+                WHERE id = (
+                    SELECT id
+                    FROM sms_codes
+                    WHERE phone = %s
+                      AND code = %s
+                      AND used = false
+                      AND expires_at >= now()
+                    ORDER BY created_at DESC
+                    LIMIT 1
+                )
+                RETURNING id
+                """,
+                (phone, code),
+            ).fetchone()
+            if row is None:
+                raise AuthError("Invalid or expired verification code.")
+
+    def get_or_create_user(self, *, phone: str) -> dict:
+        import psycopg
+        from psycopg.rows import dict_row
+
+        with psycopg.connect(self.database_url, row_factory=dict_row) as conn:
+            user = conn.execute("SELECT * FROM users WHERE phone = %s", (phone,)).fetchone()
+            if user is None:
+                user = conn.execute(
+                    """
+                    INSERT INTO users (phone, nickname, last_login)
+                    VALUES (%s, '', now())
+                    RETURNING *
+                    """,
+                    (phone,),
+                ).fetchone()
+            else:
+                user = conn.execute(
+                    "UPDATE users SET last_login = now() WHERE id = %s RETURNING *",
+                    (user["id"],),
+                ).fetchone()
+        return _serialize_user(user)
+
+
 class AuthService:
-    def __init__(self, store: InMemoryAuthStore) -> None:
+    def __init__(self, store: InMemoryAuthStore | PostgresAuthStore) -> None:
         self.store = store
 
     @property
@@ -131,11 +205,29 @@ def _generate_code() -> str:
     return str(int(time.time() * 1000) % 1_000_000).zfill(6)
 
 
+def _serialize_user(user: dict) -> dict:
+    result = dict(user)
+    if "id" in result:
+        result["id"] = str(result["id"])
+    for key in ("created_at", "last_login"):
+        value = result.get(key)
+        if isinstance(value, datetime):
+            result[key] = value.isoformat()
+    return result
+
+
 _auth_service: AuthService | None = None
 
 
 def create_auth_service(store: InMemoryAuthStore | None = None) -> AuthService:
-    return AuthService(store or InMemoryAuthStore())
+    if store is not None:
+        return AuthService(store)
+    database_url = os.getenv("DATABASE_URL")
+    if database_url:
+        postgres_store = PostgresAuthStore(database_url)
+        postgres_store.init_schema()
+        return AuthService(postgres_store)
+    return AuthService(InMemoryAuthStore())
 
 
 def get_auth_service() -> AuthService:
