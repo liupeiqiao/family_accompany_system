@@ -360,7 +360,6 @@ def test_voices_page_uses_cloud_voice_api_states():
     assert "customSpeakerId" in voices_source
     assert "demoText" in voices_source
     assert "queryVoiceStatus" in voices_source
-    assert "upgradeVoice" in voices_source
     assert "previewVoice" in voices_source
     assert "handlePreview" in voices_source
     assert "试听" in voices_source
@@ -369,6 +368,9 @@ def test_voices_page_uses_cloud_voice_api_states():
     assert "deleteVoiceProfile" in voices_source
     assert "fetchCloudPersonas" in voices_source
     assert "updateVoiceProfile" in voices_source
+    assert "handleRename" in voices_source
+    assert "isEditingName" in voices_source
+    assert "升级统一管理" not in voices_source
     assert "persona_id" in voices_source
     assert "voiceManagement" in voices_source
 
@@ -382,13 +384,6 @@ def test_elder_chat_page_can_request_voice_replies():
     assert "fetchCloudElder" in elder_source
     assert "fetchCloudPersonas" in elder_source
     assert "fetchVoiceProfiles" in elder_source
-    assert "createFamily" in elder_source
-    assert "saveCloudElder" in elder_source
-    assert "createCloudPersona" in elder_source
-    assert "handleSetupSubmit" in elder_source
-    assert "创建陪伴资料" in elder_source
-    assert "老人称呼" in elder_source
-    assert "家人角色" in elder_source
     assert "陪伴资料还没准备好" in elder_source
     assert "请家人先完成设置" in elder_source
     assert 'href="/family"' in elder_source

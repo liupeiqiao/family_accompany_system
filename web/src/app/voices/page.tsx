@@ -16,7 +16,6 @@ import {
   previewVoice,
   queryVoiceStatus,
   updateVoiceProfile,
-  upgradeVoice,
 } from "../../lib/backend-api";
 import { getAuthToken } from "../../lib/auth";
 
@@ -110,19 +109,20 @@ export default function VoicesPage() {
     }
   }
 
-  async function handleUpgrade(profile: VoiceProfile) {
+  async function handleRename(profile: VoiceProfile, newName: string) {
     if (!familyContext) return;
+    if (!newName.trim()) return;
     setVoiceManagement((c) => ({ ...c, [profile.id]: { ...c[profile.id], isLoading: true } }));
     try {
-      const result = await upgradeVoice({
+      const updated = await updateVoiceProfile(profile.id, {
         family_id: familyContext.family.id,
-        voice_profile_id: profile.id,
+        display_name: newName.trim(),
       });
-      setVoiceManagement((c) => ({ ...c, [profile.id]: { isLoading: false, result } }));
-      setMessage("音色升级请求已完成。");
+      setProfiles((c) => c.map((p) => (p.id === profile.id ? updated : p)));
+      setMessage("音色名称已更新。");
     } catch (err) {
       setVoiceManagement((c) => ({
-        ...c, [profile.id]: { ...c[profile.id], isLoading: false, error: err instanceof Error ? err.message : "升级失败" },
+        ...c, [profile.id]: { ...c[profile.id], isLoading: false, error: err instanceof Error ? err.message : "重命名失败" },
       }));
     }
   }
@@ -171,7 +171,7 @@ export default function VoicesPage() {
               onDelete={handleDelete}
               onBindPersona={handleBindPersona}
               onQuery={handleQuery}
-              onUpgrade={handleUpgrade}
+              onRename={handleRename}
               onPreview={handlePreview}
             />
           )}
@@ -249,10 +249,10 @@ function FamilyVoiceLibrary(props: {
   onDelete: (profile: VoiceProfile) => void;
   onBindPersona: (profile: VoiceProfile, personaId: string) => void;
   onQuery: (profile: VoiceProfile) => void;
-  onUpgrade: (profile: VoiceProfile) => void;
+  onRename: (profile: VoiceProfile, newName: string) => void;
   onPreview: (profile: VoiceProfile) => void;
 }) {
-  const { profiles, personas, canWrite, management, message, onDelete, onBindPersona, onQuery, onUpgrade, onPreview } = props;
+  const { profiles, personas, canWrite, management, message, onDelete, onBindPersona, onQuery, onRename, onPreview } = props;
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
 
@@ -293,7 +293,7 @@ function FamilyVoiceLibrary(props: {
               onDelete={onDelete}
               onBindPersona={onBindPersona}
               onQuery={onQuery}
-              onUpgrade={onUpgrade}
+              onRename={onRename}
               onPreview={onPreview}
             />
           ))}
@@ -311,11 +311,13 @@ function VoiceCard(props: {
   onDelete: (profile: VoiceProfile) => void;
   onBindPersona: (profile: VoiceProfile, personaId: string) => void;
   onQuery: (profile: VoiceProfile) => void;
-  onUpgrade: (profile: VoiceProfile) => void;
+  onRename: (profile: VoiceProfile, newName: string) => void;
   onPreview: (profile: VoiceProfile) => void;
 }) {
-  const { profile, personas, canWrite, management, onDelete, onBindPersona, onQuery, onUpgrade, onPreview } = props;
+  const { profile, personas, canWrite, management, onDelete, onBindPersona, onQuery, onRename, onPreview } = props;
   const [speakerIdExpanded, setSpeakerIdExpanded] = useState(false);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editName, setEditName] = useState(profile.display_name);
   const state = management[profile.id] ?? {};
   const cloudStatus = state.result?.voice_status;
   const boundPersona = personas.find((persona) => String(persona.id ?? "") === String(profile.persona_id ?? ""));
@@ -337,10 +339,45 @@ function VoiceCard(props: {
     }
   }
 
+  function startRename() {
+    setEditName(profile.display_name);
+    setIsEditingName(true);
+  }
+
+  function submitRename() {
+    const trimmed = editName.trim();
+    if (trimmed && trimmed !== profile.display_name) {
+      onRename(profile, trimmed);
+    }
+    setIsEditingName(false);
+  }
+
+  function cancelRename() {
+    setEditName(profile.display_name);
+    setIsEditingName(false);
+  }
+
   return (
     <article className="voiceCard">
       <div className="voiceCardHeader">
-        <strong>{profile.display_name}</strong>
+        {isEditingName ? (
+          <span className="voiceNameEdit">
+            <input
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") submitRename(); else if (e.key === "Escape") cancelRename(); }}
+              onBlur={cancelRename}
+              autoFocus
+            />
+            <button className="linkButton" onMouseDown={(e) => { e.preventDefault(); submitRename(); }}>保存</button>
+            <button className="linkButton" onMouseDown={(e) => { e.preventDefault(); cancelRename(); }}>取消</button>
+          </span>
+        ) : (
+          <>
+            <strong>{profile.display_name}</strong>
+            {canWrite ? <button className="linkButton editNameButton" onClick={startRename} title="编辑名称">✎</button> : null}
+          </>
+        )}
         {typeLabel ? <span className={`voiceTag ${typeClass}`}>{typeLabel}</span> : null}
       </div>
       <div className="voiceCardMeta">
@@ -396,9 +433,6 @@ function VoiceCard(props: {
         </button>
         <button disabled={state.isLoading || profile.status !== "ready"} onClick={() => onPreview(profile)} type="button">
           试听
-        </button>
-        <button disabled={!canWrite || state.isLoading} onClick={() => onUpgrade(profile)} type="button">
-          升级统一管理
         </button>
       </div>
       {profile.demo_audio_url ? (

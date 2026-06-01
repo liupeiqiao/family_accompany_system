@@ -58,6 +58,16 @@ DOUBAO_TTS_API_KEY=替换为真实豆包Key
 DOUBAO_TTS_DEFAULT_VOICE_TYPE=zh_female_vv_uranus_bigtts
 DOUBAO_TTS_RESOURCE_ID=seed-tts-2.0
 DOUBAO_TTS_CLONE_RESOURCE_ID=seed-icl-2.0
+
+# 可选：火山引擎 TOS 对象存储，用于长期保存 AI 回复音频
+# AUDIO_STORAGE_PROVIDER=tos
+# TOS_ACCESS_KEY_ID=替换为TOS AccessKey
+# TOS_SECRET_ACCESS_KEY=替换为TOS SecretKey
+# TOS_ENDPOINT=https://tos-cn-beijing.volces.com
+# TOS_REGION=cn-beijing
+# TOS_BUCKET=替换为TOS Bucket名称
+# TOS_PUBLIC_BASE_URL=https://替换为可访问的Bucket域名或CDN域名
+# TOS_PREFIX=generated-audio
 ```
 
 正式上线前不要继续使用已经暴露过的数据库口令和 JWT 配置。
@@ -90,6 +100,75 @@ python3 scripts/check_launch_env.py
 ```
 
 该脚本会检查 `APP_PUBLIC_URL` 是否使用 HTTPS、`DATABASE_URL`/`JWT_SECRET` 是否配置、登录策略是否安全、豆包 ASR/TTS 是否具备基础配置。浏览器 `getUserMedia` 在公网域名下要求 HTTPS，否则老人端录音不可用。
+
+## TOS 对象存储
+
+TOS 是火山引擎对象存储。当前系统的核心文字数据已经保存在 PostgreSQL 中，包括用户、家庭空间、老人档案、家人档案、家庭记忆、音色记录和对话文字历史。TOS 主要负责保存文件类数据，尤其是 AI 回复音频。
+
+### 什么情况下必须配置 TOS
+
+以下场景建议上线前配置 TOS：
+
+- 需要“关闭通话后仍可重播历史 AI 回复音频”。
+- 需要服务器重启、重新部署、迁移 ECS 后，历史音频仍然可访问。
+- 后续要保存老人录音、家人音色样本或生成音频文件。
+- 不希望音频文件只依赖 ECS 本地磁盘或临时 URL。
+
+以下场景可以暂时不配置 TOS：
+
+- 只验证登录、档案、记忆、音色元数据和文字对话持久化。
+- 老人端语音回复只要求“当次播放”，不要求历史音频长期重播。
+- 内测早期可以接受历史页面中只有文字记录稳定保留。
+
+不配置 TOS 时，PostgreSQL 里的文字数据仍然会保留；但 AI 回复音频的长期可访问性不保证。
+
+### TOS 配置项说明
+
+```env
+AUDIO_STORAGE_PROVIDER=tos
+TOS_ACCESS_KEY_ID=替换为TOS AccessKey
+TOS_SECRET_ACCESS_KEY=替换为TOS SecretKey
+TOS_ENDPOINT=https://tos-cn-beijing.volces.com
+TOS_REGION=cn-beijing
+TOS_BUCKET=替换为TOS Bucket名称
+TOS_PUBLIC_BASE_URL=https://替换为可访问的Bucket域名或CDN域名
+TOS_PREFIX=generated-audio
+```
+
+- `AUDIO_STORAGE_PROVIDER=tos`：开启 TOS 音频存储。
+- `TOS_ACCESS_KEY_ID` / `TOS_SECRET_ACCESS_KEY`：服务器访问 TOS 的密钥，只能放在服务器 `.env`，不要提交到 Git。
+- `TOS_ENDPOINT`：TOS 服务地址，需和 Bucket 所在地域一致。
+- `TOS_REGION`：Bucket 地域，例如 `cn-beijing`。
+- `TOS_BUCKET`：用于保存生成音频的 Bucket。
+- `TOS_PUBLIC_BASE_URL`：前端播放音频使用的访问域名，可以是 Bucket 外网域名或 CDN 域名。
+- `TOS_PREFIX`：对象路径前缀，建议保持 `generated-audio`。
+
+### Bucket 权限建议
+
+内测阶段可以先使用可访问的 Bucket 域名或 CDN 域名，让前端能直接播放音频。后续如果要加强隐私，建议改为私有 Bucket + 后端签名 URL。
+
+不要把 TOS AccessKey、SecretKey 写入前端环境变量。前端只需要拿后端返回的 `audio_url` 播放音频。
+
+### 配置后如何验证
+
+1. 修改服务器 `.env` 后重启后端：
+
+```bash
+pm2 restart companion-api --update-env
+```
+
+2. 在老人端完成一次语音对话。
+
+3. 打开对话历史页面，确认 AI 回复旁边的重播按钮可以播放。
+
+4. 重启服务后再次验证历史重播：
+
+```bash
+pm2 restart companion-api --update-env
+pm2 restart companion-web --update-env
+```
+
+如果重启后历史文字还在，但重播失败，优先检查 TOS 配置、Bucket 访问权限和 `TOS_PUBLIC_BASE_URL`。
 
 ## PM2 启动
 
@@ -158,6 +237,8 @@ curl -I http://服务器公网IP
 {"ok":true,"cloud":{"backend":"postgres","persistent":true,"configured":true}}
 ```
 
+该结果只能证明数据库持久化正常，不能证明 TOS 音频存储已配置。TOS 是否生效，需要通过一次语音对话后的历史音频重播来验证。
+
 浏览器访问：
 
 ```text
@@ -170,3 +251,4 @@ http://服务器公网IP
 - 如果公网打不开，检查火山引擎安全组是否放行 80 端口。
 - 如果数据库连接失败，确认应用和 PostgreSQL 同机时 `DATABASE_URL` 使用 `localhost`。
 - 如果要使用域名和 HTTPS，先完成域名解析和备案，再扩展 Nginx 配置。
+- 如果历史页面文字还在但音频无法重播，检查是否配置了 `AUDIO_STORAGE_PROVIDER=tos`、TOS Bucket 权限和 `TOS_PUBLIC_BASE_URL`。

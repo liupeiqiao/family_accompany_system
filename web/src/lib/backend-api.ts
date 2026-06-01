@@ -395,7 +395,8 @@ export function updateVoiceProfile(
   profileId: string,
   payload: {
     family_id: string;
-    persona_id: string;
+    persona_id?: string;
+    display_name?: string;
   },
 ): Promise<VoiceProfile> {
   return requestJson<VoiceProfile>(

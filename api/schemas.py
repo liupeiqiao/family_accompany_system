@@ -101,6 +101,7 @@ class VoicePreviewRequest(BaseModel):
 class VoiceProfileUpdateRequest(BaseModel):
     family_id: str
     persona_id: str = ""
+    display_name: str = ""
 
 
 class TextToSpeechCreateRequest(BaseModel):
