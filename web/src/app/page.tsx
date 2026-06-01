@@ -6,13 +6,13 @@ import { AuthUser, clearAuthSession, getAuthUser } from "../lib/auth";
 
 const panels = [
   {
-    title: "登录",
-    body: "使用手机号验证码进入家庭空间，测试期验证码固定为 000000。",
-    href: "/login",
+    title: "老人端语音陪伴",
+    body: "登录后优先进入电话式语音陪伴，让老人直接和家人声音聊天。",
+    href: "/elder",
   },
   {
-    title: "家庭空间",
-    body: "创建家庭空间，邀请家人共同维护老人画像、家人档案和家庭记忆。",
+    title: "家属管理",
+    body: "创建家庭空间，作为档案、音色、记忆和对话历史的数据归属后台。",
     href: "/family",
   },
   {
@@ -29,11 +29,6 @@ const panels = [
     title: "声音克隆",
     body: "导入或创建授权音色，并绑定到 AI 角色，用于老人端语音陪伴。",
     href: "/voices",
-  },
-  {
-    title: "老人端",
-    body: "提供电话式语音陪伴入口，让老人像打电话一样和家人声音聊天。",
-    href: "/elder",
   },
 ];
 
@@ -55,6 +50,7 @@ export default function HomePage() {
         {user ? (
           <>
             <span>已登录：{user.phone}</span>
+            <a className="button" href="/elder">开始语音陪伴</a>
             <button className="button buttonSecondary" onClick={logout} type="button">
               退出登录
             </button>
@@ -64,7 +60,11 @@ export default function HomePage() {
         )}
       </div>
       <h1>亲情陪伴系统</h1>
-      <p>面向家人协作和老人陪伴的 Web 应用入口。</p>
+      <p>登录后默认进入老人端语音陪伴；家属管理入口用于维护档案、音色、记忆和历史。</p>
+      <div className="primaryCta">
+        <a className="button" href="/elder">开始语音陪伴</a>
+        <a className="button buttonSecondary" href="/family">进入家属管理</a>
+      </div>
       <section className="dashboard" aria-label="首页功能">
         {panels.map((panel) => (
           <a className="panel panelLink" href={panel.href} key={panel.title}>

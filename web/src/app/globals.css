@@ -66,6 +66,13 @@ a {
   margin-bottom: 24px;
 }
 
+.primaryCta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 24px;
+}
+
 .button {
   align-items: center;
   background: #2f241c;

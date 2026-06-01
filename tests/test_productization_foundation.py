@@ -150,6 +150,7 @@ def test_nextjs_web_app_scaffold_exists():
 
     app_source = app_path.read_text(encoding="utf-8")
     elder_source = elder_chat_path.read_text(encoding="utf-8")
+    assert "开始语音陪伴" in app_source
     assert "家庭空间" in app_source
     assert "声音克隆" in app_source
     assert "老人端" in elder_source
@@ -172,11 +173,13 @@ def test_home_feature_cards_are_clickable_routes():
     app_source = app_path.read_text(encoding="utf-8")
 
     assert '<a className="panel panelLink" href={panel.href}' in app_source
+    assert 'href="/elder"' in app_source
+    assert 'href: "/elder"' in app_source
     assert 'href: "/family"' in app_source
     assert 'href: "/records"' in app_source
     assert 'href: "/voices"' in app_source
-    assert 'href: "/elder"' in app_source
     assert 'href: "/history"' in app_source
+    assert app_source.index('href: "/elder"') < app_source.index('href: "/family"')
 
     for route in ["family", "records", "voices", "elder", "history"]:
         assert (ROOT / "web" / "src" / "app" / route / "page.tsx").exists()

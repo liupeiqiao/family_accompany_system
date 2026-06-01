@@ -16,7 +16,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (getAuthToken()) {
-      router.replace("/");
+      router.replace("/elder");
     }
   }, [router]);
 
@@ -41,7 +41,7 @@ export default function LoginPage() {
     setIsVerifying(true);
     try {
       await verifyLoginCode(phone, code);
-      router.replace("/family");
+      router.replace("/elder");
     } catch (err) {
       setError(err instanceof Error ? err.message : "登录失败。");
     } finally {

@@ -17,12 +17,12 @@ def test_auth_library_persists_user_and_exposes_session_helpers():
     assert "window.localStorage.removeItem(AUTH_USER_KEY)" in auth_source
 
 
-def test_login_page_redirects_when_already_logged_in_and_to_family_after_login():
+def test_login_page_redirects_when_already_logged_in_and_to_elder_after_login():
     login_source = (ROOT / "web" / "src" / "app" / "login" / "page.tsx").read_text(encoding="utf-8")
 
     assert "getAuthToken" in login_source
-    assert 'router.replace("/")' in login_source
-    assert 'router.replace("/family")' in login_source
+    assert 'router.replace("/elder")' in login_source
+    assert 'router.replace("/family")' not in login_source
 
 
 def test_protected_pages_redirect_to_login_without_token():
@@ -40,6 +40,15 @@ def test_home_page_shows_login_state_and_logout_action():
     assert "getAuthUser" in home_source
     assert "clearAuthSession" in home_source
     assert "退出登录" in home_source
+
+
+def test_home_page_prioritizes_elder_voice_companion_after_login():
+    home_source = (ROOT / "web" / "src" / "app" / "page.tsx").read_text(encoding="utf-8")
+
+    assert 'href="/elder"' in home_source
+    assert "开始语音陪伴" in home_source
+    assert "家属管理" in home_source
+    assert home_source.index('href: "/elder"') < home_source.index('href: "/family"')
 
 
 def test_family_page_guides_first_setup_and_next_steps():
