@@ -28,6 +28,12 @@ def test_login_page_redirects_when_already_logged_in_and_to_elder_after_login():
 def test_login_page_does_not_expose_fixed_test_code():
     login_source = (ROOT / "web" / "src" / "app" / "login" / "page.tsx").read_text(encoding="utf-8")
 
+    assert "请输入内测账号和验证码登录。" in login_source
+    assert 'placeholder="请输入内测账号"' in login_source
+    assert 'placeholder="请输入测试版验证码"' in login_source
+    assert "检查账号" in login_source
+    assert "发送验证码" not in login_source
+    assert 'autoComplete="off"' in login_source
     assert 'useState("000000")' not in login_source
     assert "000000" not in login_source
     assert "123456" not in login_source

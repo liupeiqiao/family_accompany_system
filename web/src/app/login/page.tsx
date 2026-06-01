@@ -26,9 +26,9 @@ export default function LoginPage() {
     setIsSending(true);
     try {
       const result = await sendLoginCode(phone);
-      setMessage(result.test_mode ? "验证码已发送，请使用内测账号配置的验证码。" : "验证码已发送。");
+      setMessage(result.test_mode ? "账号可用，请输入内测验证码登录。" : "验证码已发送。");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "发送验证码失败。");
+      setError(err instanceof Error ? err.message : "账号检查失败。");
     } finally {
       setIsSending(false);
     }
@@ -54,31 +54,33 @@ export default function LoginPage() {
       <section className="loginPanel">
         <div className="sectionHeader">
           <h1>手机号登录</h1>
-          <p>请输入手机号和验证码登录。</p>
+          <p>请输入内测账号和验证码登录。</p>
         </div>
         <form onSubmit={handleSubmit}>
           <label>
-            <span>手机号</span>
+            <span>内测账号</span>
             <input
               autoComplete="tel"
               inputMode="tel"
               onChange={(event) => setPhone(event.target.value)}
-              placeholder="请输入手机号"
+              placeholder="请输入内测账号"
               value={phone}
             />
           </label>
           <label>
             <span>验证码</span>
             <input
-              autoComplete="one-time-code"
+              autoComplete="off"
               inputMode="numeric"
               onChange={(event) => setCode(event.target.value)}
+              placeholder="请输入测试版验证码"
+              type="text"
               value={code}
             />
           </label>
           <div className="actions">
-            <button disabled={isSending || !phone.trim()} onClick={handleSendCode} type="button">
-              {isSending ? "发送中" : "发送验证码"}
+            <button className="buttonSecondary" disabled={isSending || !phone.trim()} onClick={handleSendCode} type="button">
+              {isSending ? "检查中" : "检查账号"}
             </button>
             <button disabled={isVerifying || !phone.trim() || !code.trim()} type="submit">
               {isVerifying ? "登录中" : "登录"}

@@ -136,6 +136,23 @@ def test_staging_test_login_requires_whitelist_and_configured_code(monkeypatch):
         service.verify_code(phone="13800138002", code="000000")
 
 
+def test_staging_test_login_can_verify_without_sending_code(monkeypatch):
+    from productization.auth import AuthError, InMemoryAuthStore, create_auth_service
+
+    monkeypatch.setenv("COMPANION_ENV", "staging")
+    monkeypatch.setenv("TEST_LOGIN_ENABLED", "true")
+    monkeypatch.setenv("TEST_LOGIN_CODE", "123456")
+    monkeypatch.setenv("TEST_LOGIN_WHITELIST", "13800138002")
+
+    service = create_auth_service(store=InMemoryAuthStore())
+
+    assert service.verify_code(phone="13800138002", code="123456")["user"]["phone"] == "13800138002"
+    with pytest.raises(AuthError):
+        service.verify_code(phone="13800138002", code="000000")
+    with pytest.raises(AuthError, match="当前账号暂时无法登录"):
+        service.verify_code(phone="13800138003", code="123456")
+
+
 def test_test_login_can_be_disabled_even_for_whitelisted_accounts(monkeypatch):
     from productization.auth import AuthError, InMemoryAuthStore, create_auth_service
 

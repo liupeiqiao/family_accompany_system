@@ -204,6 +204,11 @@ class AuthService:
             raise AuthError("验证码服务暂不可用，请稍后再试。")
         if self.test_mode:
             _ensure_test_login_allowed(normalized_phone)
+            if normalized_code != _test_login_code():
+                raise AuthError("Invalid or expired verification code.")
+            user = self.store.get_or_create_user(phone=normalized_phone)
+            token = create_access_token({"user_id": user["id"], "phone": normalized_phone})
+            return {"access_token": token, "token_type": "bearer", "user": user}
         self.store.consume_code(phone=normalized_phone, code=normalized_code)
         user = self.store.get_or_create_user(phone=normalized_phone)
         token = create_access_token({"user_id": user["id"], "phone": normalized_phone})
