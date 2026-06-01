@@ -36,6 +36,14 @@ def test_nginx_template_routes_frontend_and_api():
     assert "client_max_body_size" in source
 
 
+def test_api_health_endpoint_reports_cloud_backend():
+    source = (ROOT / "api" / "main.py").read_text(encoding="utf-8")
+
+    assert '@app.get("/api/health")' in source
+    assert "get_cloud_backend_status" in source
+    assert '"cloud"' in source
+
+
 def test_postgres_check_script_loads_env_without_printing_secrets():
     source = (ROOT / "scripts" / "check_postgres.py").read_text(encoding="utf-8")
 

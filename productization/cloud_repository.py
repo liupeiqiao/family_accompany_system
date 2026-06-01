@@ -920,6 +920,21 @@ class SupabaseCloudRepository:
 _cloud_repository: CloudRepository | None = None
 
 
+def _is_production_mode() -> bool:
+    return os.getenv("COMPANION_ENV", "").lower() in {"prod", "production"} or os.getenv(
+        "ENVIRONMENT", "",
+    ).lower() in {"prod", "production"}
+
+
+def get_cloud_backend_status() -> dict:
+    database_url = os.getenv("DATABASE_URL")
+    if database_url:
+        return {"backend": "postgres", "persistent": True, "configured": True}
+    if SupabaseConfig.from_env():
+        return {"backend": "supabase", "persistent": True, "configured": True}
+    return {"backend": "memory", "persistent": False, "configured": False}
+
+
 def get_cloud_repository() -> CloudRepository:
     global _cloud_repository
     if _cloud_repository is not None:
@@ -936,6 +951,8 @@ def get_cloud_repository() -> CloudRepository:
         return _cloud_repository
 
     config = SupabaseConfig.from_env()
+    if config is None and _is_production_mode():
+        raise RuntimeError("DATABASE_URL or Supabase service role credentials are required in production.")
     _cloud_repository = SupabaseCloudRepository(config) if config else InMemoryCloudRepository()
     return _cloud_repository
 

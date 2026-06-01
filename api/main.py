@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 
 from .auth import current_user_id, router as auth_router
+from productization.cloud_repository import get_cloud_backend_status
 from .handlers import (
     handle_chat,
     handle_create_cloud_family_profile,
@@ -85,6 +86,11 @@ app.add_middleware(
 @app.get("/", include_in_schema=False)
 def root() -> RedirectResponse:
     return RedirectResponse(url="/docs")
+
+
+@app.get("/api/health")
+def health_endpoint() -> dict:
+    return {"ok": True, "cloud": get_cloud_backend_status()}
 
 
 @app.get("/api/family/current", response_model=FamilyCurrentResponse)

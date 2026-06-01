@@ -65,6 +65,35 @@ def test_cloud_repository_factory_prefers_database_url(monkeypatch):
     assert repo.init_called is True
 
 
+def test_cloud_repository_factory_rejects_in_memory_in_production(monkeypatch):
+    import productization.cloud_repository as cloud_repository
+
+    monkeypatch.setenv("COMPANION_ENV", "production")
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.delenv("SUPABASE_URL", raising=False)
+    monkeypatch.delenv("NEXT_PUBLIC_SUPABASE_URL", raising=False)
+    monkeypatch.delenv("SUPABASE_SERVICE_ROLE_KEY", raising=False)
+    monkeypatch.setattr(cloud_repository, "_cloud_repository", None)
+
+    with pytest.raises(RuntimeError, match="DATABASE_URL"):
+        cloud_repository.get_cloud_repository()
+
+
+def test_cloud_backend_status_reports_selected_store_without_connecting(monkeypatch):
+    import productization.cloud_repository as cloud_repository
+
+    monkeypatch.setenv("DATABASE_URL", "postgresql://user:pass@example.test:5432/companion")
+    monkeypatch.delenv("SUPABASE_URL", raising=False)
+    monkeypatch.delenv("NEXT_PUBLIC_SUPABASE_URL", raising=False)
+    monkeypatch.delenv("SUPABASE_SERVICE_ROLE_KEY", raising=False)
+
+    assert cloud_repository.get_cloud_backend_status() == {
+        "backend": "postgres",
+        "persistent": True,
+        "configured": True,
+    }
+
+
 @pytest.mark.skipif(
     not os.getenv("POSTGRES_TEST_DATABASE_URL"),
     reason="POSTGRES_TEST_DATABASE_URL is not configured.",
