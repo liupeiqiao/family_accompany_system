@@ -42,6 +42,12 @@ cd ..
 
 ```env
 COMPANION_ENV=production
+APP_PUBLIC_URL=https://your-domain.example
+TEST_LOGIN_ENABLED=false
+TEST_LOGIN_CODE=123456
+TEST_LOGIN_WHITELIST=
+SMS_PROVIDER=none
+SMS_ENABLED=false
 DATABASE_URL=postgresql://admin:替换为真实口令@localhost:5432/companion
 JWT_SECRET=替换为32位以上随机字符串
 NEXT_PUBLIC_COMPANION_API_URL=/api
@@ -56,6 +62,19 @@ DOUBAO_TTS_CLONE_RESOURCE_ID=seed-icl-2.0
 
 正式上线前不要继续使用已经暴露过的数据库口令和 JWT 配置。
 
+内测环境如果还没有接真实短信服务，不要使用 `COMPANION_ENV=production`。请改为：
+
+```env
+COMPANION_ENV=staging
+TEST_LOGIN_ENABLED=true
+TEST_LOGIN_CODE=123456
+TEST_LOGIN_WHITELIST=13800000000
+SMS_PROVIDER=none
+SMS_ENABLED=false
+```
+
+生产环境必须保持 `TEST_LOGIN_ENABLED=false`，并配置真实短信服务。未接真实短信服务时，生产环境验证码登录会被拒绝，这是为了避免固定验证码上线。
+
 ## 检查 PostgreSQL
 
 ```bash
@@ -64,20 +83,28 @@ python3 scripts/check_postgres.py
 
 该脚本会加载 `.env`、连接 PostgreSQL、执行 schema 初始化，并确认 `productization/postgres_schema.sql` 可应用。
 
+上线前再执行完整环境检查：
+
+```bash
+python3 scripts/check_launch_env.py
+```
+
+该脚本会检查 `APP_PUBLIC_URL` 是否使用 HTTPS、`DATABASE_URL`/`JWT_SECRET` 是否配置、登录策略是否安全、豆包 ASR/TTS 是否具备基础配置。浏览器 `getUserMedia` 在公网域名下要求 HTTPS，否则老人端录音不可用。
+
 ## PM2 启动
 
 ```bash
 pm2 start ecosystem.config.js
 pm2 save
 pm2 status
-pm2 logs family-companion-api
-pm2 logs family-companion-web
+pm2 logs companion-api
+pm2 logs companion-web
 ```
 
 PM2 会启动两个进程：
 
-- `family-companion-api`：`uvicorn api.main:app --host 127.0.0.1 --port 8000`
-- `family-companion-web`：`npm run start -- --hostname 127.0.0.1 --port 3000`
+- `companion-api`：`uvicorn api.main:app --host 127.0.0.1 --port 8000`
+- `companion-web`：`npm run start -- --hostname 127.0.0.1 --port 3000`
 
 更新代码后：
 
@@ -107,6 +134,15 @@ sudo systemctl reload nginx
 - `/` 反向代理到 `127.0.0.1:3000`
 - `/api/` 反向代理到 `127.0.0.1:8000`
 
+如果通过域名给老人端使用，必须配置 HTTPS。未配置 HTTPS 时，浏览器会因为 `getUserMedia` 安全限制拦截麦克风权限，老人端录音无法正常使用。可以先用 Certbot 为 Nginx 申请证书：
+
+```bash
+sudo apt install -y certbot python3-certbot-nginx
+sudo certbot --nginx -d your-domain.example
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
 ## 验证
 
 ```bash
@@ -130,7 +166,7 @@ http://服务器公网IP
 
 ## 常见问题
 
-- 如果页面能打开但 API 失败，先看 `pm2 logs family-companion-api`。
+- 如果页面能打开但 API 失败，先看 `pm2 logs companion-api`。
 - 如果公网打不开，检查火山引擎安全组是否放行 80 端口。
 - 如果数据库连接失败，确认应用和 PostgreSQL 同机时 `DATABASE_URL` 使用 `localhost`。
 - 如果要使用域名和 HTTPS，先完成域名解析和备案，再扩展 Nginx 配置。

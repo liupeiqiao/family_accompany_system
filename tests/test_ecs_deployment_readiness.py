@@ -16,8 +16,8 @@ def test_nextjs_package_has_production_start_script():
 def test_pm2_ecosystem_runs_backend_and_frontend_on_loopback_ports():
     source = (ROOT / "ecosystem.config.js").read_text(encoding="utf-8")
 
-    assert "family-companion-api" in source
-    assert "family-companion-web" in source
+    assert "companion-api" in source
+    assert "companion-web" in source
     assert "uvicorn" in source
     assert "api.main:app" in source
     assert "127.0.0.1" in source
@@ -59,17 +59,52 @@ def test_postgres_check_script_loads_env_without_printing_secrets():
     assert "JWT_SECRET=" not in source
 
 
+def test_launch_env_check_covers_https_login_cloud_and_voice_without_printing_secrets():
+    source = (ROOT / "scripts" / "check_launch_env.py").read_text(encoding="utf-8")
+
+    for expected in [
+        "APP_PUBLIC_URL",
+        "https",
+        "DATABASE_URL",
+        "JWT_SECRET",
+        "COMPANION_ENV",
+        "TEST_LOGIN_ENABLED",
+        "TEST_LOGIN_WHITELIST",
+        "SMS_ENABLED",
+        "SMS_PROVIDER",
+        "VOICE_PROVIDER",
+        "DOUBAO_TTS_API_KEY",
+        "DOUBAO_ASR_API_KEY",
+        "AUDIO_STORAGE_PROVIDER=tos",
+    ]:
+        assert expected in source
+
+    assert "load_dotenv" in source
+    assert "your-api-key" not in source
+    assert "print(os.getenv" not in source
+    assert "JWT_SECRET=" not in source
+
+
 def test_env_example_and_deployment_doc_cover_launch_cloud_contract():
     env_example = (ROOT / ".env.example").read_text(encoding="utf-8")
     doc = (ROOT / "docs" / "ecs-deployment.md").read_text(encoding="utf-8")
 
+    assert "APP_PUBLIC_URL=https://your-domain.example" in env_example
     assert "COMPANION_ENV=production" in env_example
+    assert "TEST_LOGIN_ENABLED=false" in env_example
+    assert "TEST_LOGIN_CODE=123456" in env_example
+    assert "TEST_LOGIN_WHITELIST=" in env_example
+    assert "SMS_PROVIDER=none" in env_example
+    assert "SMS_ENABLED=false" in env_example
     assert "DATABASE_URL=postgresql://" in env_example
     assert "JWT_SECRET=" in env_example
     assert "NEXT_PUBLIC_COMPANION_API_URL=/api" in env_example
 
+    assert "APP_PUBLIC_URL=https://" in doc
     assert "COMPANION_ENV=production" in doc
     assert "NEXT_PUBLIC_COMPANION_API_URL=/api" in doc
+    assert "python3 scripts/check_launch_env.py" in doc
+    assert "getUserMedia" in doc
     assert "curl http://127.0.0.1:8000/api/health" in doc
     assert '"backend":"postgres"' in doc
 

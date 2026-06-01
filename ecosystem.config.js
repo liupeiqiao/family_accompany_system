@@ -1,7 +1,7 @@
 module.exports = {
   apps: [
     {
-      name: "family-companion-api",
+      name: "companion-api",
       cwd: __dirname,
       script: "python3",
       args: "-m uvicorn api.main:app --host 127.0.0.1 --port 8000",
@@ -12,7 +12,7 @@ module.exports = {
       max_memory_restart: "512M",
     },
     {
-      name: "family-companion-web",
+      name: "companion-web",
       cwd: `${__dirname}/web`,
       // web/package.json start script runs: next start
       script: "npm",
