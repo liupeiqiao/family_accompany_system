@@ -19,7 +19,7 @@ module.exports = {
       args: "run start -- --hostname 127.0.0.1 --port 3000",
       env: {
         NODE_ENV: "production",
-        NEXT_PUBLIC_COMPANION_API_URL: "/api",
+        NEXT_PUBLIC_COMPANION_API_URL: "",
       },
       max_memory_restart: "768M",
     },

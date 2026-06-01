@@ -98,11 +98,11 @@ def test_env_example_and_deployment_doc_cover_launch_cloud_contract():
     assert "SMS_ENABLED=false" in env_example
     assert "DATABASE_URL=postgresql://" in env_example
     assert "JWT_SECRET=" in env_example
-    assert "NEXT_PUBLIC_COMPANION_API_URL=/api" in env_example
+    assert "NEXT_PUBLIC_COMPANION_API_URL=" in env_example
 
     assert "APP_PUBLIC_URL=https://" in doc
     assert "COMPANION_ENV=production" in doc
-    assert "NEXT_PUBLIC_COMPANION_API_URL=/api" in doc
+    assert "NEXT_PUBLIC_COMPANION_API_URL=" in doc
     assert "python3 scripts/check_launch_env.py" in doc
     assert "getUserMedia" in doc
     assert "curl http://127.0.0.1:8000/api/health" in doc

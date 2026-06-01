@@ -9,7 +9,7 @@ def _set_valid_launch_env(monkeypatch):
     monkeypatch.setenv("VOICE_PROVIDER", "doubao")
     monkeypatch.setenv("DOUBAO_TTS_API_KEY", "doubao-key")
     monkeypatch.setenv("DOUBAO_TTS_DEFAULT_VOICE_TYPE", "voice-type")
-    monkeypatch.setenv("NEXT_PUBLIC_COMPANION_API_URL", "/api")
+    monkeypatch.setenv("NEXT_PUBLIC_COMPANION_API_URL", "")
     monkeypatch.setenv("AUDIO_STORAGE_PROVIDER", "tos")
 
 

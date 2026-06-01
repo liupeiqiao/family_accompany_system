@@ -1,7 +1,7 @@
 import { getAuthToken } from "./auth";
+import { getApiBaseUrl } from "./api-base";
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_COMPANION_API_URL ?? "http://127.0.0.1:8000";
+const API_BASE_URL = getApiBaseUrl();
 
 export type DraftObject = Record<string, unknown>;
 

@@ -1,5 +1,6 @@
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_COMPANION_API_URL ?? "http://127.0.0.1:8000";
+import { getApiBaseUrl } from "./api-base";
+
+const API_BASE_URL = getApiBaseUrl();
 
 const AUTH_TOKEN_KEY = "family-companion-auth-token";
 const AUTH_USER_KEY = "family-companion-auth-user";

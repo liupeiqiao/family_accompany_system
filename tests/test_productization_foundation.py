@@ -280,11 +280,19 @@ def test_web_app_has_supabase_and_backend_api_boundaries():
     backend_source = (ROOT / "web" / "src" / "lib" / "backend-api.ts").read_text(
         encoding="utf-8"
     )
+    auth_source = (ROOT / "web" / "src" / "lib" / "auth.ts").read_text(encoding="utf-8")
+    api_base_source = (ROOT / "web" / "src" / "lib" / "api-base.ts").read_text(
+        encoding="utf-8"
+    )
 
     assert "createClient" in supabase_source
     assert "NEXT_PUBLIC_SUPABASE_URL" in supabase_source
     assert "NEXT_PUBLIC_SUPABASE_ANON_KEY" in supabase_source
 
+    assert "getApiBaseUrl" in backend_source
+    assert "getApiBaseUrl" in auth_source
+    assert 'if (trimmed === "/api")' in api_base_source
+    assert 'trimmed.endsWith("/api")' in api_base_source
     assert "/api/parse" in backend_source
     assert "/api/import" in backend_source
     assert "/api/chat" in backend_source

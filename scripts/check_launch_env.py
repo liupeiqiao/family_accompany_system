@@ -98,8 +98,9 @@ def check_launch_env() -> CheckResult:
     if not (_env("DOUBAO_ASR_API_KEY") or _env("DOUBAO_TTS_API_KEY")):
         errors.append("DOUBAO_ASR_API_KEY or DOUBAO_TTS_API_KEY is required for speech recognition.")
 
-    if _env("NEXT_PUBLIC_COMPANION_API_URL") not in {"/api", ""}:
-        warnings.append("NEXT_PUBLIC_COMPANION_API_URL is not /api; confirm Nginx routes API requests correctly.")
+    api_base_url = _env("NEXT_PUBLIC_COMPANION_API_URL")
+    if api_base_url and not api_base_url.startswith(("http://", "https://", "/")):
+        warnings.append("NEXT_PUBLIC_COMPANION_API_URL should be empty, an origin URL, or a root-relative path.")
 
     _check_login_policy(errors)
 
