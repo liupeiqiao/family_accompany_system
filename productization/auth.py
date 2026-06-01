@@ -7,7 +7,7 @@ import json
 import os
 import time
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
@@ -113,7 +113,7 @@ class PostgresAuthStore:
     def save_code(self, *, phone: str, code: str, expires_at: int) -> None:
         import psycopg
 
-        expires_at_dt = datetime.fromtimestamp(expires_at, tz=UTC)
+        expires_at_dt = datetime.fromtimestamp(expires_at, tz=timezone.utc)
         with psycopg.connect(self.database_url) as conn:
             conn.execute(
                 """
@@ -174,24 +174,50 @@ class PostgresAuthStore:
 class AuthService:
     def __init__(self, store: InMemoryAuthStore | PostgresAuthStore) -> None:
         self.store = store
+        self._send_attempts: dict[str, list[int]] = {}
+        self._verify_attempts: dict[str, list[int]] = {}
 
     @property
     def test_mode(self) -> bool:
-        return os.getenv("SMS_ACCESS_KEY") is None
+        return _test_login_enabled() and not _is_production()
 
     def send_code(self, *, phone: str) -> dict:
         normalized_phone = _normalize_phone(phone)
-        code = "000000" if self.test_mode else _generate_code()
+        self._check_rate_limit(self._send_attempts, normalized_phone, _env_int("AUTH_SEND_CODE_LIMIT", 5))
+        if self.test_mode:
+            _ensure_test_login_allowed(normalized_phone)
+            code = _test_login_code()
+        else:
+            if not _sms_enabled():
+                raise AuthError("验证码服务暂不可用，请稍后再试。")
+            code = _generate_code()
+            # Real SMS provider integration is intentionally blocked until configured.
+            raise AuthError("验证码服务暂不可用，请稍后再试。")
         self.store.save_code(phone=normalized_phone, code=code, expires_at=int(time.time()) + 300)
         return {"ok": True, "expires_in_seconds": 300, "test_mode": self.test_mode}
 
     def verify_code(self, *, phone: str, code: str) -> dict:
         normalized_phone = _normalize_phone(phone)
         normalized_code = code.strip()
+        self._check_rate_limit(self._verify_attempts, normalized_phone, _env_int("AUTH_VERIFY_CODE_LIMIT", 5))
+        if not self.test_mode and not _sms_enabled():
+            raise AuthError("验证码服务暂不可用，请稍后再试。")
+        if self.test_mode:
+            _ensure_test_login_allowed(normalized_phone)
         self.store.consume_code(phone=normalized_phone, code=normalized_code)
         user = self.store.get_or_create_user(phone=normalized_phone)
         token = create_access_token({"user_id": user["id"], "phone": normalized_phone})
         return {"access_token": token, "token_type": "bearer", "user": user}
+
+    def _check_rate_limit(self, bucket: dict[str, list[int]], key: str, limit: int) -> None:
+        now = int(time.time())
+        window_start = now - 3600
+        attempts = [ts for ts in bucket.get(key, []) if ts >= window_start]
+        if len(attempts) >= limit:
+            bucket[key] = attempts
+            raise AuthError("操作过于频繁，请稍后再试。")
+        attempts.append(now)
+        bucket[key] = attempts
 
 
 def _normalize_phone(phone: str) -> str:
@@ -203,6 +229,58 @@ def _normalize_phone(phone: str) -> str:
 
 def _generate_code() -> str:
     return str(int(time.time() * 1000) % 1_000_000).zfill(6)
+
+
+def _current_env() -> str:
+    return (
+        os.getenv("COMPANION_ENV")
+        or os.getenv("APP_ENV")
+        or os.getenv("NODE_ENV")
+        or "development"
+    ).strip().lower()
+
+
+def _is_production() -> bool:
+    return _current_env() in {"prod", "production"}
+
+
+def _test_login_enabled() -> bool:
+    return os.getenv("TEST_LOGIN_ENABLED", "false").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _sms_enabled() -> bool:
+    return os.getenv("SMS_ENABLED", "false").strip().lower() in {"1", "true", "yes", "on"} and os.getenv(
+        "SMS_PROVIDER",
+        "none",
+    ).strip().lower() not in {"", "none"}
+
+
+def _env_int(name: str, default: int) -> int:
+    try:
+        return max(1, int(os.getenv(name, str(default))))
+    except ValueError:
+        return default
+
+
+def _test_login_code() -> str:
+    code = os.getenv("TEST_LOGIN_CODE", "").strip()
+    if not code:
+        raise AuthError("验证码服务暂不可用，请稍后再试。")
+    return code
+
+
+def _test_login_whitelist() -> set[str]:
+    raw = os.getenv("TEST_LOGIN_WHITELIST", "")
+    return {_normalize_phone(item) for item in raw.split(",") if item.strip()}
+
+
+def _ensure_test_login_allowed(phone: str) -> None:
+    if _is_production():
+        raise AuthError("验证码服务暂不可用，请稍后再试。")
+    if _current_env() in {"staging", "stage", "test"}:
+        whitelist = _test_login_whitelist()
+        if not whitelist or phone not in whitelist:
+            raise AuthError("当前账号暂时无法登录。")
 
 
 def _serialize_user(user: dict) -> dict:
