@@ -19,7 +19,6 @@ import { getAuthToken } from "../../lib/auth";
 type CallState =
   | "idle"
   | "recording"
-  | "recorded"
   | "understanding"
   | "replying"
   | "playing"
@@ -77,13 +76,12 @@ export default function ElderChatPage() {
   const [currentVoiceProfileId, setCurrentVoiceProfileId] = useState("");
   const [currentVoiceName, setCurrentVoiceName] = useState("");
   const [clientSessionId] = useState(createClientSessionId);
-  const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
-  const [audioFormat, setAudioFormat] = useState("webm");
   const [recentTurns, setRecentTurns] = useState<ConversationTurn[]>([]);
   const [error, setError] = useState("");
   const [continuousMode, setContinuousMode] = useState(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const sendRecordingAfterStopRef = useRef(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
@@ -93,6 +91,7 @@ export default function ElderChatPage() {
     }
     void loadInitialState();
     return () => {
+      sendRecordingAfterStopRef.current = false;
       stopPlayback();
       mediaRecorderRef.current?.stream.getTracks().forEach((track) => track.stop());
     };
@@ -135,8 +134,6 @@ export default function ElderChatPage() {
     switch (callState) {
       case "recording":
         return "正在听你说";
-      case "recorded":
-        return "说完啦，可以发送";
       case "understanding":
         return "正在理解你说的话";
       case "replying":
@@ -153,8 +150,6 @@ export default function ElderChatPage() {
   const primaryLabel = useMemo(() => {
     switch (callState) {
       case "recording":
-        return "结束并发送";
-      case "recorded":
         return "发送";
       case "understanding":
         return "正在理解";
@@ -177,11 +172,7 @@ export default function ElderChatPage() {
       return;
     }
     if (callState === "recording") {
-      stopRecording();
-      return;
-    }
-    if (callState === "recorded") {
-      await sendRecordedAudio();
+      stopRecordingAndSend();
       return;
     }
     await startRecording();
@@ -189,7 +180,7 @@ export default function ElderChatPage() {
 
   async function startRecording() {
     setError("");
-    setRecordedBlob(null);
+    sendRecordingAfterStopRef.current = false;
     if (!familyContext) {
       setError("陪伴资料还没准备好，请家人先完成设置。");
       return;
@@ -211,9 +202,12 @@ export default function ElderChatPage() {
       recorder.onstop = () => {
         stream.getTracks().forEach((track) => track.stop());
         const mimeType = recorder.mimeType || "audio/webm";
-        setRecordedBlob(new Blob(chunks, { type: mimeType }));
-        setAudioFormat(audioFormatFromMimeType(mimeType));
-        setCallState("recorded");
+        const shouldSend = sendRecordingAfterStopRef.current;
+        sendRecordingAfterStopRef.current = false;
+        mediaRecorderRef.current = null;
+        if (shouldSend) {
+          void sendVoiceBlob(new Blob(chunks, { type: mimeType }), audioFormatFromMimeType(mimeType));
+        }
       };
       mediaRecorderRef.current = recorder;
       recorder.start();
@@ -224,26 +218,15 @@ export default function ElderChatPage() {
     }
   }
 
-  function stopRecording() {
+  function stopRecordingAndSend() {
     if (mediaRecorderRef.current?.state === "recording") {
+      sendRecordingAfterStopRef.current = true;
+      setCallState("understanding");
       mediaRecorderRef.current.stop();
     }
   }
 
-  function cancelRecording() {
-    const recorder = mediaRecorderRef.current;
-    if (recorder?.state === "recording") {
-      recorder.onstop = () => {
-        recorder.stream.getTracks().forEach((track) => track.stop());
-      };
-      recorder.stop();
-    }
-    setRecordedBlob(null);
-    setCallState("idle");
-  }
-
-  async function sendRecordedAudio() {
-    if (!recordedBlob) return;
+  async function sendVoiceBlob(audioBlob: Blob, audioFormat: string) {
     if (!familyContext) {
       setError("陪伴资料还没准备好，请家人先完成设置。");
       setCallState("error");
@@ -259,7 +242,7 @@ export default function ElderChatPage() {
         persona_id: currentPersonaId,
         voice_profile_id: currentVoiceProfileId,
         audio_format: audioFormat,
-        audio_file: recordedBlob,
+        audio_file: audioBlob,
       });
       handleVoiceChatResponse(response);
     } catch {
@@ -269,7 +252,6 @@ export default function ElderChatPage() {
   }
 
   function handleVoiceChatResponse(response: ElderVoiceChatResponse) {
-    setRecordedBlob(null);
     if (response.status === "asr_empty") {
       setError("刚才没有听清，您可以再说一遍。");
       setCallState("idle");
@@ -366,16 +348,6 @@ export default function ElderChatPage() {
               type="button"
             >
               {continuousMode ? "连续对话：开" : "连续对话：关"}
-            </button>
-          ) : null}
-          {callState === "recording" ? (
-            <button className="buttonSecondary" onClick={cancelRecording} type="button">
-              取消本轮
-            </button>
-          ) : null}
-          {callState === "recorded" ? (
-            <button className="buttonSecondary" onClick={() => void startRecording()} type="button">
-              重新说
             </button>
           ) : null}
           {callState === "playing" ? (

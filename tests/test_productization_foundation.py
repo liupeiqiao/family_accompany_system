@@ -409,6 +409,23 @@ def test_elder_chat_page_can_request_voice_replies():
     assert "audioUrl" in elder_source
 
 
+def test_elder_voice_chat_uses_two_step_record_and_send_flow():
+    elder_source = (ROOT / "web" / "src" / "app" / "elder" / "page.tsx").read_text(
+        encoding="utf-8"
+    )
+
+    assert '| "recorded"' not in elder_source
+    assert "setCallState(\"recorded\")" not in elder_source
+    assert "recordedBlob" not in elder_source
+    assert "sendRecordedAudio" not in elder_source
+    assert "重新说" not in elder_source
+    assert "sendRecordingAfterStopRef" in elder_source
+    assert "stopRecordingAndSend" in elder_source
+    assert "sendVoiceBlob" in elder_source
+    assert 'case "recording":' in elder_source
+    assert 'return "发送";' in elder_source
+
+
 def test_history_page_lists_filterable_chat_turns():
     history_source = (ROOT / "web" / "src" / "app" / "history" / "page.tsx").read_text(
         encoding="utf-8"
