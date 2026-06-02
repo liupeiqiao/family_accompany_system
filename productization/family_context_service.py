@@ -16,6 +16,7 @@ def build_family_chat_context(
     repo: CloudRepository,
     family_id: str,
     user_id: str,
+    active_persona_role_label: str = "",
 ) -> ChatContext:
     elder = _elder_from_record(repo.get_elder_current(family_id=family_id, user_id=user_id))
     families = {
@@ -44,6 +45,7 @@ def build_family_chat_context(
         memories=memories,
         families=families,
         elder=elder,
+        active_persona_role_label=active_persona_role_label,
     )
 
 

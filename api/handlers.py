@@ -912,6 +912,7 @@ def handle_elder_voice_chat(
             repo=get_cloud_repository(),
             family_id=family_id,
             user_id=user_id,
+            active_persona_role_label=str(selected_persona.get("role_label", "")),
         )
     except Exception as exc:
         if isinstance(exc, (FamilyPermissionError, FamilyNotFoundError)):

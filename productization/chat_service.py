@@ -48,6 +48,7 @@ class ChatContext:
     memories: list[MemoryUnit] = field(default_factory=list)
     families: dict[str, FamilyProfile] = field(default_factory=dict)
     elder: ElderProfile = field(default_factory=ElderProfile)
+    active_persona_role_label: str = ""
 
 
 @dataclass
@@ -81,7 +82,7 @@ def generate_chat_reply(
         elder = context.elder
         context_source = "cloud"
 
-    persona = _select_default_persona(personas)
+    persona = _select_default_persona(personas, getattr(context, "active_persona_role_label", ""))
 
     intent_result = _analyze_intent(user_input, llm)
     intent = intent_result.get("intent", "日常闲聊")
@@ -254,7 +255,9 @@ def _load_personas() -> dict[str, PersonaProfile]:
     return personas
 
 
-def _select_default_persona(personas: dict[str, PersonaProfile]) -> PersonaProfile:
+def _select_default_persona(personas: dict[str, PersonaProfile], active_role_label: str = "") -> PersonaProfile:
+    if active_role_label and active_role_label in personas:
+        return personas[active_role_label]
     if personas:
         return personas[sorted(personas.keys())[0]]
     return PersonaProfile()
