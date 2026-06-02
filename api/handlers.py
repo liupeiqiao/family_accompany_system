@@ -828,16 +828,39 @@ def _select_voice_chat_persona(
     session_persona_id: str = "",
 ) -> dict:
     personas = get_cloud_repository().list_personas(family_id=family_id, user_id=user_id)
+    if not personas:
+        return {"persona": {}, "confidence": 0}
+
     if session_persona_id:
         for persona in personas:
             if persona.get("id") == session_persona_id:
                 return {"persona": persona, "confidence": 1.0}
+
+    # 从文本中匹配角色名
     for persona in personas:
         role_label = str(persona.get("role_label") or "")
         tokens = [token for token in re.split(r"[\s/｜|,，、]+", role_label) if token]
         if any(token in recognized_text for token in tokens):
             return {"persona": persona, "confidence": 0.9}
-    return {"persona": personas[0] if personas else {}, "confidence": 0.5 if personas else 0}
+
+    # 从聊天历史恢复上次使用的角色
+    try:
+        messages = get_cloud_repository().list_chat_messages(
+            family_id=family_id, user_id=user_id,
+        )
+        last_persona_id = None
+        for msg in reversed(messages):
+            if msg.get("persona_id"):
+                last_persona_id = msg.get("persona_id")
+                break
+        if last_persona_id:
+            for persona in personas:
+                if persona.get("id") == last_persona_id:
+                    return {"persona": persona, "confidence": 0.7}
+    except Exception:
+        pass
+
+    return {"persona": personas[0], "confidence": 0.5}
 
 
 def _select_voice_profile_for_persona(

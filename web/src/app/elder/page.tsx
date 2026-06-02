@@ -114,16 +114,20 @@ export default function ElderChatPage() {
         setSetupState("missing");
         return;
       }
-      const personaId = String(firstPersona.id);
+      // 从聊天历史恢复上次使用的角色
+      const history = await fetchChatHistory(context.family.id);
+      setRecentTurns(buildRecentTurns(history));
+      const lastTurnPersonaId = [...history].reverse().find((msg) => msg.persona_id)?.persona_id;
+      const lastPersona = lastTurnPersonaId
+        ? personas.find((p) => String(p.id) === String(lastTurnPersonaId))
+        : null;
+      const activePersona = lastPersona || firstPersona;
+      const personaId = String(activePersona.id);
       const boundVoice = voiceProfiles.find(
         (profile) => String(profile.persona_id ?? "") === personaId && profile.status === "ready",
       );
       setCurrentPersonaId(personaId);
-      setCurrentPersonaName(String(firstPersona.appellation || firstPersona.role_label || "家人"));
-      setCurrentVoiceProfileId(boundVoice?.id ?? "");
-      setCurrentVoiceName(boundVoice?.display_name ?? "");
-      const history = await fetchChatHistory(context.family.id);
-      setRecentTurns(buildRecentTurns(history));
+      setCurrentPersonaName(String(activePersona.role_label || "家人"));
       setSetupState("ready");
     } catch {
       setFamilyContext(null);
