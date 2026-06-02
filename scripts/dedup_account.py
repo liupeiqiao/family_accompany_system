@@ -183,20 +183,30 @@ def run(phone: str, *, dry_run: bool = False) -> None:
     }
 
     def _norm(value, field_name=""):
-        """规范化值：确保 JSON 字段是合法的 Python list/dict."""
+        """规范化值：确保 JSON 字段是合法的 list/dict 并用 Jsonb 包装."""
         if field_name in JSON_FIELDS:
             if value is None or value == "":
-                return []
+                return Jsonb([])
             if isinstance(value, str):
-                # 数据库里可能存了裸字符串，包成单元素列表
-                return [value] if value.strip() else []
+                stripped = value.strip()
+                if not stripped:
+                    return Jsonb([])
+                # 尝试解析已有 JSON
+                try:
+                    import json as _json
+                    parsed = _json.loads(stripped)
+                    return Jsonb(parsed)
+                except Exception:
+                    return Jsonb([stripped])
             if isinstance(value, (list, dict)):
-                return value
-            return []
+                return Jsonb(value)
+            return Jsonb([])
         return value
 
     repo = PostgresCloudRepository(database_url)
     repo.init_schema()
+
+    from psycopg.types.json import Jsonb
 
     # 1. 查找用户
     with repo._connect() as conn:  # noqa: SLF001
