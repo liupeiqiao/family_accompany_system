@@ -12,7 +12,7 @@ const navItems = [
   { href: "/history", label: "历史", group: "family" },
 ];
 
-const hiddenOn = new Set(["/login"]);
+const hiddenOn = new Set(["/", "/login"]);
 
 export default function NavBar() {
   const pathname = usePathname();
