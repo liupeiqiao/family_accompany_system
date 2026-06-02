@@ -173,6 +173,28 @@ def run(phone: str, *, dry_run: bool = False) -> None:
 
     SKIP_COLS = {"id", "created_at", "updated_at", "family_id"}
 
+    # JSON 字段列表（与 postgres_repository.py 保持一致）
+    JSON_FIELDS = {
+        "personality", "preferences", "habits", "health_notes",
+        "speech_traits", "life_experiences", "important_memories",
+        "relations", "speech_style", "comfort_style",
+        "topic_affinity", "sensitivity_map", "family_members",
+        "emotion_tags", "topic_tags",
+    }
+
+    def _norm(value, field_name=""):
+        """规范化值：确保 JSON 字段是合法的 Python list/dict."""
+        if field_name in JSON_FIELDS:
+            if value is None or value == "":
+                return []
+            if isinstance(value, str):
+                # 数据库里可能存了裸字符串，包成单元素列表
+                return [value] if value.strip() else []
+            if isinstance(value, (list, dict)):
+                return value
+            return []
+        return value
+
     repo = PostgresCloudRepository(database_url)
     repo.init_schema()
 
@@ -258,37 +280,37 @@ def run(phone: str, *, dry_run: bool = False) -> None:
             cols = sorted(merged_elders.keys() - SKIP_COLS)
             insert_cols = ["family_id", *cols]
             placeholders = ["%s"] * len(insert_cols)
-            values = [family_id, *(merged_elders.get(c) for c in cols)]
+            values = [family_id, *(_norm(merged_elders.get(c), c) for c in cols)]
             conn.execute(
                 f"INSERT INTO elders ({', '.join(insert_cols)}) VALUES ({', '.join(placeholders)})",
                 values,
             )
 
         for persona in merged_personas:
-            cols = sorted(persona.keys() - {"id", "created_at", "updated_at"})
+            cols = sorted(persona.keys() - SKIP_COLS)
             insert_cols = ["family_id", *cols]
             placeholders = ["%s"] * len(insert_cols)
-            values = [family_id, *(persona.get(c) for c in cols)]
+            values = [family_id, *(_norm(persona.get(c), c) for c in cols)]
             conn.execute(
                 f"INSERT INTO personas ({', '.join(insert_cols)}) VALUES ({', '.join(placeholders)})",
                 values,
             )
 
         for profile in merged_profiles:
-            cols = sorted(profile.keys() - {"id", "created_at", "updated_at"})
+            cols = sorted(profile.keys() - SKIP_COLS)
             insert_cols = ["family_id", *cols]
             placeholders = ["%s"] * len(insert_cols)
-            values = [family_id, *(profile.get(c) for c in cols)]
+            values = [family_id, *(_norm(profile.get(c), c) for c in cols)]
             conn.execute(
                 f"INSERT INTO family_profiles ({', '.join(insert_cols)}) VALUES ({', '.join(placeholders)})",
                 values,
             )
 
         for memory in merged_memories:
-            cols = sorted(memory.keys() - {"id", "created_at", "updated_at"})
+            cols = sorted(memory.keys() - SKIP_COLS)
             insert_cols = ["family_id", *cols]
             placeholders = ["%s"] * len(insert_cols)
-            values = [family_id, *(memory.get(c) for c in cols)]
+            values = [family_id, *(_norm(memory.get(c), c) for c in cols)]
             conn.execute(
                 f"INSERT INTO memories ({', '.join(insert_cols)}) VALUES ({', '.join(placeholders)})",
                 values,
