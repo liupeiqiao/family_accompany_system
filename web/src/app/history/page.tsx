@@ -114,6 +114,8 @@ export default function HistoryPage() {
   const [memoryDrafts, setMemoryDrafts] = useState<Record<string, MemoryDraft>>({});
   const [savedMemoryTurnIds, setSavedMemoryTurnIds] = useState<Record<string, boolean>>({});
   const [memorySaveMessage, setMemorySaveMessage] = useState("");
+  const [expandedTurnIds, setExpandedTurnIds] = useState<Record<string, boolean>>({});
+  const [quickSaveTurnId, setQuickSaveTurnId] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -196,6 +198,7 @@ export default function HistoryPage() {
       setSavedMemoryTurnIds((current) => ({ ...current, [turn.id]: true }));
       closeMemoryDraft(turn.id);
       setMemorySaveMessage("已保存为长期记忆。");
+      setQuickSaveTurnId("");
     } catch (err) {
       setMemorySaveMessage(err instanceof Error ? err.message : "保存记忆失败");
     }
@@ -227,6 +230,7 @@ export default function HistoryPage() {
         },
       }));
       setMemorySaveMessage(response.source === "parser" ? "已生成记忆候选，请确认后保存。" : "已生成基础候选，请编辑确认后保存。");
+      setQuickSaveTurnId(turn.id);
     } catch (err) {
       setMemorySaveMessage(err instanceof Error ? err.message : "生成记忆候选失败");
     }
@@ -302,7 +306,13 @@ export default function HistoryPage() {
           {!isLoading && filteredTurns.length === 0 ? (
             <p className="emptyState">还没有符合条件的对话。</p>
           ) : null}
-          {filteredTurns.map((turn) => (
+          {filteredTurns.map((turn) => {
+            const turnExpanded = !!expandedTurnIds[turn.id];
+            const userSummary = (turn.user_text || "这一轮没有识别到文字").slice(0, 30);
+            const aiSummary = (turn.assistant_text || "这一轮没有回复文字").slice(0, 30);
+            const hasMore = (turn.user_text || "").length > 30 || (turn.assistant_text || "").length > 30;
+            const isQuickSave = quickSaveTurnId === turn.id;
+            return (
             <article className="historyTurn" key={turn.id}>
               <div className="turnMeta">
                 <span>{formatTime(turn.created_at)}</span>
@@ -311,14 +321,35 @@ export default function HistoryPage() {
                 <span>音色：{displayName(turn.voice_display_name, turn.voice_profile_id)}</span>
               </div>
               <div className="turnDialogue">
-                <p>
-                  <strong>老人说：</strong>
-                  {turn.user_text || "这一轮没有识别到文字"}
-                </p>
-                <p>
-                  <strong>AI 回复：</strong>
-                  {turn.assistant_text || "这一轮没有回复文字"}
-                </p>
+                {turnExpanded ? (
+                  <>
+                    <p>
+                      <strong>老人说：</strong>
+                      {turn.user_text || "这一轮没有识别到文字"}
+                    </p>
+                    <p>
+                      <strong>AI 回复：</strong>
+                      {turn.assistant_text || "这一轮没有回复文字"}
+                    </p>
+                  </>
+                ) : (
+                  <div
+                    className="turnSummary"
+                    onClick={() => setExpandedTurnIds((s) => ({ ...s, [turn.id]: true }))}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === "Enter") setExpandedTurnIds((s) => ({ ...s, [turn.id]: true })); }}
+                  >
+                    <p><strong>老人说：</strong>{userSummary}{hasMore ? "…" : ""}</p>
+                    <p><strong>AI 回复：</strong>{aiSummary}{hasMore ? "…" : ""}</p>
+                    {hasMore ? <span className="moreHint">点击展开完整对话 ▾</span> : null}
+                  </div>
+                )}
+                {turnExpanded && hasMore ? (
+                  <button className="moreActions" onClick={() => setExpandedTurnIds((s) => ({ ...s, [turn.id]: false }))} type="button">
+                    收起 ▲
+                  </button>
+                ) : null}
               </div>
               <div className="turnFooter">
                 <span>ASR：{turn.asr_provider || "未记录"}</span>
@@ -335,6 +366,11 @@ export default function HistoryPage() {
                     <button className="buttonSecondary" onClick={() => void generateCandidateForTurn(turn)} type="button">
                       生成记忆候选
                     </button>
+                    {isQuickSave ? (
+                      <button className="button buttonSuccess" onClick={() => { openMemoryDraft(turn); void saveTurnAsMemory(turn); }} type="button">
+                        一键保存
+                      </button>
+                    ) : null}
                     <button className="buttonSecondary" onClick={() => openMemoryDraft(turn)} type="button">
                       保存为记忆
                     </button>
@@ -402,7 +438,7 @@ export default function HistoryPage() {
                 </div>
               ) : null}
             </article>
-          ))}
+          );})}
         </div>
       </section>
     </main>

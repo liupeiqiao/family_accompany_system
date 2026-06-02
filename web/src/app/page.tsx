@@ -4,12 +4,14 @@ import { useEffect, useState } from "react";
 
 import { AuthUser, clearAuthSession, getAuthUser } from "../lib/auth";
 
-const panels = [
-  {
-    title: "老人端语音陪伴",
-    body: "登录后优先进入电话式语音陪伴，让老人直接和家人声音聊天。",
-    href: "/elder",
-  },
+const elderPanel = {
+  title: "老人端语音陪伴",
+  body: "登录后优先进入电话式语音陪伴，让老人直接和家人声音聊天。",
+  href: "/elder",
+  hero: true,
+};
+
+const familyPanels = [
   {
     title: "家属管理",
     body: "创建家庭空间，作为档案、音色、记忆和对话历史的数据归属后台。",
@@ -66,7 +68,12 @@ export default function HomePage() {
         <a className="button buttonSecondary" href="/family">进入家属管理</a>
       </div>
       <section className="dashboard" aria-label="首页功能">
-        {panels.map((panel) => (
+        <a className="panel panelLink hero" href={elderPanel.href}>
+          <h2>{elderPanel.title}</h2>
+          <p>{elderPanel.body}</p>
+        </a>
+        <p className="dashboardLabel">家属管理</p>
+        {familyPanels.map((panel) => (
           <a className="panel panelLink" href={panel.href} key={panel.title}>
             <h2>{panel.title}</h2>
             <p>{panel.body}</p>

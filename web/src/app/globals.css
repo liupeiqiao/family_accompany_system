@@ -622,9 +622,31 @@ button:disabled {
 }
 
 .buttonDanger {
-  background: transparent;
-  border-color: #9b241f;
+  background: #fff5f5;
+  border-color: #e8b4b4;
   color: #9b241f;
+}
+
+.buttonDanger:hover {
+  background: #ffe8e8;
+  border-color: #d49191;
+}
+
+.buttonSuccess {
+  background: #23613a;
+  border-color: #23613a;
+  color: #fffaf3;
+}
+
+.buttonSuccess:hover {
+  background: #1a4d2d;
+}
+
+.buttonGroup {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .emptyState {
@@ -938,4 +960,342 @@ button:disabled {
   padding: 10px 14px;
   font-size: 13px;
   color: #8a6d10;
+}
+
+/* ====== Phase 1 additions ====== */
+
+/* Field required marker */
+.fieldRequired span::after {
+  content: " *";
+  color: #9b241f;
+  font-weight: 700;
+}
+
+/* Section divider */
+.sectionDivider {
+  border: 0;
+  border-top: 2px solid #e3d6c5;
+  margin: 32px 0 24px;
+  position: relative;
+}
+
+.sectionDivider[data-title] {
+  border-top: 2px solid #d3c3ae;
+  margin-top: 40px;
+}
+
+.sectionDivider[data-title]::before {
+  background: #f7f2ea;
+  color: #6f6256;
+  content: attr(data-title);
+  font-size: 14px;
+  font-weight: 700;
+  left: 0;
+  padding-right: 16px;
+  position: absolute;
+  top: -10px;
+}
+
+/* Collapsible panel */
+.collapsible {
+  border: 1px solid #e3d6c5;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.collapsibleHeader {
+  align-items: center;
+  background: #fffaf3;
+  border: 0;
+  border-radius: 0;
+  color: #2f241c;
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  font-weight: 700;
+  gap: 8px;
+  justify-content: space-between;
+  min-height: 48px;
+  padding: 12px 18px;
+  text-align: left;
+  width: 100%;
+}
+
+.collapsibleHeader:hover {
+  background: #faf3e8;
+}
+
+.collapsibleHeader::after {
+  content: "▾";
+  font-size: 12px;
+  transition: transform 150ms ease;
+}
+
+.collapsibleHeader.collapsed::after {
+  transform: rotate(-90deg);
+}
+
+.collapsibleBody {
+  padding: 18px;
+}
+
+.collapsibleBody.collapsed {
+  display: none;
+}
+
+/* Stat cards grid */
+.statGrid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.statCard {
+  background: #fffaf3;
+  border: 1px solid #e3d6c5;
+  border-radius: 8px;
+  padding: 16px;
+  text-align: center;
+}
+
+.statCard.completed {
+  border-color: #b8cdbd;
+  background: #f1f7f2;
+}
+
+.statCard.pending {
+  border-color: #e8d4b8;
+  background: #fffbf5;
+}
+
+.statNumber {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.statNumber.done {
+  color: #23613a;
+}
+
+.statNumber.todo {
+  color: #8a6d10;
+}
+
+.statLabel {
+  color: #6f6256;
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+/* ====== Phase 2: Elder page enhancements ====== */
+
+/* Elder phone state backgrounds */
+.elderPhone[data-call-state="idle"] {
+  background: #f7f2ea;
+}
+
+.elderPhone[data-call-state="recording"] {
+  background: #fef5f5;
+}
+
+.elderPhone[data-call-state="recorded"] {
+  background: #fefaf5;
+}
+
+.elderPhone[data-call-state="understanding"],
+.elderPhone[data-call-state="replying"] {
+  background: #f5f5f7;
+}
+
+.elderPhone[data-call-state="playing"] {
+  background: #f1f7f2;
+}
+
+.elderPhone[data-call-state="error"] {
+  background: #fef5f5;
+}
+
+/* Large text mode for elderly */
+.elderPhone.largeText {
+  font-size: 1.25rem;
+}
+
+.elderPhone.largeText .callTarget h1 {
+  font-size: 36px;
+}
+
+.elderPhone.largeText .callStatus {
+  font-size: 26px;
+}
+
+.elderPhone.largeText .callButton {
+  font-size: 28px;
+  max-width: 300px;
+  width: min(72vw, 300px);
+}
+
+.elderPhone.largeText .recentTurn p {
+  font-size: 1.15rem;
+  line-height: 1.9;
+}
+
+/* More actions toggle */
+.moreActions {
+  background: none;
+  border: 1px dashed #c4b8a7;
+  border-radius: 8px;
+  color: #6f6256;
+  cursor: pointer;
+  font-size: 13px;
+  min-height: 36px;
+  padding: 6px 14px;
+}
+
+.moreActions:hover {
+  border-color: #8d5a2b;
+  color: #2f241c;
+}
+
+.extraActions {
+  display: none;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+}
+
+.extraActions.expanded {
+  display: flex;
+}
+
+/* ====== Phase 3: Family management ====== */
+
+/* Completion panel highlight */
+.completionPanel {
+  background: linear-gradient(135deg, #fffdf8 0%, #faf5ec 100%);
+  border: 2px solid #d3c3ae;
+  border-radius: 12px;
+  padding: 20px 24px;
+}
+
+.completionPanel h3 {
+  margin: 0 0 16px;
+  font-size: 18px;
+}
+
+.completionClickable {
+  color: #2f241c;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: #c4b8a7;
+  text-underline-offset: 3px;
+}
+
+.completionClickable:hover {
+  text-decoration-color: #8d5a2b;
+}
+
+/* Summary card for history */
+.turnSummary {
+  color: #4b3b2f;
+  cursor: pointer;
+  line-height: 1.7;
+}
+
+.turnSummary:hover {
+  color: #2f241c;
+}
+
+.turnSummary .moreHint {
+  color: #8d5a2b;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.turnDialogueFull {
+  display: none;
+}
+
+.turnDialogueFull.expanded {
+  display: grid;
+  gap: 8px;
+}
+
+/* ====== Phase 4: Navigation ====== */
+
+/* Nav group separator */
+.navSeparator {
+  align-self: stretch;
+  background: #d3c3ae;
+  margin: 8px 8px;
+  width: 1px;
+}
+
+.navGroupLabel {
+  align-items: center;
+  color: #a59888;
+  display: none; /* hidden on desktop, shown on mobile */
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  min-height: 46px;
+  padding: 4px 16px 0;
+  text-transform: uppercase;
+}
+
+/* Hero card for primary action */
+.panelLink.hero {
+  border-color: #8d5a2b;
+  border-width: 2px;
+  grid-column: 1 / -1;
+  min-height: 140px;
+  background: linear-gradient(135deg, #fffdf8 0%, #faf5ec 100%);
+}
+
+.panelLink.hero h2 {
+  font-size: 1.3rem;
+}
+
+.panelLink.hero::before {
+  content: "👴 老人入口";
+  color: #8d5a2b;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.dashboardLabel {
+  color: #8a7e72;
+  font-size: 13px;
+  font-weight: 700;
+  grid-column: 1 / -1;
+  letter-spacing: 0.5px;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+/* ====== Phase 3.4: Voice nav mobile ====== */
+@media (max-width: 720px) {
+  .voiceLayout {
+    flex-direction: column;
+  }
+
+  .voiceNav {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 6px;
+    width: 100%;
+  }
+
+  .voiceNav h3 {
+    display: none;
+  }
+
+  .voiceNav .navItem,
+  .voiceNav .navItemActive {
+    border-radius: 20px;
+    font-size: 13px;
+    padding: 6px 14px;
+    white-space: nowrap;
+  }
 }

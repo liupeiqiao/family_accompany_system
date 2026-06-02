@@ -79,6 +79,8 @@ export default function ElderChatPage() {
   const [recentTurns, setRecentTurns] = useState<ConversationTurn[]>([]);
   const [error, setError] = useState("");
   const [continuousMode, setContinuousMode] = useState(false);
+  const [showMore, setShowMore] = useState(false);
+  const [showAllTurns, setShowAllTurns] = useState(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const sendRecordingAfterStopRef = useRef(false);
@@ -150,15 +152,15 @@ export default function ElderChatPage() {
   const primaryLabel = useMemo(() => {
     switch (callState) {
       case "recording":
-        return "发送";
+        return "⏹ 发送";
       case "understanding":
-        return "正在理解";
+        return "⏳ 正在理解";
       case "replying":
-        return "正在回复";
+        return "⏳ 正在回复";
       case "playing":
-        return "打断说话";
+        return "⏹ 打断说话";
       default:
-        return "开始说话";
+        return "🎤 开始说话";
     }
   }, [callState]);
 
@@ -186,7 +188,7 @@ export default function ElderChatPage() {
       return;
     }
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
-      setError("当前浏览器暂时不能录音，请换一个浏览器再试。");
+      setError("这个手机不能说话聊天，让家人帮你换一个手机试试。");
       setCallState("error");
       return;
     }
@@ -213,7 +215,7 @@ export default function ElderChatPage() {
       recorder.start();
       setCallState("recording");
     } catch {
-      setError("没有打开麦克风权限，暂时不能语音聊天。");
+      setError("还没打开话筒，让家人帮你设置一下。");
       setCallState("error");
     }
   }
@@ -246,14 +248,14 @@ export default function ElderChatPage() {
       });
       handleVoiceChatResponse(response);
     } catch {
-      setError("我这边有点卡住了，请稍等一下再说。");
+      setError("刚才没听清楚，你再说一遍就好。");
       setCallState("error");
     }
   }
 
   function handleVoiceChatResponse(response: ElderVoiceChatResponse) {
     if (response.status === "asr_empty") {
-      setError("刚才没有听清，您可以再说一遍。");
+      setError("没听清，大点声再说一遍吧。");
       setCallState("idle");
       return;
     }
@@ -321,7 +323,7 @@ export default function ElderChatPage() {
 
   return (
     <main className="shell">
-      <section className="elderPhone" aria-label="老人端语音陪伴">
+      <section className={`elderPhone`} data-call-state={callState} aria-label="老人端语音陪伴">
         <header className="callTarget">
           <p className="eyebrow">正在和</p>
           <h1>{currentPersonaName} 说话</h1>
@@ -341,7 +343,7 @@ export default function ElderChatPage() {
         </button>
 
         <div className="callActions" aria-label="辅助操作">
-          {setupState === "ready" ? (
+          {setupState === "ready" && showMore ? (
             <button
               className={continuousMode ? "button" : "buttonSecondary"}
               onClick={() => setContinuousMode((enabled) => !enabled)}
@@ -350,7 +352,7 @@ export default function ElderChatPage() {
               {continuousMode ? "连续对话：开" : "连续对话：关"}
             </button>
           ) : null}
-          {callState === "playing" ? (
+          {callState === "playing" && showMore ? (
             <button className="buttonSecondary" onClick={() => { stopPlayback(); setCallState("idle"); }} type="button">
               停止播放
             </button>
@@ -358,6 +360,11 @@ export default function ElderChatPage() {
           {callState === "idle" && recentTurns.some((turn) => turn.audioUrl) ? (
             <button className="buttonSecondary" onClick={replayLatest} type="button">
               重播上一条
+            </button>
+          ) : null}
+          {setupState === "ready" ? (
+            <button className="moreActions" onClick={() => setShowMore((v) => !v)} type="button">
+              {showMore ? "收起 ▲" : "更多 ▾"}
             </button>
           ) : null}
         </div>
@@ -378,17 +385,24 @@ export default function ElderChatPage() {
 
         <div className="recentTurns" aria-label="最近对话">
           {recentTurns.length ? (
-            recentTurns.map((turn) => (
-              <article className="recentTurn" key={turn.id}>
-                <p><strong>您说：</strong>{turn.userText || "刚才那句话没有听清"}</p>
-                <p><strong>{currentPersonaName}：</strong>{turn.assistantText}</p>
-                {turn.audioUrl ? (
-                  <button className="buttonSecondary" onClick={() => playAudio(turn.audioUrl as string)} type="button">
-                    重播
-                  </button>
-                ) : null}
-              </article>
-            ))
+            <>
+              {(showAllTurns ? recentTurns : recentTurns.slice(0, 1)).map((turn) => (
+                <article className="recentTurn" key={turn.id}>
+                  <p><strong>您说：</strong>{turn.userText || "刚才那句话没有听清"}</p>
+                  <p><strong>{currentPersonaName}：</strong>{turn.assistantText}</p>
+                  {turn.audioUrl ? (
+                    <button className="buttonSecondary" onClick={() => playAudio(turn.audioUrl as string)} type="button">
+                      重播
+                    </button>
+                  ) : null}
+                </article>
+              ))}
+              {recentTurns.length > 1 ? (
+                <button className="moreActions" onClick={() => setShowAllTurns((v) => !v)} type="button">
+                  {showAllTurns ? "收起 ▲" : `看更多（还有 ${recentTurns.length - 1} 条）▾`}
+                </button>
+              ) : null}
+            </>
           ) : (
             <p className="emptyState">还没有最近对话。</p>
           )}

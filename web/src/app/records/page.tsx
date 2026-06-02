@@ -199,6 +199,8 @@ export default function RecordsPage() {
   const [recordsError, setRecordsError] = useState("");
   const [recordsSuccess, setRecordsSuccess] = useState("");
   const [syncPersonaToFamily, setSyncPersonaToFamily] = useState(true);
+  const [importExpanded, setImportExpanded] = useState(true);
+  const [managementExpanded, setManagementExpanded] = useState(true);
 
   useEffect(() => {
     if (!getAuthToken()) {
@@ -403,6 +405,18 @@ export default function RecordsPage() {
 
   async function deleteSavedRecord(section: "elder" | "persona" | "family" | "memory", index: number) {
     if (!familyContext) return;
+    const sectionLabels: Record<string, string> = { elder: "老人画像", persona: "AI 角色", family: "家人档案", memory: "家庭记忆" };
+    const item = section === "elder"
+      ? savedDraft.elder_profiles?.[0]
+      : section === "persona"
+        ? savedDraft.personas?.[index]
+        : section === "family"
+          ? savedDraft.family_profiles[index]
+          : savedDraft.memories[index];
+    const itemName = item ? displayRecordName(item, sectionLabels[section]) : sectionLabels[section];
+    if (!window.confirm(`确定要删除「${itemName}」吗？\n\n删除后将无法恢复，请确认后再操作。`)) {
+      return;
+    }
     const familyId = familyContext.family.id;
     setRecordsError("");
     setRecordsSuccess("");
@@ -437,7 +451,15 @@ export default function RecordsPage() {
         {familyContext ? <p className="helperText">当前家庭：{familyContext.family.name}</p> : null}
       </section>
 
-      <section className="importWorkspace">
+      <section className="collapsible" style={{ marginBottom: 24 }}>
+        <button
+          className={`collapsibleHeader ${importExpanded ? "" : "collapsed"}`}
+          onClick={() => setImportExpanded((v) => !v)}
+          type="button"
+        >
+          智能导入家庭资料
+        </button>
+        <div className={`collapsibleBody ${importExpanded ? "" : "collapsed"}`}>
         <div className="importSource">
           <label htmlFor="sourceText">家庭资料</label>
           <div className="segmentedControl" aria-label="描述视角">
@@ -487,9 +509,20 @@ export default function RecordsPage() {
         ) : (
           <p className="emptyState">解析后会在这里显示可编辑预览。</p>
         )}
+        </div>
       </section>
 
-      <section className="importWorkspace recordsManagement">
+      <hr className="sectionDivider" data-title="已保存数据" />
+
+      <section className="collapsible">
+        <button
+          className={`collapsibleHeader ${managementExpanded ? "" : "collapsed"}`}
+          onClick={() => setManagementExpanded((v) => !v)}
+          type="button"
+        >
+          已保存的云端档案与记忆
+        </button>
+        <div className={`collapsibleBody ${managementExpanded ? "" : "collapsed"}`}>
         <div className="sectionHeader">
           <h2>已保存的云端档案与记忆</h2>
           <p>这里展示当前家庭空间的数据。修改后点击保存，删除会同步删除云端记录。</p>
@@ -553,6 +586,7 @@ export default function RecordsPage() {
         ) : (
           <p className="emptyState">暂无已保存的云端档案或记忆。</p>
         )}
+        </div>
       </section>
     </main>
   );

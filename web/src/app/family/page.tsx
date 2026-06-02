@@ -136,6 +136,40 @@ export default function FamilyPage() {
             <span>成员角色：{roleLabel(familyContext.membership.role)}</span>
             <span>用户：{familyContext.membership.user_id}</span>
           </div>
+
+          <div className="completionPanel">
+            <h3>陪伴资料完成度</h3>
+            {completion ? (
+              <>
+                <div className="statGrid">
+                  <Link href="/records" className={`statCard ${completion.elder ? "completed" : "pending"}`}>
+                    <div className={`statNumber ${completion.elder ? "done" : "todo"}`}>{completion.elder ? "✓" : "1"}</div>
+                    <div className="statLabel">老人画像</div>
+                  </Link>
+                  <Link href="/records" className={`statCard ${completion.persona ? "completed" : "pending"}`}>
+                    <div className={`statNumber ${completion.persona ? "done" : "todo"}`}>{completion.persona ? "✓" : "2"}</div>
+                    <div className="statLabel">AI 角色</div>
+                  </Link>
+                  <Link href="/records" className={`statCard ${completion.memory ? "completed" : "pending"}`}>
+                    <div className={`statNumber ${completion.memory ? "done" : "todo"}`}>{completion.memory ? "✓" : "3"}</div>
+                    <div className="statLabel">家庭记忆</div>
+                  </Link>
+                  <Link href="/voices" className={`statCard ${completion.voice ? "completed" : "pending"}`}>
+                    <div className={`statNumber ${completion.voice ? "done" : "todo"}`}>{completion.voice ? "✓" : "4"}</div>
+                    <div className="statLabel">音色</div>
+                  </Link>
+                </div>
+                {completion.elder && completion.persona && completion.memory && completion.voice ? (
+                  <p className="successText" style={{ marginTop: 16 }}>所有资料已就绪，老人可以开始语音聊天了。</p>
+                ) : (
+                  <p className="helperText" style={{ marginTop: 16 }}>点击上方未完成的项目，直接跳转到对应配置页面。</p>
+                )}
+              </>
+            ) : (
+              <p className="helperText">暂未读取到陪伴资料。</p>
+            )}
+          </div>
+
           <div className="actions">
             <Link className="button" href="/records">
               完善档案与记忆
@@ -146,25 +180,6 @@ export default function FamilyPage() {
             <Link className="button buttonSecondary" href="/">
               返回首页
             </Link>
-          </div>
-          <div>
-            <h3>陪伴资料完成度</h3>
-            {completion ? (
-              <div className="completionCheck">
-                <span className={completion.elder ? "checkDone" : "checkTodo"}>{completion.elder ? "✅" : "⬜"} 老人画像</span>
-                <span className={completion.persona ? "checkDone" : "checkTodo"}>{completion.persona ? "✅" : "⬜"} AI 角色</span>
-                <span className={completion.memory ? "checkDone" : "checkTodo"}>{completion.memory ? "✅" : "⬜"} 家庭记忆</span>
-                <span className={completion.voice ? "checkDone" : "checkTodo"}>{completion.voice ? "✅" : "⬜"} 音色</span>
-              </div>
-            ) : (
-              <p className="helperText">暂未读取到陪伴资料。</p>
-            )}
-            {completion && !(completion.elder && completion.persona && completion.memory && completion.voice) ? (
-              <p className="helperText">请继续完善上方缺失的资料，完成后老人端即可开始语音陪伴。</p>
-            ) : null}
-            {completion && completion.elder && completion.persona && completion.memory && completion.voice ? (
-              <p className="successText">所有资料已就绪，老人可以开始语音聊天了。</p>
-            ) : null}
           </div>
           <div>
             <h3>下一步</h3>
