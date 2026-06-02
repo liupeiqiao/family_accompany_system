@@ -178,8 +178,8 @@ def run(phone: str, *, dry_run: bool = False) -> None:
         "personality", "preferences", "habits", "health_notes",
         "speech_traits", "life_experiences", "important_memories",
         "relations", "speech_style", "comfort_style",
-        "topic_affinity", "sensitivity_map", "family_members",
-        "emotion_tags", "topic_tags",
+        "topic_affinity", "sensitivity_map", "mood_preference",
+        "family_members", "emotion_tags", "topic_tags",
     }
 
     def _norm(value, field_name=""):
