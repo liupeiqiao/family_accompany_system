@@ -39,6 +39,7 @@ from .handlers import (
     handle_list_cloud_personas,
     handle_list_voice_profiles,
     handle_list_voice_samples,
+    handle_merge_import,
     handle_parse,
     handle_records,
     handle_tts,
@@ -61,6 +62,8 @@ from .schemas import (
     ImportResponse,
     MemoryCandidateRequest,
     MemoryCandidateResponse,
+    MergeImportRequest,
+    MergeImportResponse,
     ParseRequest,
     ParseResponse,
     RecordsResponse,
@@ -338,6 +341,14 @@ def memory_candidate_endpoint(
 @app.post("/api/import", response_model=ImportResponse)
 def import_endpoint(request: ImportRequest) -> ImportResponse:
     return handle_import(request)
+
+
+@app.post("/api/import/merge", response_model=MergeImportResponse)
+def merge_import_endpoint(
+    request: MergeImportRequest,
+    x_user_id: str = Depends(current_user_id),
+) -> MergeImportResponse:
+    return handle_merge_import(request, x_user_id)
 
 
 @app.get("/api/records", response_model=RecordsResponse)

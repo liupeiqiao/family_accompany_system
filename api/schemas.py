@@ -157,3 +157,25 @@ class ChatResponse(BaseModel):
     text: str
     audio_url: str | None = None
     debug: dict = Field(default_factory=dict)
+
+
+class MergeImportRequest(BaseModel):
+    family_id: str
+    draft: dict = Field(default_factory=dict)
+    dedup: dict = Field(default_factory=dict)
+
+
+class MergeImportResultItem(BaseModel):
+    type: str = ""
+    name: str = ""
+    id: str = ""
+    action: str = ""
+    fields: list[str] = Field(default_factory=list)
+    reason: str = ""
+
+
+class MergeImportResponse(BaseModel):
+    created: list[MergeImportResultItem] = Field(default_factory=list)
+    merged: list[MergeImportResultItem] = Field(default_factory=list)
+    skipped: list[MergeImportResultItem] = Field(default_factory=list)
+    conflicts: list[MergeImportResultItem] = Field(default_factory=list)

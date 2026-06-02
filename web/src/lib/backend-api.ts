@@ -5,7 +5,20 @@ const API_BASE_URL = getApiBaseUrl();
 
 export type DraftObject = Record<string, unknown>;
 
+export type DedupItem = {
+  type: "family_profile" | "memory" | "persona" | "elder_profile";
+  action: "create" | "merge" | "merge_into" | "skip" | "conflict";
+  source_temp_id: string;
+  target_id: string;
+  target_name: string;
+  confidence: number;
+  reason: string;
+  fields_to_merge: string[];
+  conflict_fields: string[];
+};
+
 export type DedupSuggestion = {
+  items: DedupItem[];
   persona_action?: "skip" | "merge" | "new" | "";
   persona_match?: string;
   family_actions?: {
@@ -29,6 +42,22 @@ export type ParsedDraft = {
   memories: DraftObject[];
   dedup?: DedupSuggestion;
   merge_preview?: string[];
+};
+
+export type MergeImportResultItem = {
+  type: string;
+  name: string;
+  id: string;
+  action?: string;
+  fields?: string[];
+  reason?: string;
+};
+
+export type MergeImportResponse = {
+  created: MergeImportResultItem[];
+  merged: MergeImportResultItem[];
+  skipped: MergeImportResultItem[];
+  conflicts: MergeImportResultItem[];
 };
 
 export type ImportResponse = {
@@ -424,6 +453,20 @@ export function importParsedData(payload: ParsedDraft & { family_id: string }): 
     method: "POST",
     body: JSON.stringify(payload),
   });
+}
+
+export function mergeImportParsedData(payload: {
+  family_id: string;
+  draft: ParsedDraft;
+  dedup: DedupSuggestion;
+}): Promise<MergeImportResponse> {
+  return requestJson<MergeImportResponse>(
+    "/api/import/merge",
+    withUser({
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  );
 }
 
 export function fetchRecords(): Promise<ParsedDraft> {

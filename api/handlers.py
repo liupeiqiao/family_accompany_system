@@ -8,7 +8,7 @@ from fastapi import HTTPException
 
 from engine import db
 from engine.family import normalize_family_relation
-from llm.parser import dedup_check, parse_user_text
+from llm.parser import dedup_check, parse_user_text, _source_id
 from productization.audio_storage import store_generated_audio_if_configured
 from productization.chat_service import generate_chat_reply
 from productization.cloud_repository import (
@@ -39,6 +39,7 @@ from .schemas import (
     MatchedPersonaResponse,
     MemoryCandidateRequest,
     MemoryCandidateResponse,
+    MergeImportResponse,
     ParseRequest,
     ParseResponse,
     RecordsResponse,
@@ -99,10 +100,15 @@ def handle_parse(request: ParseRequest) -> ParseResponse:
         if existing_personas or existing_families
         else {}
     )
-    memory_actions = _build_memory_actions(parsed.get("memories", []), existing_memories)
-    if memory_actions:
+    memory_items = _build_memory_dedup_items(parsed.get("memories", []), existing_memories)
+    if memory_items:
         dedup = dict(dedup)
-        dedup["memory_actions"] = memory_actions
+        dedup.setdefault("items", [])
+        dedup["items"].extend(memory_items)
+        dedup["memory_actions"] = [
+            {"new_content": item["source_temp_id"], "action": item["action"], "target": item["target_id"]}
+            for item in memory_items
+        ]
 
     return ParseResponse(
         persona=parsed.get("persona", {}),
@@ -964,6 +970,184 @@ def handle_elder_voice_chat(
     )
 
 
+CORE_IDENTITY_FIELDS = {"name", "relation", "nickname", "phone", "identity", "gender", "full_name", "role_label", "appellation"}
+
+
+def handle_merge_import(request, user_id: str):
+    """统一合并保存：重新读取云端数据 → 校验 dedup → 执行 create/merge/skip/conflict → 返回结果"""
+    family_id = request.family_id
+    repo = get_cloud_repository()
+    dedup = request.dedup or {}
+    dedup_items = dedup.get("items", [])
+    draft = request.draft or {}
+
+    existing_personas = _call_cloud(lambda: repo.list_personas(family_id=family_id, user_id=user_id))
+    existing_families = _call_cloud(lambda: repo.list_family_profiles(family_id=family_id, user_id=user_id))
+    existing_memories = _call_cloud(lambda: repo.list_memories(family_id=family_id, user_id=user_id))
+    existing_elder = _call_cloud(lambda: repo.get_elder_current(family_id=family_id, user_id=user_id))
+
+    persona_by_id = {str(p.get("id", "")): p for p in existing_personas if p.get("id")}
+    family_by_id = {str(f.get("id", "")): f for f in existing_families if f.get("id")}
+    family_by_name = {str(f.get("name", "")): f for f in existing_families}
+    memory_by_content = {
+        _normalize_memory_content(m.get("content", "")): m
+        for m in existing_memories if m.get("content")
+    }
+
+    created: list[dict] = []
+    merged: list[dict] = []
+    skipped: list[dict] = []
+    conflicts: list[dict] = []
+
+    dedup_by_type_source: dict[str, dict] = {}
+    for item in dedup_items:
+        key = f"{item.get('type','')}:{item.get('source_temp_id','')}"
+        dedup_by_type_source[key] = item
+
+    # personas
+    persona_payloads = draft.get("personas") or ([draft.get("persona")] if draft.get("persona") else [])
+    for persona in persona_payloads:
+        if not persona or not _has_importable_value(persona):
+            continue
+        source_id = _source_id(persona)
+        dedup_item = dedup_by_type_source.get(f"persona:{source_id}")
+        action = dedup_item.get("action", "create") if dedup_item else "create"
+
+        if action == "skip":
+            skipped.append({"type": "persona", "name": str(persona.get("role_label", "")), "reason": "dedup 建议跳过"})
+            continue
+
+        if action in ("merge", "merge_into") and dedup_item:
+            target_id = dedup_item.get("target_id", "")
+            target = persona_by_id.get(target_id)
+            if target is None:
+                created_item = _call_cloud(lambda: repo.create_persona(family_id=family_id, user_id=user_id, payload=dict(persona)))
+                created.append({"type": "persona", "name": str(created_item.get("role_label", "")), "id": str(created_item.get("id", ""))})
+                continue
+            merged_persona = _merge_persona(target, persona)
+            updated = _call_cloud(lambda: repo.update_persona(family_id=family_id, user_id=user_id, persona_id=target_id, payload=merged_persona))
+            merged.append({
+                "type": "persona", "name": str(updated.get("role_label", "")),
+                "id": str(updated.get("id", "")),
+                "fields": dedup_item.get("fields_to_merge", []),
+            })
+        else:
+            created_item = _call_cloud(lambda: repo.create_persona(family_id=family_id, user_id=user_id, payload=dict(persona)))
+            created.append({"type": "persona", "name": str(created_item.get("role_label", "")), "id": str(created_item.get("id", ""))})
+
+    # family_profiles
+    for profile in draft.get("family_profiles", []):
+        if not profile or not _has_importable_value(profile):
+            continue
+        source_id = _source_id(profile)
+        dedup_item = dedup_by_type_source.get(f"family_profile:{source_id}")
+        action = dedup_item.get("action", "create") if dedup_item else "create"
+
+        if action == "skip":
+            skipped.append({"type": "family_profile", "name": str(profile.get("name", "")), "reason": "dedup 建议跳过"})
+            continue
+
+        if action in ("merge", "merge_into") and dedup_item:
+            target_id = dedup_item.get("target_id", "")
+            target = family_by_id.get(target_id)
+            if target is None:
+                target = family_by_name.get(dedup_item.get("target_name", ""))
+            if target is None:
+                created_item = _call_cloud(lambda: repo.create_family_profile(family_id=family_id, user_id=user_id, payload=dict(profile)))
+                created.append({"type": "family_profile", "name": str(created_item.get("name", "")), "id": str(created_item.get("id", ""))})
+                continue
+            merged_profile, profile_conflicts = _merge_family_profile_with_conflicts(target, profile)
+            if profile_conflicts:
+                conflicts.append({
+                    "type": "family_profile", "name": str(profile.get("name", "")),
+                    "id": str(target.get("id", "")), "fields": profile_conflicts,
+                    "reason": "字段冲突，保留已有值",
+                })
+            updated = _call_cloud(lambda: repo.update_family_profile(family_id=family_id, user_id=user_id, profile_id=str(target.get("id", "")), payload=merged_profile))
+            merged.append({
+                "type": "family_profile", "name": str(updated.get("name", "")),
+                "id": str(updated.get("id", "")),
+                "fields": dedup_item.get("fields_to_merge", []),
+            })
+        else:
+            created_item = _call_cloud(lambda: repo.create_family_profile(family_id=family_id, user_id=user_id, payload=dict(profile)))
+            created.append({"type": "family_profile", "name": str(created_item.get("name", "")), "id": str(created_item.get("id", ""))})
+
+    # memories
+    for memory in draft.get("memories", []):
+        content = str(memory.get("content", "")).strip()
+        if not content:
+            continue
+        normalized = _normalize_memory_content(content)
+        existing = memory_by_content.get(normalized)
+        if existing:
+            skipped.append({"type": "memory", "name": content[:40], "id": str(existing.get("id", "")), "reason": "相似记忆已存在"})
+            continue
+        created_mem = _call_cloud(lambda: repo.create_memory(family_id=family_id, user_id=user_id, payload=dict(memory)))
+        created.append({"type": "memory", "name": content[:40], "id": str(created_mem.get("id", ""))})
+
+    # elder_profile
+    elder_payloads = draft.get("elder_profiles") or ([draft.get("elder_profile")] if draft.get("elder_profile") else [])
+    for elder in elder_payloads:
+        if not _has_importable_value(elder):
+            continue
+        if existing_elder and existing_elder.get("id"):
+            merged_elder, elder_conflicts = _merge_elder_with_conflicts(existing_elder, elder)
+            if elder_conflicts:
+                conflicts.append({
+                    "type": "elder_profile", "name": str(elder.get("full_name", "")),
+                    "fields": elder_conflicts, "reason": "字段冲突，保留已有值",
+                })
+            updated = _call_cloud(lambda: repo.upsert_elder_current(family_id=family_id, user_id=user_id, payload=merged_elder))
+            merged.append({"type": "elder_profile", "name": str(updated.get("full_name", "")), "id": str(updated.get("id", ""))})
+        else:
+            updated = _call_cloud(lambda: repo.upsert_elder_current(family_id=family_id, user_id=user_id, payload=dict(elder)))
+            created.append({"type": "elder_profile", "name": str(updated.get("full_name", "")), "id": str(updated.get("id", ""))})
+
+    return MergeImportResponse(created=created, merged=merged, skipped=skipped, conflicts=conflicts)
+
+
+def _merge_family_profile_with_conflicts(existing: dict, incoming: dict) -> tuple[dict, list[str]]:
+    merged = dict(existing)
+    conflict_fields: list[str] = []
+
+    for field in ("name", "relation", "gender"):
+        existing_val = str(existing.get(field, "")).strip()
+        incoming_val = str(incoming.get(field, "")).strip()
+        if not existing_val and incoming_val:
+            merged[field] = incoming_val
+        elif existing_val and incoming_val and existing_val != incoming_val:
+            if field in CORE_IDENTITY_FIELDS:
+                conflict_fields.append(field)
+            else:
+                merged[field] = incoming_val
+
+    for field in FAMILY_LIST_FIELDS:
+        merged[field] = _merge_list(existing.get(field, []), incoming.get(field, []))
+
+    merged["notes"] = _merge_notes(existing.get("notes", ""), incoming.get("notes", ""))
+    return merged, conflict_fields
+
+
+def _merge_elder_with_conflicts(existing: dict, incoming: dict) -> tuple[dict, list[str]]:
+    merged = dict(existing)
+    conflict_fields: list[str] = []
+
+    for field in ("full_name", "gender"):
+        existing_val = str(existing.get(field, "")).strip()
+        incoming_val = str(incoming.get(field, "")).strip()
+        if not existing_val and incoming_val:
+            merged[field] = incoming_val
+        elif existing_val and incoming_val and existing_val != incoming_val:
+            conflict_fields.append(field)
+
+    for field in ELDER_LIST_FIELDS:
+        merged[field] = _merge_list(existing.get(field, []), incoming.get(field, []))
+
+    merged["notes"] = _merge_notes(existing.get("notes", ""), incoming.get("notes", ""))
+    return merged, conflict_fields
+
+
 def _has_importable_value(data: dict) -> bool:
     return any(value not in ("", None, [], {}) for value in data.values())
 
@@ -1144,7 +1328,7 @@ def _memory_actions_by_content(dedup: dict) -> dict[str, dict]:
     }
 
 
-def _build_memory_actions(new_memories: list[dict], existing_memories: list[dict]) -> list[dict]:
+def _build_memory_dedup_items(new_memories: list[dict], existing_memories: list[dict]) -> list[dict]:
     if not new_memories or not existing_memories:
         return []
 
@@ -1153,7 +1337,7 @@ def _build_memory_actions(new_memories: list[dict], existing_memories: list[dict
         for memory in existing_memories
         if memory.get("content")
     }
-    actions = []
+    items = []
     for memory in new_memories:
         content = memory.get("content", "") if memory else ""
         normalized = _normalize_memory_content(content)
@@ -1161,14 +1345,18 @@ def _build_memory_actions(new_memories: list[dict], existing_memories: list[dict
             continue
         existing = existing_by_content.get(normalized)
         if existing:
-            actions.append(
-                {
-                    "new_content": content,
-                    "action": "skip",
-                    "target": existing.get("id", ""),
-                }
-            )
-    return actions
+            items.append({
+                "type": "memory",
+                "action": "skip",
+                "source_temp_id": content[:40],
+                "target_id": existing.get("id", ""),
+                "target_name": content[:40],
+                "confidence": 0.95,
+                "reason": "相似记忆已存在",
+                "fields_to_merge": [],
+                "conflict_fields": [],
+            })
+    return items
 
 
 def _normalize_memory_content(content: str) -> str:

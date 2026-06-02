@@ -169,14 +169,14 @@ def dedup_check(
     existing_personas: list[dict],
     existing_families: list[dict],
 ) -> dict:
-    """去重检查，返回 {persona_action, persona_match, family_actions}"""
+    """去重检查，返回 {items: [{type, action, source_temp_id, target_id, target_name, confidence, reason, fields_to_merge, conflict_fields}]}"""
     ep_text = "\n".join(
-        f"- {p.get('role_label','')} (关系:{p.get('relation','')}, 称呼:{p.get('appellation','')})"
+        f"- {p.get('role_label','')} (关系:{p.get('relation','')}, 称呼:{p.get('appellation','')}, id:{p.get('id','')})"
         for p in existing_personas
     ) if existing_personas else "（无）"
 
     ef_text = "\n".join(
-        f"- {f.get('name','')} (关系:{f.get('relation','')}, 性格:{'、'.join(f.get('personality',[]))})"
+        f"- {f.get('name','')} (关系:{f.get('relation','')}, 性格:{'、'.join(f.get('personality',[]))}, id:{f.get('id','')})"
         for f in existing_families
     ) if existing_families else "（无）"
 
@@ -188,12 +188,102 @@ def dedup_check(
             existing_personas=ep_text, existing_families=ef_text,
             new_persona=np_text, new_families=nf_text,
         ), temperature=0.2)
-        result = json.loads(raw)
-        result.setdefault("family_actions", [])
-        result.setdefault("persona_action", "new")
-        result.setdefault("persona_match", "")
-        return result
+        llm_result = json.loads(raw)
+        llm_result.setdefault("family_actions", [])
+        llm_result.setdefault("persona_action", "new")
+        llm_result.setdefault("persona_match", "")
     except Exception:
-        actions = [{"new_name": f.get("name",""), "action": "new"}
-                   for f in new_parsed.get("family_profiles", [])]
-        return {"persona_action": "new", "persona_match": "", "family_actions": actions}
+        llm_result = {
+            "persona_action": "new", "persona_match": "",
+            "family_actions": [
+                {"new_name": f.get("name", ""), "action": "new"}
+                for f in new_parsed.get("family_profiles", [])
+            ],
+        }
+
+    items: list[dict] = []
+
+    # persona dedup item
+    persona_action = llm_result.get("persona_action", "new")
+    if persona_action in ("merge", "merge_into"):
+        persona = new_parsed.get("persona", {})
+        target_name = llm_result.get("persona_match", "")
+        target = _find_persona_target(target_name, existing_personas)
+        items.append({
+            "type": "persona",
+            "action": persona_action,
+            "source_temp_id": _source_id(persona),
+            "target_id": target.get("id", "") if target else "",
+            "target_name": target_name,
+            "confidence": 0.85,
+            "reason": f"角色名称匹配：{target_name}",
+            "fields_to_merge": _diff_fields(target, persona) if target else list(persona.keys()),
+            "conflict_fields": [],
+        })
+
+    # family profile dedup items
+    for action in llm_result.get("family_actions", []):
+        item_action = action.get("action", "new")
+        item = {
+            "type": "family_profile",
+            "action": item_action,
+            "source_temp_id": f"temp_{action.get('new_name', '')}",
+            "target_id": "",
+            "target_name": action.get("target", ""),
+            "confidence": 0.85,
+            "reason": "",
+            "fields_to_merge": [],
+            "conflict_fields": [],
+        }
+        if item_action in ("merge_into", "merge"):
+            target = _find_family_target(action.get("target", ""), existing_families)
+            item["target_id"] = target.get("id", "") if target else ""
+            item["reason"] = f"姓名匹配：{action.get('target', '')}"
+            new_family = _find_new_family(action.get("new_name", ""), new_parsed.get("family_profiles", []))
+            item["fields_to_merge"] = _diff_fields(target, new_family) if target and new_family else []
+        items.append(item)
+
+    return {"items": items, "persona_action": llm_result["persona_action"],
+            "persona_match": llm_result["persona_match"], "family_actions": llm_result["family_actions"]}
+
+
+def _source_id(item: dict) -> str:
+    return str(item.get("role_label") or item.get("name") or item.get("content", "")[:20])
+
+
+def _find_persona_target(target_name: str, existing: list[dict]) -> dict | None:
+    for p in existing:
+        if target_name and (target_name in str(p.get("role_label", "")) or str(p.get("role_label", "")) in target_name):
+            return p
+    return None
+
+
+def _find_family_target(target_name: str, existing: list[dict]) -> dict | None:
+    for f in existing:
+        if target_name and (target_name in str(f.get("name", "")) or str(f.get("name", "")) in target_name):
+            return f
+    return None
+
+
+def _find_new_family(name: str, families: list[dict]) -> dict | None:
+    for f in families:
+        if name and (name in str(f.get("name", "")) or str(f.get("name", "")) in name):
+            return f
+    return None
+
+
+def _diff_fields(existing: dict | None, incoming: dict | None) -> list[str]:
+    if not existing or not incoming:
+        return list(incoming.keys()) if incoming else []
+    fields = []
+    for key, val in incoming.items():
+        if key in ("id",):
+            continue
+        existing_val = existing.get(key)
+        if isinstance(val, list) and isinstance(existing_val, list):
+            new_items = [v for v in val if v not in existing_val]
+            if new_items:
+                fields.append(key)
+        elif isinstance(val, str) and val and not existing_val:
+            fields.append(key)
+    return fields

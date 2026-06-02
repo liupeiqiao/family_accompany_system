@@ -21,11 +21,15 @@ import {
   fetchCloudMemories,
   fetchCloudPersonas,
   fetchCurrentFamily,
+  mergeImportParsedData,
   parseProfileText,
   saveCloudElder,
   updateCloudFamilyProfile,
   updateCloudMemory,
   updateCloudPersona,
+  type DedupSuggestion,
+  type MergeImportResponse,
+  type MergeImportResultItem,
 } from "../../lib/backend-api";
 import { getAuthToken } from "../../lib/auth";
 
@@ -36,7 +40,7 @@ const emptyDraft: ParsedDraft = {
   elder_profiles: [],
   family_profiles: [],
   memories: [],
-  dedup: {},
+  dedup: { items: [] },
 };
 
 const elderFields = [
@@ -106,7 +110,7 @@ function cloneDraft(draft: ParsedDraft): ParsedDraft {
     elder_profiles: (draft.elder_profiles ?? []).map((item) => ({ ...item })),
     family_profiles: draft.family_profiles.map((item) => ({ ...item })),
     memories: draft.memories.map((item) => ({ ...item })),
-    dedup: draft.dedup ?? {},
+    dedup: draft.dedup ?? { items: [] },
     merge_preview: draft.merge_preview ?? [],
   };
 }
@@ -164,7 +168,7 @@ function cloudRecordsToDraft(records: {
     elder_profiles: elderProfiles,
     family_profiles: records.familyProfiles,
     memories: records.memories,
-    dedup: {},
+    dedup: { items: [] },
   };
 }
 
@@ -286,6 +290,7 @@ export default function RecordsPage() {
   const [recordsError, setRecordsError] = useState("");
   const [recordsSuccess, setRecordsSuccess] = useState("");
   const [syncPersonaToFamily, setSyncPersonaToFamily] = useState(true);
+  const [mergeResult, setMergeResult] = useState<MergeImportResponse | null>(null);
 
   useEffect(() => {
     if (!getAuthToken()) {
@@ -347,66 +352,11 @@ export default function RecordsPage() {
     }
   }
 
-  async function saveDraftToCloud(nextDraft: ParsedDraft, syncPersona: boolean) {
-    if (!familyContext) throw new Error("请先创建或进入家庭空间。");
-    const familyId = familyContext.family.id;
-    const counts = { persona: 0, elder_profile: 0, family_profiles: 0, memories: 0 };
-
-    const elderPayloads = nextDraft.elder_profiles?.length ? nextDraft.elder_profiles : [nextDraft.elder_profile];
-    for (const elder of elderPayloads) {
-      if (!hasImportableValue(elder)) continue;
-      await saveCloudElder(payloadWithFamily(elder, familyId));
-      counts.elder_profile += 1;
+  async function saveDraftToCloud() {
+    if (!familyContext) {
+      setError("请先创建或进入家庭空间。");
+      return;
     }
-
-    const personaPayloads = nextDraft.personas?.length ? nextDraft.personas : [nextDraft.persona];
-    for (const persona of personaPayloads) {
-      if (!hasImportableValue(persona)) continue;
-      await createCloudPersona(payloadWithFamily(persona, familyId));
-      counts.persona += 1;
-    }
-
-    // 同步：AI 角色 → 家人档案
-    if (syncPersona) {
-      for (const persona of personaPayloads) {
-        if (!hasImportableValue(persona)) continue;
-        const existingFamilyNames = new Set(
-          nextDraft.family_profiles.map((fp) => valueToText(fp.name)).filter(Boolean)
-        );
-        const personaName = valueToText(persona.role_label) || valueToText(persona.relation);
-        if (personaName && !existingFamilyNames.has(personaName)) {
-          const familyFromPersona = {
-            name: personaName,
-            gender: valueToText(persona.gender) || "",
-            relation: valueToText(persona.relation),
-            personality: Array.isArray(persona.personality) ? persona.personality : [],
-            preferences: [],
-            habits: [],
-            relations: [],
-            notes: "",
-          };
-          await createCloudFamilyProfile(payloadWithFamily(familyFromPersona, familyId));
-          counts.family_profiles += 1;
-        }
-      }
-    }
-
-    for (const profile of nextDraft.family_profiles) {
-      if (!hasImportableValue(profile)) continue;
-      await createCloudFamilyProfile(payloadWithFamily(profile, familyId));
-      counts.family_profiles += 1;
-    }
-
-    for (const memory of nextDraft.memories) {
-      if (!valueToText(memory.content).trim()) continue;
-      await createCloudMemory(payloadWithFamily(memory, familyId));
-      counts.memories += 1;
-    }
-
-    return counts;
-  }
-
-  async function onSave() {
     if (!hasDraft(draft)) {
       setError("当前没有可保存的档案或记忆。");
       return;
@@ -414,11 +364,20 @@ export default function RecordsPage() {
     setIsSaving(true);
     setError("");
     setSuccess("");
+    setMergeResult(null);
     try {
-      const result = await saveDraftToCloud(draft, syncPersonaToFamily);
-      setSuccess(
-        `已保存到云端：角色 ${result.persona} 个，老人画像 ${result.elder_profile} 个，家人档案 ${result.family_profiles} 条，记忆 ${result.memories} 条。`,
-      );
+      const result = await mergeImportParsedData({
+        family_id: familyContext.family.id,
+        draft,
+        dedup: draft.dedup ?? { items: [] },
+      });
+      setMergeResult(result);
+      const parts: string[] = [];
+      if (result.created.length > 0) parts.push(`新建 ${result.created.length} 条`);
+      if (result.merged.length > 0) parts.push(`合并 ${result.merged.length} 条`);
+      if (result.skipped.length > 0) parts.push(`跳过 ${result.skipped.length} 条`);
+      if (result.conflicts.length > 0) parts.push(`${result.conflicts.length} 条需人工确认`);
+      setSuccess(`保存完成：${parts.join("，")}。`);
       setDraft(emptyDraft);
       await loadSavedRecords();
     } catch (err) {
@@ -426,6 +385,10 @@ export default function RecordsPage() {
     } finally {
       setIsSaving(false);
     }
+  }
+
+  async function onSave() {
+    await saveDraftToCloud();
   }
 
   async function onSaveRecords() {
@@ -643,9 +606,56 @@ export default function RecordsPage() {
             {error ? <p className="errorText">{error}</p> : null}
             {success ? <p className="successText">{success}</p> : null}
 
+            {mergeResult ? (
+              <section className="recordsMergeResult">
+                <h4>保存结果</h4>
+                {mergeResult.created.length > 0 ? (
+                  <div className="mergeResultGroup">
+                    <span className="mergeTag created">新建 {mergeResult.created.length} 条</span>
+                    <ul>
+                      {mergeResult.created.map((item, i) => (
+                        <li key={`created-${i}`}>{labelForType(item.type)}：{item.name}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+                {mergeResult.merged.length > 0 ? (
+                  <div className="mergeResultGroup">
+                    <span className="mergeTag merged">合并 {mergeResult.merged.length} 条</span>
+                    <ul>
+                      {mergeResult.merged.map((item, i) => (
+                        <li key={`merged-${i}`}>{labelForType(item.type)}：{item.name}{item.fields?.length ? `（补充：${item.fields.join("、")}）` : ""}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+                {mergeResult.skipped.length > 0 ? (
+                  <div className="mergeResultGroup">
+                    <span className="mergeTag skipped">跳过 {mergeResult.skipped.length} 条</span>
+                    <ul>
+                      {mergeResult.skipped.map((item, i) => (
+                        <li key={`skipped-${i}`}>{labelForType(item.type)}：{item.name} — {item.reason}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+                {mergeResult.conflicts.length > 0 ? (
+                  <div className="mergeResultGroup">
+                    <span className="mergeTag conflicts">冲突 {mergeResult.conflicts.length} 条</span>
+                    <ul>
+                      {mergeResult.conflicts.map((item, i) => (
+                        <li key={`conflict-${i}`}>{labelForType(item.type)}：{item.name} — 字段 {item.fields?.join("、")} 与已有数据不一致，已保留原值</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+              </section>
+            ) : null}
+
             {hasDraft(draft) ? (
               <section className="recordsDraftPreview">
                 <h3>解析预览</h3>
+                <MergePreview dedup={draft.dedup ?? { items: [] }} draft={draft} />
                 <EditableObject title="老人画像" data={draft.elder_profile} fields={elderFields} onChange={(key, value) => updateTopLevel("elder_profile", key, value)} />
                 <EditableObject title="AI 扮演角色" data={draft.persona} fields={personaFields} onChange={(key, value) => updateTopLevel("persona", key, value)} />
                 <EditableList title="家人档案" items={draft.family_profiles} fields={familyFields} onChange={(index, key, value) => updateListItem("draft", "family_profiles", index, key, value)} />
@@ -832,6 +842,106 @@ function RecordsIcon({ name }: { name: string }) {
         <path d={d} key={d} />
       ))}
     </svg>
+  );
+}
+
+function labelForType(type: string): string {
+  switch (type) {
+    case "persona": return "AI 角色";
+    case "elder_profile": return "老人画像";
+    case "family_profile": return "家人档案";
+    case "memory": return "家庭记忆";
+    default: return type;
+  }
+}
+
+function typeLabel(type: string): string {
+  switch (type) {
+    case "persona": return "AI 角色";
+    case "family_profile": return "家人档案";
+    case "memory": return "家庭记忆";
+    case "elder_profile": return "老人画像";
+    default: return type;
+  }
+}
+
+function MergePreview({ dedup, draft }: { dedup: DedupSuggestion; draft: ParsedDraft }) {
+  const items = dedup?.items ?? [];
+  if (items.length === 0) return null;
+
+  const grouped = {
+    create: items.filter((item) => item.action === "create"),
+    merge: items.filter((item) => item.action === "merge" || item.action === "merge_into"),
+    skip: items.filter((item) => item.action === "skip"),
+    conflict: items.filter((item) => item.action === "conflict"),
+  };
+
+  const hasAny = Object.values(grouped).some((g) => g.length > 0);
+  if (!hasAny) return null;
+
+  return (
+    <section className="mergePreview">
+      <h3>智能合并预览</h3>
+
+      {grouped.create.length > 0 ? (
+        <div className="mergeGroup">
+          <span className="mergeGroupLabel create">将新建</span>
+          <ul>
+            {grouped.create.map((item, i) => (
+              <li key={`create-${i}`}>
+                将新建{typeLabel(item.type)}：<strong>{item.target_name || item.source_temp_id}</strong>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {grouped.merge.length > 0 ? (
+        <div className="mergeGroup">
+          <span className="mergeGroupLabel merge">将合并</span>
+          <ul>
+            {grouped.merge.map((item, i) => (
+              <li key={`merge-${i}`}>
+                检测到「{item.source_temp_id}」可能是已有{typeLabel(item.type)}，将合并到
+                <strong>「{item.target_name}」</strong>
+                {item.fields_to_merge.length > 0 ? (
+                  <span className="mergeFields">（补充：{item.fields_to_merge.join("、")}）</span>
+                ) : null}
+                {item.reason ? <span className="mergeReason"> — {item.reason}</span> : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {grouped.skip.length > 0 ? (
+        <div className="mergeGroup">
+          <span className="mergeGroupLabel skip">将跳过</span>
+          <ul>
+            {grouped.skip.map((item, i) => (
+              <li key={`skip-${i}`}>
+                已存在相似{typeLabel(item.type)}，跳过：<strong>{item.target_name}</strong>
+                {item.reason ? <span className="mergeReason"> — {item.reason}</span> : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {grouped.conflict.length > 0 ? (
+        <div className="mergeGroup">
+          <span className="mergeGroupLabel conflict">需确认</span>
+          <ul>
+            {grouped.conflict.map((item, i) => (
+              <li key={`conflict-${i}`}>
+                <strong>{item.target_name}</strong> 的字段
+                「{item.conflict_fields.join("、")}」与已有资料不一致，需确认
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </section>
   );
 }
 
