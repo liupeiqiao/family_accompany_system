@@ -117,9 +117,6 @@ export default function HomePage() {
             <a className="homePrimaryCta" href="/elder">
               开始陪伴之旅
             </a>
-            <a className="homeSecondaryCta" href="/family">
-              了解更多
-            </a>
           </div>
         </div>
 

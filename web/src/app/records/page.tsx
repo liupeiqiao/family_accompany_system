@@ -182,6 +182,93 @@ function displayRecordName(item: DraftObject, fallback: string): string {
   );
 }
 
+type SavedSection = "elder" | "persona" | "family" | "memory";
+
+const savedSectionMeta: Record<SavedSection, {
+  title: string;
+  description: string;
+  icon: string;
+  tone: string;
+}> = {
+  elder: {
+    title: "老人画像",
+    description: "关于老人的性格、习惯、健康状况等关键信息",
+    icon: "person",
+    tone: "warm",
+  },
+  persona: {
+    title: "AI 扮演角色",
+    description: "AI 在聊天中扮演的家人角色及沟通风格",
+    icon: "smile",
+    tone: "green",
+  },
+  family: {
+    title: "家人档案",
+    description: "家庭成员的基本信息、性格特点与关系",
+    icon: "group",
+    tone: "blue",
+  },
+  memory: {
+    title: "家庭记忆",
+    description: "家庭中重要的事件、经历与温暖回忆",
+    icon: "notebook",
+    tone: "orange",
+  },
+};
+
+function sectionItems(section: SavedSection, draft: ParsedDraft): DraftObject[] {
+  if (section === "elder") return draft.elder_profiles ?? [];
+  if (section === "persona") return draft.personas ?? [];
+  if (section === "family") return draft.family_profiles;
+  return draft.memories;
+}
+
+function sectionFields(section: SavedSection) {
+  if (section === "elder") return elderFields;
+  if (section === "persona") return personaFields;
+  if (section === "family") return familyFields;
+  return memoryFields;
+}
+
+function listSectionName(section: SavedSection): "elder_profiles" | "personas" | "family_profiles" | "memories" {
+  if (section === "elder") return "elder_profiles";
+  if (section === "persona") return "personas";
+  if (section === "family") return "family_profiles";
+  return "memories";
+}
+
+function countItems(items: DraftObject[]): number {
+  return items.filter(hasImportableValue).length;
+}
+
+function firstTag(item: DraftObject, keys: string[]): string {
+  for (const key of keys) {
+    const value = item[key];
+    if (Array.isArray(value) && value.length > 0) return valueToText(value[0]);
+    const text = valueToText(value);
+    if (text) return text;
+  }
+  return "";
+}
+
+function recordTags(section: SavedSection, item: DraftObject): string[] {
+  const candidates = section === "elder"
+    ? [firstTag(item, ["health_notes"]), firstTag(item, ["preferences"])]
+    : section === "persona"
+      ? [firstTag(item, ["relation"]), firstTag(item, ["appellation"])]
+      : section === "family"
+        ? [firstTag(item, ["relation"]), firstTag(item, ["personality"])]
+        : [firstTag(item, ["memory_type"]), firstTag(item, ["topic_tags"]), firstTag(item, ["emotion_tags"])];
+  return candidates.filter(Boolean).slice(0, 2);
+}
+
+function recordSummary(section: SavedSection, item: DraftObject): string {
+  if (section === "memory") return valueToText(item.content) || "暂未填写记忆内容";
+  if (section === "elder") return valueToText(item.notes) || firstTag(item, ["personality", "habits", "health_notes"]) || "暂未填写摘要";
+  if (section === "persona") return valueToText(item.comfort_style) || valueToText(item.speech_style) || "暂未填写沟通风格";
+  return valueToText(item.notes) || firstTag(item, ["relations", "preferences", "habits"]) || "暂未填写档案摘要";
+}
+
 export default function RecordsPage() {
   const router = useRouter();
   const [familyContext, setFamilyContext] = useState<FamilyContext | null>(null);
@@ -199,8 +286,6 @@ export default function RecordsPage() {
   const [recordsError, setRecordsError] = useState("");
   const [recordsSuccess, setRecordsSuccess] = useState("");
   const [syncPersonaToFamily, setSyncPersonaToFamily] = useState(true);
-  const [importExpanded, setImportExpanded] = useState(true);
-  const [managementExpanded, setManagementExpanded] = useState(true);
 
   useEffect(() => {
     if (!getAuthToken()) {
@@ -443,152 +528,310 @@ export default function RecordsPage() {
     }
   }
 
+  const savedSections: SavedSection[] = ["elder", "persona", "family", "memory"];
+  const totalCounts = {
+    elder: countItems(sectionItems("elder", savedDraft)),
+    persona: countItems(sectionItems("persona", savedDraft)),
+    family: countItems(sectionItems("family", savedDraft)),
+    memory: countItems(sectionItems("memory", savedDraft)),
+  };
+
   return (
-    <main className="shell">
-      <section className="sectionHeader">
-        <h1>档案与记忆</h1>
-        <p>资料会保存到当前登录用户所在的家庭空间，供老人端对话、音色绑定和后续长期记忆检索使用。</p>
-        {familyContext ? <p className="helperText">当前家庭：{familyContext.family.name}</p> : null}
-      </section>
-
-      <section className="collapsible" style={{ marginBottom: 24 }}>
-        <button
-          className={`collapsibleHeader ${importExpanded ? "" : "collapsed"}`}
-          onClick={() => setImportExpanded((v) => !v)}
-          type="button"
-        >
-          智能导入家庭资料
-        </button>
-        <div className={`collapsibleBody ${importExpanded ? "" : "collapsed"}`}>
-        <div className="importSource">
-          <label htmlFor="sourceText">家庭资料</label>
-          <div className="segmentedControl" aria-label="描述视角">
-            <button className={perspective === "family" ? "segmentActive" : ""} type="button" onClick={() => setPerspective("family")}>
-              家人视角
+    <main className="recordsApp">
+      <RecordsSidebar />
+      <section className="recordsMain">
+        <header className="recordsHeader">
+          <div>
+            <h1>档案与记忆</h1>
+            <p>当前家庭空间的资料与记忆库</p>
+            {familyContext ? <span className="recordsFamilyTag">当前家庭：{familyContext.family.name}</span> : null}
+          </div>
+          <div className="recordsHeaderActions">
+            <button className="recordsButton recordsButtonGhost" type="button" onClick={loadSavedRecords} disabled={isLoadingRecords}>
+              <span aria-hidden="true">↻</span>
+              {isLoadingRecords ? "加载中" : "刷新"}
             </button>
-            <button className={perspective === "elder" ? "segmentActive" : ""} type="button" onClick={() => setPerspective("elder")}>
-              老人视角
+            <button className="recordsButton recordsButtonPrimary" type="button" onClick={onSaveRecords} disabled={isSavingRecords || !hasDraft(savedDraft)}>
+              <span aria-hidden="true">▣</span>
+              {isSavingRecords ? "保存中" : "保存修改"}
             </button>
           </div>
-          <textarea
-            id="sourceText"
-            value={sourceText}
-            onChange={(event) => setSourceText(event.target.value)}
-            placeholder="例如：老人叫宋桂兰，女儿小雨每周都会打电话。去年中秋，小雨陪妈妈在院子里赏月。"
-          />
-          <div className="actions">
-            <button type="button" onClick={onParse} disabled={isParsing || !familyContext}>
-              {isParsing ? "解析中..." : "智能解析"}
-            </button>
-            <button className="button buttonSecondary" type="button" onClick={onSave} disabled={isSaving || !hasDraft(draft)}>
-              {isSaving ? "保存中..." : "保存到云端"}
-            </button>
-            <Link className="button buttonSecondary" href="/family">
-              返回家庭空间
-            </Link>
-          </div>
-          {error ? <p className="errorText">{error}</p> : null}
-          {success ? <p className="successText">{success}</p> : null}
-        </div>
+        </header>
 
-        {hasDraft(draft) ? (
-          <div className="previewGrid">
-            <EditableObject title="老人画像" data={draft.elder_profile} fields={elderFields} onChange={(key, value) => updateTopLevel("elder_profile", key, value)} />
-            <EditableObject title="AI 扮演角色" data={draft.persona} fields={personaFields} onChange={(key, value) => updateTopLevel("persona", key, value)} />
-            <label className="voiceConsent" style={{ marginTop: -8, marginBottom: 8 }}>
+        <section className="recordsStats" aria-label="档案统计">
+          <RecordsStat title="老人画像" value={totalCounts.elder} unit="条" icon="person" tone="warm" />
+          <RecordsStat title="AI 角色" value={totalCounts.persona} unit="个" icon="smile" tone="green" />
+          <RecordsStat title="家人档案" value={totalCounts.family} unit="条" icon="group" tone="blue" />
+          <RecordsStat title="家庭记忆" value={totalCounts.memory} unit="条" icon="notebook" tone="orange" />
+        </section>
+
+        <div className="recordsWorkspace">
+          <section className="recordsLibrary">
+            <div className="recordsSectionHeading">
+              <h2>已保存的云端档案与记忆</h2>
+              <p>修改后点击保存，删除会同步删除云端记录。</p>
+            </div>
+            {recordsError ? <p className="errorText">{recordsError}</p> : null}
+            {recordsSuccess ? <p className="successText">{recordsSuccess}</p> : null}
+
+            {isLoadingRecords ? (
+              <p className="recordsEmpty">正在加载云端档案...</p>
+            ) : hasDraft(savedDraft) ? (
+              <div className="recordsSavedGroups">
+                {savedSections.map((section) => (
+                  <SavedGroup
+                    key={section}
+                    section={section}
+                    items={sectionItems(section, savedDraft)}
+                    fields={sectionFields(section)}
+                    expandedKey={expandedKey}
+                    setExpandedKey={setExpandedKey}
+                    onChange={(index, key, value) => updateListItem("saved", listSectionName(section), index, key, value)}
+                    onDelete={deleteSavedRecord}
+                  />
+                ))}
+              </div>
+            ) : (
+              <p className="recordsEmpty">暂无已保存的云端档案或记忆。</p>
+            )}
+          </section>
+
+          <aside className="recordsImportPanel">
+            <div className="recordsPanelTitle">
+              <h2>智能导入家庭资料</h2>
+              <span aria-hidden="true">⌃</span>
+            </div>
+            <p>粘贴或输入家人的文字资料，AI 将自动解析整理。</p>
+            <label className="recordsTextareaLabel" htmlFor="sourceText">
+              <textarea
+                id="sourceText"
+                value={sourceText}
+                maxLength={2000}
+                onChange={(event) => setSourceText(event.target.value)}
+                placeholder="请输入或粘贴家庭资料..."
+              />
+              <span>{sourceText.length} / 2000</span>
+            </label>
+            <div className="recordsPerspective">
+              <span>选择视角</span>
+              <div className="recordsSegmented" aria-label="描述视角">
+                <button className={perspective === "family" ? "active" : ""} type="button" onClick={() => setPerspective("family")}>
+                  家人视角
+                </button>
+                <button className={perspective === "elder" ? "active" : ""} type="button" onClick={() => setPerspective("elder")}>
+                  老人视角
+                </button>
+              </div>
+            </div>
+            <label className="recordsCheckbox">
               <input
                 checked={syncPersonaToFamily}
                 onChange={(e) => setSyncPersonaToFamily(e.target.checked)}
                 type="checkbox"
               />
-              <span>同步创建为家人档案（将角色姓名、关系、性格自动填入家人档案）</span>
+              <span>同步创建为家人档案</span>
             </label>
-            <EditableList title="家人档案" items={draft.family_profiles} fields={familyFields} onChange={(index, key, value) => updateListItem("draft", "family_profiles", index, key, value)} />
-            <EditableList title="家庭记忆" items={draft.memories} fields={memoryFields} onChange={(index, key, value) => updateListItem("draft", "memories", index, key, value)} />
-          </div>
-        ) : (
-          <p className="emptyState">解析后会在这里显示可编辑预览。</p>
-        )}
-        </div>
-      </section>
+            <button className="recordsButton recordsButtonPrimary recordsParseButton" type="button" onClick={onParse} disabled={isParsing || !familyContext}>
+              {isParsing ? "解析中..." : "✦ 智能解析"}
+            </button>
+            <button className="recordsButton recordsButtonGhost recordsSaveDraftButton" type="button" onClick={onSave} disabled={isSaving || !hasDraft(draft)}>
+              {isSaving ? "保存中..." : "保存到云端"}
+            </button>
+            <Link className="recordsBackLink" href="/family">
+              返回家庭空间
+            </Link>
+            {error ? <p className="errorText">{error}</p> : null}
+            {success ? <p className="successText">{success}</p> : null}
 
-      <hr className="sectionDivider" data-title="已保存数据" />
-
-      <section className="collapsible">
-        <button
-          className={`collapsibleHeader ${managementExpanded ? "" : "collapsed"}`}
-          onClick={() => setManagementExpanded((v) => !v)}
-          type="button"
-        >
-          已保存的云端档案与记忆
-        </button>
-        <div className={`collapsibleBody ${managementExpanded ? "" : "collapsed"}`}>
-        <div className="sectionHeader">
-          <h2>已保存的云端档案与记忆</h2>
-          <p>这里展示当前家庭空间的数据。修改后点击保存，删除会同步删除云端记录。</p>
-        </div>
-        <div className="actions">
-          <button type="button" onClick={onSaveRecords} disabled={isSavingRecords || !hasDraft(savedDraft)}>
-            {isSavingRecords ? "保存中..." : "保存修改"}
-          </button>
-          <button className="button buttonSecondary" type="button" onClick={loadSavedRecords} disabled={isLoadingRecords}>
-            {isLoadingRecords ? "加载中..." : "刷新"}
-          </button>
-        </div>
-        {recordsError ? <p className="errorText">{recordsError}</p> : null}
-        {recordsSuccess ? <p className="successText">{recordsSuccess}</p> : null}
-
-        {isLoadingRecords ? (
-          <p className="emptyState">正在加载云端档案...</p>
-        ) : hasDraft(savedDraft) ? (
-          <div className="previewGrid">
-            <SavedList
-              title="老人画像"
-              section="elder"
-              items={savedDraft.elder_profiles ?? []}
-              fields={elderFields}
-              expandedKey={expandedKey}
-              setExpandedKey={setExpandedKey}
-              onChange={(index, key, value) => updateListItem("saved", "elder_profiles", index, key, value)}
-              onDelete={deleteSavedRecord}
-            />
-            <SavedList
-              title="AI 扮演角色"
-              section="persona"
-              items={savedDraft.personas ?? []}
-              fields={personaFields}
-              expandedKey={expandedKey}
-              setExpandedKey={setExpandedKey}
-              onChange={(index, key, value) => updateListItem("saved", "personas", index, key, value)}
-              onDelete={deleteSavedRecord}
-            />
-            <SavedList
-              title="家人档案"
-              section="family"
-              items={savedDraft.family_profiles}
-              fields={familyFields}
-              expandedKey={expandedKey}
-              setExpandedKey={setExpandedKey}
-              onChange={(index, key, value) => updateListItem("saved", "family_profiles", index, key, value)}
-              onDelete={deleteSavedRecord}
-            />
-            <SavedList
-              title="家庭记忆"
-              section="memory"
-              items={savedDraft.memories}
-              fields={memoryFields}
-              expandedKey={expandedKey}
-              setExpandedKey={setExpandedKey}
-              onChange={(index, key, value) => updateListItem("saved", "memories", index, key, value)}
-              onDelete={deleteSavedRecord}
-            />
-          </div>
-        ) : (
-          <p className="emptyState">暂无已保存的云端档案或记忆。</p>
-        )}
+            {hasDraft(draft) ? (
+              <section className="recordsDraftPreview">
+                <h3>解析预览</h3>
+                <EditableObject title="老人画像" data={draft.elder_profile} fields={elderFields} onChange={(key, value) => updateTopLevel("elder_profile", key, value)} />
+                <EditableObject title="AI 扮演角色" data={draft.persona} fields={personaFields} onChange={(key, value) => updateTopLevel("persona", key, value)} />
+                <EditableList title="家人档案" items={draft.family_profiles} fields={familyFields} onChange={(index, key, value) => updateListItem("draft", "family_profiles", index, key, value)} />
+                <EditableList title="家庭记忆" items={draft.memories} fields={memoryFields} onChange={(index, key, value) => updateListItem("draft", "memories", index, key, value)} />
+              </section>
+            ) : (
+              <p className="recordsImportHint">解析后可在页面查看与编辑</p>
+            )}
+          </aside>
         </div>
       </section>
     </main>
+  );
+}
+
+function RecordsSidebar() {
+  const navItems = [
+    { href: "/", label: "首页", icon: "home" },
+    { href: "/family", label: "家庭空间", icon: "house" },
+    { href: "/records", label: "档案与记忆", icon: "archive" },
+    { href: "/history", label: "对话历史", icon: "chat" },
+    { href: "/voices", label: "音色管理", icon: "person" },
+    { href: "/family", label: "系统设置", icon: "settings" },
+  ];
+
+  return (
+    <aside className="recordsSidebar">
+      <div className="recordsBrand">
+        <RecordsIcon name="brand" />
+        <strong>亲情陪伴系统</strong>
+      </div>
+      <nav className="recordsNav" aria-label="档案与记忆导航">
+        {navItems.map((item) => (
+          <Link
+            className={item.href === "/records" ? "recordsNavItem active" : "recordsNavItem"}
+            href={item.href}
+            key={`${item.href}-${item.label}`}
+          >
+            <RecordsIcon name={item.icon} />
+            <span>{item.label}</span>
+          </Link>
+        ))}
+      </nav>
+      <div className="recordsUser">
+        <span className="recordsAvatar" aria-hidden="true" />
+        <span>
+          <strong>小美</strong>
+          <small>管理员</small>
+        </span>
+        <RecordsIcon name="settings" />
+      </div>
+    </aside>
+  );
+}
+
+function RecordsStat({
+  title,
+  value,
+  unit,
+  icon,
+  tone,
+}: {
+  title: string;
+  value: number;
+  unit: string;
+  icon: string;
+  tone: string;
+}) {
+  return (
+    <article className="recordsStat">
+      <span className={`recordsIconBubble ${tone}`}>
+        <RecordsIcon name={icon} />
+      </span>
+      <div>
+        <span>{title}</span>
+        <strong>
+          {value}
+          <small>{unit}</small>
+        </strong>
+      </div>
+    </article>
+  );
+}
+
+function SavedGroup({
+  section,
+  items,
+  fields,
+  expandedKey,
+  setExpandedKey,
+  onChange,
+  onDelete,
+}: {
+  section: SavedSection;
+  items: DraftObject[];
+  fields: readonly (readonly [string, string])[];
+  expandedKey: string;
+  setExpandedKey: (key: string) => void;
+  onChange: (index: number, key: string, value: string) => void;
+  onDelete: (section: SavedSection, index: number) => void;
+}) {
+  const meta = savedSectionMeta[section];
+  return (
+    <section className="recordsSavedGroup">
+      <div className="recordsSavedIntro">
+        <span className={`recordsIconBubble ${meta.tone}`}>
+          <RecordsIcon name={meta.icon} />
+        </span>
+        <div>
+          <h3>{meta.title}</h3>
+          <p>{meta.description}</p>
+        </div>
+      </div>
+      <div className="recordsSavedList">
+        {items.length === 0 ? <p className="recordsEmpty compact">暂无内容</p> : null}
+        {items.map((item, index) => {
+          const itemKey = `${section}-${index}`;
+          const isExpanded = expandedKey === itemKey;
+          const tags = recordTags(section, item);
+          return (
+            <article className="recordsSavedItem" key={itemKey}>
+              <div className="recordsItemContent">
+                <span className={`recordsDot ${meta.tone}`} aria-hidden="true" />
+                <div>
+                  <strong>{displayRecordName(item, `${meta.title} ${index + 1}`)}</strong>
+                  <p>{recordSummary(section, item)}</p>
+                  {tags.length > 0 ? (
+                    <div className="recordsTags">
+                      {tags.map((tag) => <span key={tag}>{tag}</span>)}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+              <div className="recordsItemActions">
+                <button className="recordsMiniButton" type="button" onClick={() => setExpandedKey(isExpanded ? "" : itemKey)}>
+                  {isExpanded ? "收起" : "展开编辑"}
+                </button>
+                <button className="recordsMiniButton danger" type="button" onClick={() => onDelete(section, index)}>
+                  删除
+                </button>
+              </div>
+              {isExpanded ? (
+                <div className="fieldGrid recordsInlineEditor">
+                  {fields.map(([key, label]) => (
+                    <label key={key}>
+                      <span>{label}</span>
+                      <input value={valueToText(item[key])} onChange={(event) => onChange(index, key, event.target.value)} />
+                    </label>
+                  ))}
+                </div>
+              ) : null}
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function RecordsIcon({ name }: { name: string }) {
+  if (name === "brand") {
+    return (
+      <svg aria-hidden="true" viewBox="0 0 24 24">
+        <path d="M4 10.7 12 4l8 6.7v7.1a2.2 2.2 0 0 1-2.2 2.2h-3.1v-5.5H9.3V20H6.2A2.2 2.2 0 0 1 4 17.8z" />
+        <path d="M9.3 20v-5.5h5.4V20" />
+      </svg>
+    );
+  }
+  const paths: Record<string, string[]> = {
+    home: ["M4 11.5 12 5l8 6.5V20H6v-8.5", "M10 20v-5h4v5"],
+    house: ["M4 11.5 12 5l8 6.5V20H6v-8.5", "M8 20v-7h8v7"],
+    archive: ["M5 6h14v14H5z", "M8 4h8", "M9 11h6", "M12 8v6"],
+    chat: ["M5 6h14v10H9l-4 4z"],
+    person: ["M12 12a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z", "M5.5 20a6.5 6.5 0 0 1 13 0"],
+    settings: ["M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7z", "M12 3v3M12 18v3M4.2 7.5l2.6 1.5M17.2 15l2.6 1.5M4.2 16.5 6.8 15M17.2 9l2.6-1.5"],
+    smile: ["M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z", "M8.5 10h.01M15.5 10h.01", "M8.8 14a4.2 4.2 0 0 0 6.4 0"],
+    group: ["M9 12a3 3 0 1 0 0-6 3 3 0 0 0 0 6z", "M17 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z", "M3.8 20a5.2 5.2 0 0 1 10.4 0", "M13.5 19a4.5 4.5 0 0 1 6.7 0"],
+    notebook: ["M6 4h11a2 2 0 0 1 2 2v14H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z", "M8 4v16", "M11 8h5M11 12h5M11 16h4"],
+  };
+
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24">
+      {(paths[name] ?? paths.archive).map((d) => (
+        <path d={d} key={d} />
+      ))}
+    </svg>
   );
 }
 
@@ -647,64 +890,6 @@ function EditableList({
             </div>
           </article>
         ))}
-      </div>
-    </section>
-  );
-}
-
-function SavedList({
-  title,
-  section,
-  items,
-  fields,
-  expandedKey,
-  setExpandedKey,
-  onChange,
-  onDelete,
-}: {
-  title: string;
-  section: "elder" | "persona" | "family" | "memory";
-  items: DraftObject[];
-  fields: readonly (readonly [string, string])[];
-  expandedKey: string;
-  setExpandedKey: (key: string) => void;
-  onChange: (index: number, key: string, value: string) => void;
-  onDelete: (section: "elder" | "persona" | "family" | "memory", index: number) => void;
-}) {
-  return (
-    <section className="importSection wide">
-      <h2>{title}</h2>
-      {items.length === 0 ? <p className="emptyState">暂无内容。</p> : null}
-      <div className="profileList">
-        {items.map((item, index) => {
-          const itemKey = `${section}-${index}`;
-          const isExpanded = expandedKey === itemKey;
-          return (
-            <article className="profileSummary" key={itemKey}>
-              <div className="profileSummaryHeader">
-                <strong>{displayRecordName(item, `${title} ${index + 1}`)}</strong>
-                <div className="memoryActions">
-                  <button className="button buttonSecondary" type="button" onClick={() => setExpandedKey(isExpanded ? "" : itemKey)}>
-                    {isExpanded ? "收起" : "展开编辑"}
-                  </button>
-                  <button className="button buttonDanger" type="button" onClick={() => onDelete(section, index)}>
-                    删除
-                  </button>
-                </div>
-              </div>
-              {isExpanded ? (
-                <div className="fieldGrid profileEditor">
-                  {fields.map(([key, label]) => (
-                    <label key={key}>
-                      <span>{label}</span>
-                      <input value={valueToText(item[key])} onChange={(event) => onChange(index, key, event.target.value)} />
-                    </label>
-                  ))}
-                </div>
-              ) : null}
-            </article>
-          );
-        })}
       </div>
     </section>
   );

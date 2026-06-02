@@ -148,11 +148,13 @@ export default function VoicesPage() {
   const canWrite = familyContext?.membership.role === "owner" || familyContext?.membership.role === "editor";
 
   return (
-    <main className="shell">
-      <DoubaoBanner />
-      <div className="voiceLayout">
-        <VoiceNav activeTab={activeTab} onSelect={setActiveTab} />
-        <div className="voiceContent">
+    <main className="voiceApp">
+      <VoiceAppSidebar />
+      <section className="voiceMain" aria-label="音色管理">
+        <DoubaoBanner />
+        <div className="voiceLayout">
+          <VoiceNav activeTab={activeTab} onSelect={setActiveTab} />
+          <div className="voiceContent">
           {isLoading ? <p className="helperText">正在加载声音空间...</p> : null}
           {error && !familyContext ? (
             <section className="importSection">
@@ -199,20 +201,57 @@ export default function VoicesPage() {
               onError={setError}
             />
           )}
+          </div>
         </div>
-      </div>
+      </section>
     </main>
   );
 }
 
-// ====== Sub-components (stubs to be filled in later tasks) ======
+function VoiceAppSidebar() {
+  const items = [
+    { href: "/", label: "首页", icon: "home" },
+    { href: "/family", label: "家庭空间", icon: "family" },
+    { href: "/records", label: "档案与记忆", icon: "folder" },
+    { href: "/history", label: "对话历史", icon: "history" },
+    { href: "/voices", label: "音色管理", icon: "voice", active: true },
+    { href: "/family", label: "系统设置", icon: "settings" },
+  ];
+  return (
+    <aside className="voiceSidebar">
+      <a className="voiceBrand" href="/">
+        <VoiceIcon name="brand" />
+        <span>
+          <strong>亲情陪伴系统</strong>
+          <small>让陪伴有声，让记忆延续</small>
+        </span>
+      </a>
+      <nav className="voiceSideNav" aria-label="主导航">
+        {items.map((item) => (
+          <a className={item.active ? "active" : ""} href={item.href} key={item.label}>
+            <VoiceIcon name={item.icon} />
+            <span>{item.label}</span>
+          </a>
+        ))}
+      </nav>
+      <div className="voiceUserCard">
+        <span className="voiceUserAvatar" aria-hidden="true" />
+        <span>
+          <strong>小美</strong>
+          <small>管理员</small>
+        </span>
+        <VoiceIcon name="chevron" />
+      </div>
+    </aside>
+  );
+}
 
 function DoubaoBanner() {
   return (
     <div className="doubaoBanner">
-      <span>使用豆包语音进行声音复刻与音色管理。</span>
+      <span><VoiceIcon name="speaker" />使用豆包语音进行声音复刻与音色管理</span>
       <a className="button buttonSecondary" href="https://console.volcengine.com/speech/new/voices?ResourceID=volc.seedicl.default&projectName=default" target="_blank" rel="noopener noreferrer">
-        打开豆包语音控制台
+        打开豆包语音控制台 <VoiceIcon name="external" />
       </a>
     </div>
   );
@@ -226,7 +265,6 @@ function VoiceNav({ activeTab, onSelect }: { activeTab: NavTab; onSelect: (tab: 
   ];
   return (
     <nav className="voiceNav">
-      <h3>音色管理</h3>
       {tabs.map((tab) => (
         <button
           key={tab.key}
@@ -263,20 +301,25 @@ function FamilyVoiceLibrary(props: {
   });
 
   return (
-    <section className="importSection wide">
-      <h2>家人音色库</h2>
-      <div className="toolbar">
-        <input
-          placeholder="搜索音色名称..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
-          <option value="all">全部</option>
-          <option value="preset">预置音色</option>
-          <option value="prepaid">已导入</option>
-          <option value="postpaid">已复刻</option>
-        </select>
+    <section className="voicePanel">
+      <div className="voicePanelTop">
+        <h2>家人音色库</h2>
+        <div className="toolbar">
+          <label className="voiceSearch">
+            <VoiceIcon name="search" />
+            <input
+              placeholder="搜索音色名称..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </label>
+          <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+            <option value="all">全部</option>
+            <option value="preset">预置音色</option>
+            <option value="prepaid">已导入</option>
+            <option value="postpaid">已复刻</option>
+          </select>
+        </div>
       </div>
       {message ? <p className="successText">{message}</p> : null}
       {filtered.length === 0 ? (
@@ -360,6 +403,7 @@ function VoiceCard(props: {
   return (
     <article className="voiceCard">
       <div className="voiceCardHeader">
+        <span className="voiceCardAvatar" aria-hidden="true" />
         {isEditingName ? (
           <span className="voiceNameEdit">
             <input
@@ -379,6 +423,14 @@ function VoiceCard(props: {
           </>
         )}
         {typeLabel ? <span className={`voiceTag ${typeClass}`}>{typeLabel}</span> : null}
+      </div>
+      <div className="voiceWave">
+        {Array.from({ length: 34 }).map((_, index) => (
+          <span key={index} style={{ height: `${10 + ((index * 7) % 26)}px` }} />
+        ))}
+        <button disabled={state.isLoading || profile.status !== "ready"} onClick={() => onPreview(profile)} type="button" aria-label="试听">
+          <VoiceIcon name="play" />
+        </button>
       </div>
       <div className="voiceCardMeta">
         <span>创建时间: {new Date().toLocaleDateString()}</span>
@@ -484,7 +536,7 @@ function ImportVoice(props: {
   }
 
   return (
-    <section className="importSection">
+    <section className="voiceFormPanel voiceImportPanel">
       <h2>导入已有音色</h2>
       <p className="helperText">
         如果您已经拥有豆包语音中的音色，可直接导入已有 Speaker ID，无需重新进行声音复刻。
@@ -584,7 +636,7 @@ function CreateCloneVoice(props: {
   }
 
   return (
-    <section className="importSection">
+    <section className="voiceFormPanel voiceClonePanel">
       <h2>创建复刻音色</h2>
       <p className="warningText">后付费声音复刻可能产生额外费用，请提前查看官方计费规则。</p>
       <form onSubmit={handleSubmit}>
@@ -703,4 +755,27 @@ function formatDoubaoVoiceStatus(status: number | undefined): string {
   if (status === 3) return "Failed";
   if (status === 4) return "Active";
   return "Unknown";
+}
+
+function VoiceIcon({ name }: { name: string }) {
+  const common = {
+    fill: "none",
+    stroke: "currentColor",
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    strokeWidth: 1.9,
+    viewBox: "0 0 24 24",
+  };
+  if (name === "brand") return <svg {...common}><path d="M4.5 13.5V9.6L12 4l7.5 5.6v3.9" /><path d="M8 14.5a4 4 0 0 1 8 0v1.8a3 3 0 0 1-3 3h-1" /><path d="M8 14.5v2.1a2 2 0 0 0 2 2" /></svg>;
+  if (name === "home") return <svg {...common}><path d="M3.5 11.2 12 4.5l8.5 6.7" /><path d="M6.5 10.8v8h11v-8" /><path d="M10 18.8v-5h4v5" /></svg>;
+  if (name === "family") return <svg {...common}><path d="M9 10a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM17 11a2.4 2.4 0 1 0 0-4.8 2.4 2.4 0 0 0 0 4.8Z" /><path d="M3.8 19a5.2 5.2 0 0 1 10.4 0M14.7 18.2a4.1 4.1 0 0 1 5.5 0" /></svg>;
+  if (name === "folder") return <svg {...common}><path d="M4 7.5h6l1.5 2H20v10H4z" /></svg>;
+  if (name === "history") return <svg {...common}><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5v5l3.4 2" /></svg>;
+  if (name === "voice") return <svg {...common}><path d="M4 13v-2M8 17V7M12 20V4M16 17V7M20 13v-2" /></svg>;
+  if (name === "settings") return <svg {...common}><circle cx="12" cy="12" r="3" /><path d="M19 12a7.8 7.8 0 0 0-.1-1.2l2-1.5-2-3.4-2.4 1a7.8 7.8 0 0 0-2-1.1L14 3h-4l-.5 2.8a7.8 7.8 0 0 0-2 1.1l-2.4-1-2 3.4 2 1.5A7.8 7.8 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.4-1a7.8 7.8 0 0 0 2 1.1L10 21h4l.5-2.8a7.8 7.8 0 0 0 2-1.1l2.4 1 2-3.4-2-1.5c.1-.4.1-.8.1-1.2Z" /></svg>;
+  if (name === "speaker") return <svg {...common}><path d="M5 9v6h3l5 4V5L8 9z" /><path d="M16 9.5a4 4 0 0 1 0 5M18.5 7a7.2 7.2 0 0 1 0 10" /></svg>;
+  if (name === "external") return <svg {...common}><path d="M9 5H5v14h14v-4" /><path d="M13 5h6v6M12 12l7-7" /></svg>;
+  if (name === "search") return <svg {...common}><circle cx="10.5" cy="10.5" r="5.5" /><path d="m15 15 4 4" /></svg>;
+  if (name === "play") return <svg {...common}><path d="m9 6 9 6-9 6z" /></svg>;
+  return <svg {...common}><path d="m9 6 6 6-6 6" /></svg>;
 }
