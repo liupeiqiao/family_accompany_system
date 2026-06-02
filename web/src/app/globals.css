@@ -247,8 +247,7 @@ body {
   margin-top: 42px;
 }
 
-.homePrimaryCta,
-.homeSecondaryCta {
+.homePrimaryCta {
   align-items: center;
   border-radius: 999px;
   display: inline-flex;
@@ -264,12 +263,6 @@ body {
   background: linear-gradient(180deg, #a74404 0%, #823000 100%);
   box-shadow: 0 18px 30px rgba(130, 48, 0, 0.18);
   color: #fff;
-}
-
-.homeSecondaryCta {
-  background: rgba(255, 255, 255, 0.38);
-  border: 1.5px solid #d75f0c;
-  color: #7b3102;
 }
 
 .homeStats {
@@ -701,19 +694,380 @@ a {
   font-weight: 700;
 }
 
-.loginPanel {
+.loginShell {
+  align-items: center;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.82), transparent 34%),
+    linear-gradient(135deg, #f6eadc 0%, #fff8ef 52%, #f1dcc6 100%);
   display: grid;
-  gap: 20px;
-  max-width: 520px;
+  min-height: 100vh;
+  padding: 22px;
+}
+
+.loginCard {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(128, 92, 61, 0.16);
+  border-radius: 18px;
+  box-shadow: 0 22px 64px rgba(103, 68, 38, 0.16);
+  display: grid;
+  grid-template-columns: minmax(320px, 0.94fr) minmax(340px, 1.06fr);
+  margin: 0 auto;
+  max-width: 1180px;
+  min-height: 640px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.loginStoryPanel {
+  background:
+    radial-gradient(circle at 35% 82%, rgba(255, 255, 255, 0.8) 0 10%, transparent 26%),
+    linear-gradient(132deg, #fff9f0 0%, #f9ead9 58%, #ead2b9 100%);
+  min-height: 640px;
+  overflow: hidden;
+  padding: 32px 38px;
+  position: relative;
+}
+
+.loginStoryPanel::after {
+  background: linear-gradient(180deg, transparent 0%, rgba(114, 70, 35, 0.12) 100%);
+  bottom: 0;
+  content: "";
+  height: 36%;
+  left: 0;
+  position: absolute;
+  right: 0;
+}
+
+.loginStepBadge {
+  align-items: center;
+  background: #74401b;
+  border-radius: 50%;
+  color: #fff7ef;
+  display: inline-flex;
+  font-size: 22px;
+  font-weight: 800;
+  height: 42px;
+  justify-content: center;
+  position: relative;
+  width: 42px;
+  z-index: 2;
+}
+
+.loginStoryCopy {
+  color: #4b2d1d;
+  left: 100px;
+  position: absolute;
+  top: 36px;
+  z-index: 2;
+}
+
+.loginStoryCopy p {
+  font-size: 25px;
+  font-weight: 800;
+  line-height: 1.25;
+  margin: 0 0 54px;
+}
+
+.loginStoryCopy h2 {
+  color: #5a3725;
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.65;
+  margin: 0;
+  text-align: center;
+}
+
+.loginStoryCopy h2::after {
+  color: #a36f49;
+  content: "♡";
+  font-size: 42px;
+  font-weight: 400;
+  margin-left: 12px;
+  vertical-align: -12px;
+}
+
+.loginMemoryScene {
+  bottom: 0;
+  height: 420px;
+  left: 0;
+  position: absolute;
+  right: 0;
+  z-index: 1;
+}
+
+.loginMemoryScene::before {
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.26) 0 3px, transparent 3px 86px),
+    linear-gradient(115deg, rgba(150, 103, 58, 0.26), rgba(255, 246, 232, 0.38));
+  bottom: -88px;
+  content: "";
+  height: 260px;
+  left: -76px;
+  position: absolute;
+  right: -90px;
+  transform: rotate(-9deg);
+}
+
+.loginVase {
+  background:
+    radial-gradient(circle at 50% 20%, #f8f0df 0 15px, transparent 16px),
+    linear-gradient(180deg, #d7b783, #f3e3bf);
+  border-radius: 44% 44% 34% 34%;
+  bottom: 178px;
+  box-shadow: 0 28px 46px rgba(91, 58, 31, 0.18);
+  height: 92px;
+  left: 56px;
+  position: absolute;
+  width: 72px;
+}
+
+.loginVase::before {
+  background:
+    radial-gradient(circle, #f2d67f 0 5px, transparent 6px),
+    radial-gradient(circle at 28px 26px, #f4d98a 0 4px, transparent 5px),
+    radial-gradient(circle at 62px 22px, #f1cc72 0 4px, transparent 5px);
+  content: "";
+  height: 96px;
+  left: -16px;
+  position: absolute;
+  top: -86px;
+  width: 118px;
+}
+
+.loginPhotoFrame {
+  background: #b37a42;
+  border: 12px solid #af753f;
+  bottom: 112px;
+  box-shadow: 0 28px 58px rgba(73, 43, 24, 0.3);
+  height: 220px;
+  left: 178px;
+  padding: 8px;
+  position: absolute;
+  transform: rotate(-6deg);
+  width: 210px;
+}
+
+.loginPhotoImage {
+  background:
+    radial-gradient(circle at 50% 35%, rgba(246, 205, 166, 0.9) 0 8%, transparent 9%),
+    radial-gradient(circle at 30% 45%, rgba(246, 205, 166, 0.86) 0 7%, transparent 8%),
+    radial-gradient(circle at 70% 45%, rgba(246, 205, 166, 0.86) 0 7%, transparent 8%),
+    linear-gradient(180deg, rgba(76, 52, 38, 0.25), rgba(76, 52, 38, 0.58)),
+    url("/images/home-hero-companion.png") center / cover;
+  height: 100%;
+  width: 100%;
+}
+
+.loginSnapshot {
+  background: #fffaf3;
+  border: 8px solid #fffaf3;
+  box-shadow: 0 16px 32px rgba(69, 43, 24, 0.18);
+  height: 112px;
+  position: absolute;
+  width: 148px;
+}
+
+.loginSnapshot::before {
+  background:
+    radial-gradient(circle at 52% 34%, #d9a173 0 13%, transparent 14%),
+    linear-gradient(180deg, rgba(77, 49, 36, 0.18), rgba(77, 49, 36, 0.42)),
+    url("/images/home-hero-companion.png") center / cover;
+  content: "";
+  display: block;
+  height: 100%;
+}
+
+.loginSnapshotOne {
+  bottom: 56px;
+  left: 54px;
+  transform: rotate(13deg);
+}
+
+.loginSnapshotTwo {
+  bottom: 26px;
+  right: 32px;
+  transform: rotate(-10deg);
+}
+
+.loginPanel {
+  align-content: center;
+  background:
+    radial-gradient(circle at 55% 18%, rgba(228, 201, 176, 0.22), transparent 28%),
+    #fff;
+  display: grid;
+  gap: 28px;
+  padding: 80px 88px;
+}
+
+.loginPanel .sectionHeader {
+  max-width: none;
+}
+
+.loginPanel .sectionHeader h1 {
+  color: #32231a;
+  font-size: 34px;
+  line-height: 1.2;
+  margin: 0 0 10px;
+}
+
+.loginPanel .sectionHeader p {
+  color: #9b8b7d;
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.loginPanel form {
+  gap: 14px;
 }
 
 .loginPanel label {
   display: grid;
-  gap: 6px;
+  gap: 8px;
 }
 
 .loginPanel span {
+  color: #5d4a3b;
+  font-size: 14px;
   font-weight: 700;
+}
+
+.loginPanel input {
+  background: #fff;
+  border-color: #e7dbce;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(61, 38, 24, 0.04) inset;
+  color: #33251d;
+  min-height: 58px;
+  padding: 14px 18px;
+}
+
+.loginPanel input:focus {
+  border-color: #9b5a24;
+  box-shadow: 0 0 0 3px rgba(142, 82, 35, 0.12);
+  outline: none;
+}
+
+.loginPanel .actions {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1fr;
+  margin: 10px 0 0;
+}
+
+.loginPanel button {
+  border-radius: 12px;
+  font-weight: 800;
+  min-height: 58px;
+}
+
+.loginPanel .buttonSecondary {
+  background: #fbf5ef;
+  border-color: #ead8c7;
+  color: #7d421b;
+}
+
+.loginPanel .actions button[type="submit"] {
+  background: linear-gradient(180deg, #8a4a1e 0%, #76370f 100%);
+  border-color: #76370f;
+  box-shadow: 0 10px 22px rgba(112, 55, 18, 0.18);
+}
+
+.loginPanel .successText,
+.loginPanel .errorText {
+  font-size: 14px;
+  line-height: 1.6;
+  margin-top: 4px;
+}
+
+@media (max-width: 860px) {
+  .loginShell {
+    align-items: start;
+    padding: 14px;
+  }
+
+  .loginCard {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+
+  .loginStoryPanel {
+    min-height: 360px;
+    padding: 24px;
+  }
+
+  .loginStoryCopy {
+    left: 82px;
+    top: 28px;
+  }
+
+  .loginStoryCopy p {
+    font-size: 21px;
+    margin-bottom: 26px;
+  }
+
+  .loginStoryCopy h2 {
+    font-size: 21px;
+    line-height: 1.55;
+    text-align: left;
+  }
+
+  .loginMemoryScene {
+    height: 270px;
+  }
+
+  .loginPhotoFrame {
+    bottom: 18px;
+    height: 132px;
+    left: 48%;
+    width: 130px;
+  }
+
+  .loginVase {
+    bottom: 104px;
+    left: 38px;
+  }
+
+  .loginSnapshot {
+    height: 82px;
+    width: 110px;
+  }
+
+  .loginSnapshotOne {
+    bottom: 22px;
+    left: 28px;
+  }
+
+  .loginSnapshotTwo {
+    bottom: 18px;
+    right: 18px;
+  }
+
+  .loginPanel {
+    padding: 34px 24px 40px;
+  }
+}
+
+@media (max-width: 520px) {
+  .loginStoryPanel {
+    min-height: 300px;
+  }
+
+  .loginStoryCopy {
+    left: 72px;
+  }
+
+  .loginStoryCopy h2::after {
+    display: none;
+  }
+
+  .loginPhotoFrame {
+    left: 50%;
+  }
+
+  .loginPanel .sectionHeader h1 {
+    font-size: 28px;
+  }
 }
 
 .chat {
@@ -1797,5 +2151,312 @@ button:disabled {
     font-size: 13px;
     padding: 6px 14px;
     white-space: nowrap;
+  }
+}
+
+/* Elder voice companion page */
+.shell:has(.elderPhone) {
+  background: #f7f0e6;
+  min-height: calc(100vh - 47px);
+  padding: 0;
+}
+
+.shell:has(.elderPhone) .elderPhone {
+  background: transparent;
+}
+
+.elderPhone {
+  isolation: isolate;
+  margin: 0;
+  max-width: none;
+  min-height: calc(100vh - 47px);
+  overflow: hidden;
+  padding: clamp(28px, 5vw, 72px);
+  position: relative;
+  text-align: left;
+}
+
+.elderPhone::before {
+  background-image: url("/images/elder-voice-bg.png");
+  background-position: center;
+  background-size: cover;
+  content: "";
+  inset: 0;
+  position: absolute;
+  z-index: -3;
+}
+
+.elderPhone::after {
+  background:
+    radial-gradient(circle at 24% 24%, rgba(255, 255, 255, 0.86) 0 16%, rgba(255, 255, 255, 0) 43%),
+    linear-gradient(90deg, rgba(255, 250, 243, 0.92) 0%, rgba(255, 250, 243, 0.76) 42%, rgba(255, 250, 243, 0.42) 72%, rgba(255, 250, 243, 0.7) 100%),
+    linear-gradient(180deg, rgba(87, 43, 14, 0.07), rgba(87, 43, 14, 0.18));
+  content: "";
+  inset: 0;
+  position: absolute;
+  z-index: -2;
+}
+
+.elderPhone .callTarget,
+.elderPhone .callButton,
+.elderPhone .callActions,
+.elderPhone > .helperText,
+.elderPhone .errorText,
+.elderPhone .elderSetupNotice,
+.elderPhone .recentTurns {
+  position: relative;
+  z-index: 1;
+}
+
+.elderPhone .callTarget {
+  backdrop-filter: blur(22px);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.82), rgba(255, 246, 235, 0.58)),
+    radial-gradient(circle at 18% 8%, rgba(229, 139, 56, 0.15), transparent 35%);
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 28px;
+  box-shadow: 0 26px 70px rgba(78, 44, 21, 0.18);
+  display: grid;
+  justify-self: start;
+  max-width: 720px;
+  min-height: 270px;
+  padding: clamp(30px, 4vw, 52px);
+  width: min(720px, 100%);
+}
+
+.elderPhone .callTarget::before {
+  background:
+    radial-gradient(circle at center, #ffd7ba 0 23%, transparent 24%),
+    radial-gradient(circle at center bottom, #d47832 0 38%, transparent 39%),
+    linear-gradient(145deg, #fff7ef, #f1d9c4);
+  border: 5px solid rgba(255, 255, 255, 0.92);
+  border-radius: 50%;
+  box-shadow: 0 18px 42px rgba(128, 62, 18, 0.18);
+  content: "";
+  height: 92px;
+  justify-self: start;
+  margin-bottom: 18px;
+  width: 92px;
+}
+
+.elderPhone .eyebrow {
+  color: #8d3f0d;
+  font-size: 16px;
+  font-weight: 850;
+}
+
+.elderPhone .callTarget h1 {
+  color: #51240e;
+  font-size: clamp(34px, 4.4vw, 64px);
+  font-weight: 900;
+  letter-spacing: 0;
+  line-height: 1.12;
+  margin: 0;
+}
+
+.elderPhone .callTarget .helperText {
+  color: #6e5c4e;
+  font-size: 17px;
+  line-height: 1.7;
+  margin-top: 12px;
+}
+
+.elderPhone .callStatus {
+  align-items: center;
+  color: #2f241c;
+  display: inline-flex;
+  font-size: clamp(20px, 2vw, 28px);
+  font-weight: 800;
+  gap: 12px;
+  line-height: 1.35;
+  margin-top: 24px;
+}
+
+.elderPhone .callStatus::before {
+  background: #2fb976;
+  border-radius: 50%;
+  box-shadow: 0 0 0 8px rgba(47, 185, 118, 0.13);
+  content: "";
+  height: 12px;
+  width: 12px;
+}
+
+.elderPhone .callButton {
+  background:
+    radial-gradient(circle at 34% 28%, rgba(255, 255, 255, 0.28), transparent 30%),
+    linear-gradient(180deg, #b84c06 0%, #823000 100%);
+  border: 0;
+  border-radius: 999px;
+  box-shadow: 0 30px 70px rgba(126, 48, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  color: #fffaf3;
+  font-size: clamp(22px, 2.6vw, 32px);
+  height: min(44vw, 280px);
+  justify-self: center;
+  margin: clamp(24px, 4vw, 44px) 0 8px;
+  max-width: 280px;
+  min-height: 190px;
+  position: relative;
+  text-align: center;
+  width: min(44vw, 280px);
+}
+
+.elderPhone .callButton::before,
+.elderPhone .callButton::after {
+  border: 1px solid rgba(184, 76, 6, 0.22);
+  border-radius: 50%;
+  content: "";
+  inset: -18px;
+  pointer-events: none;
+  position: absolute;
+}
+
+.elderPhone .callButton::after {
+  inset: -36px;
+  opacity: 0.45;
+}
+
+.elderPhone .callButton.recording {
+  background: linear-gradient(180deg, #c64b40, #9b241f);
+}
+
+.elderPhone .callButton.understanding,
+.elderPhone .callButton.replying {
+  background: linear-gradient(180deg, #75675f, #4d433e);
+}
+
+.elderPhone .callButton.playing {
+  background: linear-gradient(180deg, #3e9b62, #23613a);
+}
+
+.elderPhone .callActions {
+  align-items: center;
+  justify-content: center;
+}
+
+.elderPhone .callActions .buttonSecondary,
+.elderPhone .callActions .button,
+.elderPhone .moreActions {
+  backdrop-filter: blur(14px);
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(119, 78, 45, 0.18);
+  border-radius: 999px;
+  box-shadow: 0 12px 28px rgba(75, 47, 25, 0.1);
+  color: #5d2b12;
+  font-weight: 750;
+}
+
+.elderPhone > .helperText {
+  background: rgba(255, 250, 243, 0.72);
+  border: 1px solid rgba(119, 78, 45, 0.12);
+  border-radius: 999px;
+  color: #5f4d3f;
+  justify-self: center;
+  margin-top: 8px;
+  padding: 9px 16px;
+}
+
+.elderPhone .errorText {
+  background: rgba(255, 244, 240, 0.86);
+  border: 1px solid rgba(155, 36, 31, 0.18);
+  border-radius: 16px;
+  justify-self: center;
+  max-width: 620px;
+  padding: 14px 18px;
+}
+
+.elderPhone .recentTurns {
+  backdrop-filter: blur(18px);
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 24px;
+  box-shadow: 0 22px 58px rgba(78, 44, 21, 0.14);
+  justify-self: end;
+  margin-top: -360px;
+  max-width: 460px;
+  padding: 22px;
+  width: min(460px, 34vw);
+}
+
+.elderPhone .recentTurns::before {
+  color: #7f390e;
+  content: "最近对话";
+  display: block;
+  font-size: 18px;
+  font-weight: 850;
+  margin-bottom: 12px;
+}
+
+.elderPhone .recentTurn {
+  background: rgba(255, 250, 243, 0.74);
+  border: 1px solid rgba(123, 86, 58, 0.12);
+  border-radius: 18px;
+  padding: 16px;
+}
+
+.elderPhone .recentTurn p {
+  color: #4a382d;
+  font-size: 15px;
+  line-height: 1.75;
+}
+
+.elderPhone .elderSetupNotice {
+  backdrop-filter: blur(20px);
+  background: rgba(255, 250, 243, 0.84);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: 24px;
+  box-shadow: 0 22px 58px rgba(78, 44, 21, 0.14);
+  justify-self: center;
+  max-width: 560px;
+}
+
+@media (max-width: 980px) {
+  .elderPhone {
+    padding: 24px;
+  }
+
+  .elderPhone .callTarget {
+    justify-self: stretch;
+    max-width: none;
+  }
+
+  .elderPhone .callButton {
+    height: 230px;
+    width: 230px;
+  }
+
+  .elderPhone .recentTurns {
+    justify-self: stretch;
+    margin-top: 28px;
+    max-width: none;
+    width: 100%;
+  }
+}
+
+@media (max-width: 560px) {
+  .shell:has(.elderPhone),
+  .elderPhone {
+    min-height: calc(100vh - 47px);
+  }
+
+  .elderPhone .callTarget {
+    border-radius: 22px;
+    padding: 24px;
+  }
+
+  .elderPhone .callTarget::before {
+    height: 72px;
+    width: 72px;
+  }
+
+  .elderPhone .callButton {
+    font-size: 22px;
+    height: 200px;
+    min-height: 0;
+    width: 200px;
+  }
+
+  .elderPhone .callButton::before,
+  .elderPhone .callButton::after {
+    display: none;
   }
 }
