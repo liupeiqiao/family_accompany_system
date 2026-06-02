@@ -171,6 +171,8 @@ def run(phone: str, *, dry_run: bool = False) -> None:
 
     from productization.postgres_repository import PostgresCloudRepository
 
+    SKIP_COLS = {"id", "created_at", "updated_at", "family_id"}
+
     repo = PostgresCloudRepository(database_url)
     repo.init_schema()
 
@@ -253,7 +255,7 @@ def run(phone: str, *, dry_run: bool = False) -> None:
         conn.execute("DELETE FROM memories WHERE family_id = %s", (family_id,))
 
         if merged_elders:
-            cols = sorted(merged_elders.keys() - {"id", "created_at", "updated_at"})
+            cols = sorted(merged_elders.keys() - SKIP_COLS)
             insert_cols = ["family_id", *cols]
             placeholders = ["%s"] * len(insert_cols)
             values = [family_id, *(merged_elders.get(c) for c in cols)]
