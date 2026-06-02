@@ -1,4 +1,4 @@
-"""智能合并账号中已有数据的去重脚本.
+"""智能合并账号中已有数据的去重脚本（使用 repository API，避免裸 SQL）.
 
 用法:
     python scripts/dedup_account.py --phone 88888888 [--dry-run]
@@ -16,27 +16,22 @@ from collections import defaultdict
 
 
 def _normalize_content(content: str) -> str:
-    """归一化记忆内容用于相似度比较."""
     normalized = re.sub(r"[\s\-_，。,.！？!；;：:、\"“”'‘’（）()]+", "", content or "")
     return normalized.casefold()
 
 
 def _merge_string(existing: str | None, incoming: str | None) -> str:
-    """已有值优先，空则补新值."""
-    existing_text = str(existing or "").strip()
-    incoming_text = str(incoming or "").strip()
-    if not existing_text and incoming_text:
-        return incoming_text
-    return existing_text
+    t1 = str(existing or "").strip()
+    t2 = str(incoming or "").strip()
+    return t1 if t1 else t2
 
 
 def _merge_list(existing, incoming) -> list:
-    """列表合并去重."""
-    existing_items = existing if isinstance(existing, list) else ([] if not existing else [existing])
-    incoming_items = incoming if isinstance(incoming, list) else ([] if not incoming else [incoming])
+    items1 = existing if isinstance(existing, list) else ([] if not existing else [existing])
+    items2 = incoming if isinstance(incoming, list) else ([] if not incoming else [incoming])
     seen = set()
     result = []
-    for item in [*existing_items, *incoming_items]:
+    for item in [*items1, *items2]:
         key = str(item).strip()
         if key and key not in seen:
             seen.add(key)
@@ -45,32 +40,28 @@ def _merge_list(existing, incoming) -> list:
 
 
 def _merge_notes(existing, incoming) -> str:
-    """notes 追加（带来源标记）."""
-    existing_text = str(existing or "").strip()
-    incoming_text = str(incoming or "").strip()
-    if not existing_text:
-        return incoming_text
-    if not incoming_text or incoming_text == existing_text:
-        return existing_text
+    t1 = str(existing or "").strip()
+    t2 = str(incoming or "").strip()
+    if not t1:
+        return t2
+    if not t2 or t2 == t1:
+        return t1
     from datetime import date
-    tag = date.today().isoformat()
-    return f"{existing_text}\n{tag} 智能合并补充：{incoming_text}"
+    return f"{t1}\n{date.today().isoformat()} 合并补充：{t2}"
 
 
 def dedup_personas(personas: list[dict]) -> tuple[list[dict], list[str]]:
-    """合并重复的 AI 角色（同 role_label 视为重复）."""
+    """同 role_label 合并."""
     by_label: dict[str, list[dict]] = defaultdict(list)
     for p in personas:
-        label = (p.get("role_label") or "").strip()
-        by_label[label].append(p)
+        by_label[(p.get("role_label") or "").strip()].append(p)
 
-    merged = []
-    log: list[str] = []
+    merged, log = [], []
     for label, group in by_label.items():
         if len(group) == 1:
             merged.append(group[0])
         else:
-            log.append(f"  AI角色「{label}」: {len(group)} 条重复 → 合并为 1 条")
+            log.append(f"  AI角色「{label}」: {len(group)}条 → 合并")
             base = dict(group[0])
             for dup in group[1:]:
                 base["relation"] = _merge_string(base.get("relation"), dup.get("relation"))
@@ -78,30 +69,25 @@ def dedup_personas(personas: list[dict]) -> tuple[list[dict], list[str]]:
                 base["personality"] = _merge_list(base.get("personality"), dup.get("personality"))
                 base["speech_style"] = _merge_list(base.get("speech_style"), dup.get("speech_style"))
                 base["comfort_style"] = _merge_list(base.get("comfort_style"), dup.get("comfort_style"))
-                # mood_preference, topic_affinity, sensitivity_map 合并
-                for json_field in ("mood_preference", "topic_affinity", "sensitivity_map"):
-                    existing_val = base.get(json_field) or {}
-                    incoming_val = dup.get(json_field) or {}
-                    if isinstance(existing_val, dict) and isinstance(incoming_val, dict):
-                        base[json_field] = {**existing_val, **incoming_val}
+                for df in ("mood_preference", "topic_affinity", "sensitivity_map"):
+                    if isinstance(dup.get(df), dict):
+                        base[df] = {**(base.get(df) or {}), **dup[df]}
             merged.append(base)
     return merged, log
 
 
 def dedup_family_profiles(profiles: list[dict]) -> tuple[list[dict], list[str]]:
-    """合并重复的家人档案（同 name 视为重复）."""
+    """同 name 合并."""
     by_name: dict[str, list[dict]] = defaultdict(list)
     for fp in profiles:
-        name = (fp.get("name") or "").strip()
-        by_name[name].append(fp)
+        by_name[(fp.get("name") or "").strip()].append(fp)
 
-    merged = []
-    log: list[str] = []
+    merged, log = [], []
     for name, group in by_name.items():
         if len(group) == 1:
             merged.append(group[0])
         else:
-            log.append(f"  家人档案「{name}」: {len(group)} 条重复 → 合并为 1 条")
+            log.append(f"  家人档案「{name}」: {len(group)}条 → 合并")
             base = dict(group[0])
             for dup in group[1:]:
                 base["gender"] = _merge_string(base.get("gender"), dup.get("gender"))
@@ -116,46 +102,35 @@ def dedup_family_profiles(profiles: list[dict]) -> tuple[list[dict], list[str]]:
 
 
 def dedup_memories(memories: list[dict]) -> tuple[list[dict], list[str]]:
-    """合并/跳过重复的家庭记忆（内容高度相似视为重复）."""
+    """内容归一化后相同 → 保留一条."""
     by_content: dict[str, list[dict]] = defaultdict(list)
     for m in memories:
-        normalized = _normalize_content(m.get("content", ""))
-        if normalized:
-            by_content[normalized].append(m)
+        norm = _normalize_content(m.get("content", ""))
+        if norm:
+            by_content[norm].append(m)
 
-    merged = []
-    log: list[str] = []
-    seen_similar: dict[str, list[dict]] = defaultdict(list)
-
-    # 第二层：按 subject + memory_type 相似度再聚合
-    for normalized, group in by_content.items():
-        if len(group) == 1:
-            merged.append(group[0])
-        else:
-            content_preview = str(group[0].get("content", ""))[:40]
-            log.append(f"  记忆「{content_preview}」: {len(group)} 条重复 → 保留 1 条，跳过其余")
-            merged.append(group[0])
-
+    merged, log = [], []
+    for _, group in by_content.items():
+        merged.append(group[0])
+        if len(group) > 1:
+            preview = str(group[0].get("content", ""))[:40]
+            log.append(f"  记忆「{preview}」: {len(group)}条 → 保留1条")
     return merged, log
 
 
 def dedup_elders(elders: list[dict]) -> tuple[dict | None, list[str]]:
-    """合并多个老人画像（应该只有一个，多余的合并进来）."""
     if not elders:
         return None, []
     if len(elders) == 1:
         return elders[0], []
 
-    log = [f"  老人画像: {len(elders)} 条 → 合并为 1 条"]
+    log = [f"  老人画像: {len(elders)}条 → 合并为1条"]
     base = dict(elders[0])
-    json_list_fields = (
-        "personality", "preferences", "habits", "health_notes",
-        "speech_traits", "life_experiences", "important_memories",
-    )
     for dup in elders[1:]:
         base["gender"] = _merge_string(base.get("gender"), dup.get("gender"))
-        for field in json_list_fields:
-            base[field] = _merge_list(base.get(field), dup.get(field))
+        for f in ("personality", "preferences", "habits", "health_notes",
+                   "speech_traits", "life_experiences", "important_memories"):
+            base[f] = _merge_list(base.get(f), dup.get(f))
         base["notes"] = _merge_notes(base.get("notes"), dup.get("notes"))
     return base, log
 
@@ -166,178 +141,165 @@ def run(phone: str, *, dry_run: bool = False) -> None:
 
     database_url = os.getenv("DATABASE_URL")
     if not database_url:
-        print("错误: 请设置 DATABASE_URL 环境变量", file=sys.stderr)
+        print("错误: DATABASE_URL 未设置", file=sys.stderr)
         sys.exit(1)
 
     from productization.postgres_repository import PostgresCloudRepository
 
-    SKIP_COLS = {"id", "created_at", "updated_at", "family_id"}
-
-    # JSON 字段列表（与 postgres_repository.py 保持一致）
-    JSON_FIELDS = {
-        "personality", "preferences", "habits", "health_notes",
-        "speech_traits", "life_experiences", "important_memories",
-        "relations", "speech_style", "comfort_style",
-        "topic_affinity", "sensitivity_map", "mood_preference",
-        "family_members", "emotion_tags", "topic_tags",
-    }
-
-    def _norm(value, field_name=""):
-        """规范化值：确保 JSON 字段是合法的 list/dict 并用 Jsonb 包装."""
-        if field_name in JSON_FIELDS:
-            if value is None or value == "":
-                return Jsonb([])
-            if isinstance(value, str):
-                stripped = value.strip()
-                if not stripped:
-                    return Jsonb([])
-                # 尝试解析已有 JSON
-                try:
-                    import json as _json
-                    parsed = _json.loads(stripped)
-                    return Jsonb(parsed)
-                except Exception:
-                    return Jsonb([stripped])
-            if isinstance(value, (list, dict)):
-                return Jsonb(value)
-            return Jsonb([])
-        return value
-
     repo = PostgresCloudRepository(database_url)
     repo.init_schema()
 
-    from psycopg.types.json import Jsonb
-
-    # 1. 查找用户
+    # 查找 user_id
     with repo._connect() as conn:  # noqa: SLF001
         user = conn.execute("SELECT * FROM users WHERE phone = %s", (phone,)).fetchone()
         if not user:
-            print(f"错误: 未找到手机号 {phone} 对应的用户", file=sys.stderr)
+            print(f"错误: 未找到手机号 {phone}", file=sys.stderr)
             sys.exit(1)
         user_id = str(user["id"])
-        print(f"用户: {user['phone']} (id={user_id})")
+    print(f"用户: {phone} (id={user_id})")
 
-        # 2. 获取家庭空间
-        membership = conn.execute(
-            "SELECT * FROM family_memberships WHERE user_id = %s ORDER BY created_at ASC LIMIT 1",
-            (user_id,),
-        ).fetchone()
-        if not membership:
-            print("错误: 该用户没有家庭空间", file=sys.stderr)
-            sys.exit(1)
-        family_id = str(membership["family_id"])
-        family = conn.execute("SELECT * FROM families WHERE id = %s", (family_id,)).fetchone()
-        print(f"家庭: {family['name']} (id={family_id})")
+    # 获取家庭空间
+    result = repo.get_current_family(user_id=user_id)
+    family_id = str(result["family"]["id"])
+    print(f"家庭: {result['family']['name']} (id={family_id})")
 
-        # 3. 读取所有数据
-        elders = conn.execute(
-            "SELECT * FROM elders WHERE family_id = %s ORDER BY created_at ASC", (family_id,)
-        ).fetchall()
-        personas = conn.execute(
-            "SELECT * FROM personas WHERE family_id = %s ORDER BY created_at ASC", (family_id,)
-        ).fetchall()
-        family_profiles = conn.execute(
-            "SELECT * FROM family_profiles WHERE family_id = %s ORDER BY created_at ASC", (family_id,)
-        ).fetchall()
-        memories = conn.execute(
-            "SELECT * FROM memories WHERE family_id = %s ORDER BY created_at ASC", (family_id,)
-        ).fetchall()
+    # 读取所有数据（使用 repo API）
+    elders_raw = repo.get_elder_current(family_id=family_id, user_id=user_id)
+    elders = [dict(elders_raw)] if elders_raw and elders_raw.get("id") else []
 
-        print(f"\n当前数据: 老人画像 {len(elders)} 条, AI角色 {len(personas)} 个, "
-              f"家人档案 {len(family_profiles)} 条, 记忆 {len(memories)} 条")
+    personas = repo.list_personas(family_id=family_id, user_id=user_id)
+    profiles = repo.list_family_profiles(family_id=family_id, user_id=user_id)
+    memories = repo.list_memories(family_id=family_id, user_id=user_id)
 
-        # 4. 去重分析
-        all_logs: list[str] = []
+    print(f"\n当前数据: 老人画像 {len(elders)}条, AI角色 {len(personas)}个, "
+          f"家人档案 {len(profiles)}条, 记忆 {len(memories)}条")
 
-        merged_elders, elder_log = dedup_elders([dict(e) for e in elders])
-        all_logs.extend(elder_log)
+    # 去重分析
+    merged_elders, e_log = dedup_elders([dict(e) for e in elders])
+    merged_personas, p_log = dedup_personas([dict(p) for p in personas])
+    merged_profiles, f_log = dedup_family_profiles([dict(p) for p in profiles])
+    merged_memories, m_log = dedup_memories([dict(m) for m in memories])
 
-        merged_personas, persona_log = dedup_personas([dict(p) for p in personas])
-        all_logs.extend(persona_log)
+    all_logs = [*e_log, *p_log, *f_log, *m_log]
+    if not all_logs:
+        print("\n✅ 没有发现重复数据。")
+        return
 
-        merged_profiles, profile_log = dedup_family_profiles([dict(p) for p in family_profiles])
-        all_logs.extend(profile_log)
+    print(f"\n发现 {len(all_logs)} 组重复：")
+    for l in all_logs:
+        print(l)
 
-        merged_memories, memory_log = dedup_memories([dict(m) for m in memories])
-        all_logs.extend(memory_log)
+    if dry_run:
+        print(f"\n[Dry-run] 以上重复将被合并。")
+        print(f"  老人 {len(elders)}→{1 if merged_elders else 0}, "
+              f"角色 {len(personas)}→{len(merged_personas)}, "
+              f"家人 {len(profiles)}→{len(merged_profiles)}, "
+              f"记忆 {len(memories)}→{len(merged_memories)}")
+        return
 
-        if not all_logs:
-            print("\n✅ 没有发现重复数据，无需合并。")
-            return
+    # 执行合并：保留第一条，用 update 合并数据，删除其余重复项
+    print("\n开始合并...")
 
-        print(f"\n发现 {len(all_logs)} 组重复：")
-        for log in all_logs:
-            print(log)
+    # --- Personas ---
+    personas_by_label: dict[str, list[dict]] = defaultdict(list)
+    for p in personas:
+        personas_by_label[(p.get("role_label") or "").strip()].append(p)
 
-        if dry_run:
-            print(f"\n[Dry-run] 以上重复将被合并。实际执行请去掉 --dry-run。")
-            print(f"统计: 老人 {len(elders)}→{1 if merged_elders else 0}, "
-                  f"角色 {len(personas)}→{len(merged_personas)}, "
-                  f"家人 {len(family_profiles)}→{len(merged_profiles)}, "
-                  f"记忆 {len(memories)}→{len(merged_memories)}")
-            return
-
-        # 5. 执行合并写入
-        print("\n开始合并...")
-
-        # 删除旧的，写入合并后的
-        conn.execute("DELETE FROM elders WHERE family_id = %s", (family_id,))
-        conn.execute("DELETE FROM personas WHERE family_id = %s", (family_id,))
-        conn.execute("DELETE FROM family_profiles WHERE family_id = %s", (family_id,))
-        conn.execute("DELETE FROM memories WHERE family_id = %s", (family_id,))
-
-        if merged_elders:
-            cols = sorted(merged_elders.keys() - SKIP_COLS)
-            insert_cols = ["family_id", *cols]
-            placeholders = ["%s"] * len(insert_cols)
-            values = [family_id, *(_norm(merged_elders.get(c), c) for c in cols)]
-            conn.execute(
-                f"INSERT INTO elders ({', '.join(insert_cols)}) VALUES ({', '.join(placeholders)})",
-                values,
+    for label, group in personas_by_label.items():
+        if len(group) <= 1:
+            continue
+        primary = group[0]
+        print(f"  合并AI角色「{label}」(保留 {primary['id']}, 删除 {len(group)-1} 条)")
+        for dup in group[1:]:
+            merged_data = dict(dup)
+            # 不覆盖已有的非空值
+            for key in list(merged_data.keys()):
+                if key in ("id", "created_at", "updated_at", "family_id"):
+                    continue
+                if primary.get(key):
+                    existing_val = primary[key]
+                    incoming_val = merged_data[key]
+                    if isinstance(existing_val, list) and isinstance(incoming_val, list):
+                        merged_data[key] = _merge_list(existing_val, incoming_val)
+                    elif isinstance(existing_val, dict) and isinstance(incoming_val, dict):
+                        merged_data[key] = {**existing_val, **incoming_val}
+                    elif existing_val:
+                        continue  # 已有非空值，不覆盖
+            repo.update_persona(
+                family_id=family_id, user_id=user_id,
+                persona_id=str(primary["id"]), payload=merged_data,
             )
+            repo.delete_persona(family_id=family_id, user_id=user_id, persona_id=str(dup["id"]))
 
-        for persona in merged_personas:
-            cols = sorted(persona.keys() - SKIP_COLS)
-            insert_cols = ["family_id", *cols]
-            placeholders = ["%s"] * len(insert_cols)
-            values = [family_id, *(_norm(persona.get(c), c) for c in cols)]
-            conn.execute(
-                f"INSERT INTO personas ({', '.join(insert_cols)}) VALUES ({', '.join(placeholders)})",
-                values,
+    # --- Family profiles ---
+    profiles_by_name: dict[str, list[dict]] = defaultdict(list)
+    for fp in profiles:
+        profiles_by_name[(fp.get("name") or "").strip()].append(fp)
+
+    for name, group in profiles_by_name.items():
+        if len(group) <= 1:
+            continue
+        primary = group[0]
+        print(f"  合并家人档案「{name}」(保留 {primary['id']}, 删除 {len(group)-1} 条)")
+        for dup in group[1:]:
+            merged_data = dict(dup)
+            for key in list(merged_data.keys()):
+                if key in ("id", "created_at", "updated_at", "family_id"):
+                    continue
+                if primary.get(key):
+                    existing_val = primary[key]
+                    incoming_val = merged_data[key]
+                    if isinstance(existing_val, list) and isinstance(incoming_val, list):
+                        merged_data[key] = _merge_list(existing_val, incoming_val)
+                    elif existing_val:
+                        continue
+            repo.update_family_profile(
+                family_id=family_id, user_id=user_id,
+                profile_id=str(primary["id"]), payload=merged_data,
             )
+            repo.delete_family_profile(family_id=family_id, user_id=user_id, profile_id=str(dup["id"]))
 
-        for profile in merged_profiles:
-            cols = sorted(profile.keys() - SKIP_COLS)
-            insert_cols = ["family_id", *cols]
-            placeholders = ["%s"] * len(insert_cols)
-            values = [family_id, *(_norm(profile.get(c), c) for c in cols)]
-            conn.execute(
-                f"INSERT INTO family_profiles ({', '.join(insert_cols)}) VALUES ({', '.join(placeholders)})",
-                values,
-            )
+    # --- Memories ---
+    by_norm: dict[str, list[dict]] = defaultdict(list)
+    for m in memories:
+        norm = _normalize_content(m.get("content", ""))
+        if norm:
+            by_norm[norm].append(m)
 
-        for memory in merged_memories:
-            cols = sorted(memory.keys() - SKIP_COLS)
-            insert_cols = ["family_id", *cols]
-            placeholders = ["%s"] * len(insert_cols)
-            values = [family_id, *(_norm(memory.get(c), c) for c in cols)]
-            conn.execute(
-                f"INSERT INTO memories ({', '.join(insert_cols)}) VALUES ({', '.join(placeholders)})",
-                values,
-            )
+    for norm, group in by_norm.items():
+        if len(group) <= 1:
+            continue
+        primary = group[0]
+        preview = str(primary.get("content", ""))[:40]
+        print(f"  跳过重复记忆「{preview}」(保留 {primary['id']}, 删除 {len(group)-1} 条)")
+        for dup in group[1:]:
+            repo.delete_memory(family_id=family_id, user_id=user_id, memory_id=str(dup["id"]))
 
-        conn.commit()
+    # --- Elder ---
+    if len(elders) > 1:
+        print(f"  合并老人画像 (保留 {elders[0]['id']})")
+        primary = dict(elders[0])
+        for dup in elders[1:]:
+            merged = dict(dup)
+            for key in list(merged.keys()):
+                if key in ("id", "created_at", "updated_at", "family_id"):
+                    continue
+                if primary.get(key):
+                    ev = primary[key]
+                    iv = merged[key]
+                    if isinstance(ev, list) and isinstance(iv, list):
+                        merged[key] = _merge_list(ev, iv)
+                    elif ev:
+                        continue
+            repo.upsert_elder_current(family_id=family_id, user_id=user_id, payload=merged)
+            # elders 表无单条删除，upsert 后数据已合并到 primary
 
-        print(f"\n✅ 合并完成！")
-        print(f"老人画像: {len(elders)} → {1 if merged_elders else 0}")
-        print(f"AI 角色: {len(personas)} → {len(merged_personas)}")
-        print(f"家人档案: {len(family_profiles)} → {len(merged_profiles)}")
-        print(f"家庭记忆: {len(memories)} → {len(merged_memories)}")
+    print(f"\n✅ 合并完成！刷新 Web 页面即可看到变化。")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="智能合并账号中已有资料的重复数据")
-    parser.add_argument("--phone", required=True, help="手机号，如 88888888")
-    parser.add_argument("--dry-run", action="store_true", help="仅分析不实际执行")
+    parser = argparse.ArgumentParser(description="智能合并账号中已有资料的去重数据")
+    parser.add_argument("--phone", required=True, help="手机号")
+    parser.add_argument("--dry-run", action="store_true", help="仅分析不执行")
     args = parser.parse_args()
     run(args.phone, dry_run=args.dry_run)
