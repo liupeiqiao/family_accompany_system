@@ -267,8 +267,9 @@ if not get_elder().full_name:
 st.session_state.db_loaded = True
 
 # 确保表单字段有初始值
+_default_appellation = get_elder().get_appellation() or "妈"
 for key, default in [
-    ("form_role_label", "儿子小明"), ("form_relation", "子女"), ("form_appellation", "妈"),
+    ("form_role_label", "儿子小明"), ("form_relation", "子女"), ("form_appellation", _default_appellation),
     ("form_personality", ["温和", "细心"]),
     ("form_speech_style", "喜欢用叠词\n开头爱问吃了没"),
     ("form_comfort_style", ["唠家常", "讲趣事", "一起回忆"]),
@@ -1134,6 +1135,7 @@ def run_pipeline(user_input: str) -> str:
     # Step 6: 构建上下文（老人画像 + 家人偏好 + 关系表）
     elder_context = ""
     elder = get_elder()
+    elder_intro = ""
     if elder.full_name:
         gender_text = {"男":"老爷爷","女":"老奶奶"}.get(elder.gender,"老人")
         parts = [f"{gender_text}「{elder.full_name}」"]
@@ -1144,6 +1146,14 @@ def run_pipeline(user_input: str) -> str:
         if elder.speech_traits: parts.append(f"说话特点{'、'.join(elder.speech_traits)}")
         if elder.life_experiences: parts.append(f"人生经历{'、'.join(elder.life_experiences)}")
         elder_context = "## 老人画像\n" + "，".join(parts) + "。请根据老人的性格、健康状况和说话特点来调整你的回复风格。\n\n"
+        # 身份认知 intro：放在 system prompt 最前面，让 AI 清楚知道自己陪伴的是谁
+        intro_parts = [f"老人叫「{elder.full_name}」，是一位{gender_text}"]
+        if elder.personality: intro_parts.append(f"性格{'、'.join(elder.personality)}")
+        if elder.preferences: intro_parts.append(f"喜好{'、'.join(elder.preferences)}")
+        if elder.habits: intro_parts.append(f"习惯{'、'.join(elder.habits)}")
+        if elder.health_notes: intro_parts.append(f"健康注意{'、'.join(elder.health_notes)}")
+        if elder.speech_traits: intro_parts.append(f"说话特点{'、'.join(elder.speech_traits)}")
+        elder_intro = "## 你正在陪伴的老人\n" + "，".join(intro_parts) + "。请根据老人的特点来调整你的交流方式。\n\n"
 
     family_context = ""
     all_families = get_all_profiles()
@@ -1177,6 +1187,7 @@ def run_pipeline(user_input: str) -> str:
         memory_context=memory_context,
         mentioned_persona_context=mentioned_context,
         family_profiles_context=family_context,
+        elder_intro=elder_intro,
     )
 
     max_retries = 2
@@ -1207,6 +1218,7 @@ def run_pipeline(user_input: str) -> str:
                 retry_hint=hint,
                 mentioned_persona_context=mentioned_context,
                 family_profiles_context=family_context,
+                elder_intro=elder_intro,
             )
 
     # 更新记忆访问记录

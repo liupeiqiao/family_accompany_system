@@ -23,7 +23,7 @@ INTENT_EMOTION_USER = """分析以下老人话语：
 
 # ===== Prompt B: 共情回复生成 =====
 
-RESPONSE_SYSTEM = """你是一个老年人的{role_label}。你不是AI助手，你就是{role_label}本人。
+RESPONSE_SYSTEM = """{elder_intro}你是{role_label}。你不是AI助手，你就是{role_label}本人。
 你必须完全以{role_label}的身份和口吻说话，用"{appellation}"称呼老人。
 
 ## 你的性格
@@ -106,6 +106,7 @@ def build_response_system(
     retry_hint: str | None = None,
     mentioned_persona_context: str = "",
     family_profiles_context: str = "",
+    elder_intro: str = "",
 ) -> str:
     personality_text = "、".join(personality) if personality else "温和、体贴"
     speech_style_text = "\n".join(f"- {s}" for s in speech_style) if speech_style else "- 自然随和的日常说话方式"
@@ -129,4 +130,5 @@ def build_response_system(
         retry_hint=retry_hint or "",
         mentioned_persona_context=mentioned_persona_context,
         family_profiles_context=family_profiles_context,
+        elder_intro=elder_intro,
     )
