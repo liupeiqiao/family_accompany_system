@@ -120,6 +120,7 @@ def generate_chat_reply(
         selected.role_label if selected.reason != "default" else None,
     )
     family_context = _build_family_context(elder, families, mentioned_names)
+    elder_intro = _build_elder_intro(elder)
 
     system_prompt = build_response_system(
         role_label=persona.role_label or "家人",
@@ -131,9 +132,10 @@ def generate_chat_reply(
         memory_context=memory_context,
         mentioned_persona_context=mentioned_context,
         family_profiles_context=family_context,
+        elder_intro=elder_intro,
     )
 
-    response = _generate_safe_response(user_input, persona, elder, strategy, memory_context, mentioned_context, family_context, llm, system_prompt)
+    response = _generate_safe_response(user_input, persona, elder, strategy, memory_context, mentioned_context, family_context, elder_intro, llm, system_prompt)
 
     debug = {
         "context_source": context_source,
@@ -208,6 +210,7 @@ def _generate_safe_response(
     memory_context: str,
     mentioned_context: str,
     family_context: str,
+    elder_intro: str,
     chat_fn: ChatFn,
     system_prompt: str,
 ) -> str:
@@ -241,6 +244,7 @@ def _generate_safe_response(
                 retry_hint=build_retry_hint(adapt_result["issues"], safety_issues),
                 mentioned_persona_context=mentioned_context,
                 family_profiles_context=family_context,
+                elder_intro=elder_intro,
             )
 
     return response
@@ -582,3 +586,22 @@ def _build_family_context(
         family_context = "## 家人偏好档案\n" + "\n".join(family_lines) + "\n\n"
 
     return elder_context + family_context
+
+
+def _build_elder_intro(elder: ElderProfile) -> str:
+    """构建老人身份认知 intro，放在 system prompt 最前面让 AI 清楚陪伴对象。"""
+    if not elder.full_name:
+        return ""
+    gender_text = {"男": "老爷爷", "女": "老奶奶"}.get(elder.gender, "老人")
+    parts = [f"老人叫「{elder.full_name}」，是一位{gender_text}"]
+    if elder.personality:
+        parts.append(f"性格{'、'.join(elder.personality)}")
+    if elder.preferences:
+        parts.append(f"喜好{'、'.join(elder.preferences)}")
+    if elder.habits:
+        parts.append(f"习惯{'、'.join(elder.habits)}")
+    if elder.health_notes:
+        parts.append(f"健康注意{'、'.join(elder.health_notes)}")
+    if elder.speech_traits:
+        parts.append(f"说话特点{'、'.join(elder.speech_traits)}")
+    return "## 你正在陪伴的老人\n" + "，".join(parts) + "。请根据老人的特点来调整你的交流方式。\n\n"
