@@ -527,6 +527,13 @@ export function fetchChatTurns(familyId: string): Promise<ChatTurn[]> {
   );
 }
 
+export function deleteChatSession(sessionId: string, familyId: string): Promise<{ ok: boolean }> {
+  return requestJson<{ ok: boolean }>(
+    `/api/chat/sessions/${encodeURIComponent(sessionId)}?family_id=${encodeURIComponent(familyId)}`,
+    withUser({ method: "DELETE" }),
+  );
+}
+
 export function generateMemoryCandidate(payload: {
   family_id: string;
   user_text: string;

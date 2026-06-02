@@ -8,6 +8,7 @@ import {
   ChatTurn,
   FamilyContext,
   createCloudMemory,
+  deleteChatSession,
   fetchChatTurns,
   fetchCurrentFamily,
   generateMemoryCandidate,
@@ -241,6 +242,20 @@ export default function HistoryPage() {
     if (!audioUrl) return;
     const audio = new Audio(audioUrl);
     void audio.play();
+  }
+
+  async function deleteTurn(turn: ChatTurn) {
+    if (!familyContext) return;
+    const name = getConversationName(turn);
+    if (!window.confirm(`确定要删除与「${name}」的这段对话记录吗？\n\n删除后无法恢复。`)) {
+      return;
+    }
+    try {
+      await deleteChatSession(turn.session_id, familyContext.family.id);
+      setTurns((current) => current.filter((t) => t.id !== turn.id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "删除失败");
+    }
   }
 
   function openMemoryDraft(turn: ChatTurn) {
@@ -534,6 +549,14 @@ export default function HistoryPage() {
                           </button>
                         </>
                       )}
+                      <button
+                        className="buttonSecondary buttonDanger"
+                        onClick={() => void deleteTurn(turn)}
+                        style={{ marginLeft: "auto" }}
+                        type="button"
+                      >
+                        删除记录
+                      </button>
                     </div>
                     {memoryDrafts[turn.id] ? (
                       <div className="memorySavePanel">

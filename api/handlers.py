@@ -1172,6 +1172,21 @@ def _merge_elder_with_conflicts(existing: dict, incoming: dict) -> tuple[dict, l
     return merged, conflict_fields
 
 
+def handle_delete_chat_session(
+    session_id: str,
+    family_id: str,
+    user_id: str,
+) -> DeleteResponse:
+    _call_cloud(
+        lambda: get_cloud_repository().delete_chat_session(
+            family_id=family_id,
+            user_id=user_id,
+            session_id=session_id,
+        )
+    )
+    return DeleteResponse(ok=True)
+
+
 def _has_importable_value(data: dict) -> bool:
     return any(value not in ("", None, [], {}) for value in data.values())
 

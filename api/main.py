@@ -20,6 +20,7 @@ from .handlers import (
     handle_delete_cloud_elder_current,
     handle_delete_cloud_memory,
     handle_delete_cloud_persona,
+    handle_delete_chat_session,
     handle_delete_elder,
     handle_delete_family_profile,
     handle_delete_memory,
@@ -336,6 +337,15 @@ def memory_candidate_endpoint(
     x_user_id: str = Depends(current_user_id),
 ) -> MemoryCandidateResponse:
     return handle_memory_candidate(request, x_user_id)
+
+
+@app.delete("/api/chat/sessions/{session_id}", response_model=DeleteResponse)
+def delete_chat_session_endpoint(
+    session_id: str,
+    family_id: str = Query(...),
+    x_user_id: str = Depends(current_user_id),
+) -> DeleteResponse:
+    return handle_delete_chat_session(session_id, family_id, x_user_id)
 
 
 @app.post("/api/import", response_model=ImportResponse)

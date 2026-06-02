@@ -453,6 +453,17 @@ class PostgresCloudRepository:
             (family_id,),
         )
 
+    def delete_chat_session(self, *, family_id: str, user_id: str, session_id: str) -> None:
+        self._require_editor(family_id, user_id)
+        self._execute(
+            "DELETE FROM chat_messages WHERE session_id = %s",
+            (session_id,),
+        )
+        self._execute(
+            "DELETE FROM chat_sessions WHERE id = %s AND family_id = %s",
+            (session_id, family_id),
+        )
+
     def _connect(self):
         return psycopg.connect(self._database_url, row_factory=dict_row)
 

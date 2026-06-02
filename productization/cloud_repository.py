@@ -153,6 +153,9 @@ class CloudRepository(Protocol):
     def list_chat_messages(self, *, family_id: str, user_id: str) -> list[dict]:
         ...
 
+    def delete_chat_session(self, *, family_id: str, user_id: str, session_id: str) -> None:
+        ...
+
 
 class InMemoryCloudRepository:
     """Deterministic cloud repository used for local API wiring and tests."""
@@ -501,6 +504,14 @@ class InMemoryCloudRepository:
             if message.get("session_id") in session_ids
         ]
         return sorted(messages, key=lambda message: message["created_at"])
+
+    def delete_chat_session(self, *, family_id: str, user_id: str, session_id: str) -> None:
+        self._require_editor(family_id, user_id)
+        self._chat_messages = {
+            mid: msg for mid, msg in self._chat_messages.items()
+            if msg.get("session_id") != session_id
+        }
+        self._chat_sessions.pop(session_id, None)
 
     def _append_chat_message(
         self,
@@ -875,6 +886,17 @@ class SupabaseCloudRepository:
             f"&chat_sessions.family_id=eq.{family_id}"
             "&order=created_at.asc",
             method="GET",
+        )
+
+    def delete_chat_session(self, *, family_id: str, user_id: str, session_id: str) -> None:
+        self._require_editor(family_id, user_id)
+        self._request(
+            f"chat_messages?session_id=eq.{session_id}",
+            method="DELETE",
+        )
+        self._request(
+            f"chat_sessions?id=eq.{session_id}&family_id=eq.{family_id}",
+            method="DELETE",
         )
 
     def _require_member(self, family_id: str, user_id: str) -> FamilyRole:
