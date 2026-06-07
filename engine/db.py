@@ -94,6 +94,114 @@ def init_db() -> None:
             notes TEXT DEFAULT ''
         )
     """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS persons (
+            id TEXT PRIMARY KEY,
+            family_id TEXT DEFAULT 'local',
+            kind TEXT DEFAULT 'family',
+            full_name TEXT DEFAULT '',
+            nicknames TEXT DEFAULT '[]',
+            gender TEXT DEFAULT '',
+            birth_date TEXT DEFAULT '',
+            address_terms TEXT DEFAULT '{}',
+            traits TEXT DEFAULT '[]',
+            speech_style TEXT DEFAULT '[]',
+            habits TEXT DEFAULT '[]',
+            interests TEXT DEFAULT '[]',
+            life_experiences TEXT DEFAULT '[]',
+            work_experiences TEXT DEFAULT '[]',
+            family_experiences TEXT DEFAULT '[]',
+            knowledge_boundaries TEXT DEFAULT '{}',
+            topic_boundaries TEXT DEFAULT '{}',
+            legacy_family_profile_id TEXT DEFAULT '',
+            legacy_persona_id TEXT DEFAULT '',
+            created_at TEXT DEFAULT '',
+            updated_at TEXT DEFAULT ''
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS relationships (
+            id TEXT PRIMARY KEY,
+            family_id TEXT DEFAULT 'local',
+            from_person_id TEXT NOT NULL,
+            to_person_id TEXT NOT NULL,
+            relation_type TEXT DEFAULT '',
+            display_label TEXT DEFAULT '',
+            inverse_relation_type TEXT DEFAULT '',
+            inverse_display_label TEXT DEFAULT '',
+            confidence REAL DEFAULT 1.0,
+            source TEXT DEFAULT '',
+            notes TEXT DEFAULT '',
+            created_at TEXT DEFAULT '',
+            updated_at TEXT DEFAULT ''
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS persona_roles (
+            id TEXT PRIMARY KEY,
+            family_id TEXT DEFAULT 'local',
+            person_id TEXT NOT NULL,
+            role_label TEXT DEFAULT '',
+            appellation_to_elder TEXT DEFAULT '',
+            can_speak_as_person INTEGER DEFAULT 1,
+            voice_profile_id TEXT DEFAULT '',
+            comfort_style TEXT DEFAULT '[]',
+            mood_preference TEXT DEFAULT '{}',
+            sensitivity_map TEXT DEFAULT '{}',
+            legacy_persona_id TEXT DEFAULT '',
+            created_at TEXT DEFAULT '',
+            updated_at TEXT DEFAULT ''
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS memory_events (
+            id TEXT PRIMARY KEY,
+            family_id TEXT DEFAULT 'local',
+            title TEXT DEFAULT '',
+            summary TEXT DEFAULT '',
+            event_time_text TEXT DEFAULT '',
+            event_start_at TEXT DEFAULT '',
+            event_end_at TEXT DEFAULT '',
+            location TEXT DEFAULT '',
+            emotion_tags TEXT DEFAULT '[]',
+            topic_tags TEXT DEFAULT '[]',
+            source_type TEXT DEFAULT '',
+            source_person_id TEXT DEFAULT '',
+            truth_status TEXT DEFAULT 'uncertain',
+            sensitivity_level INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT '',
+            updated_at TEXT DEFAULT ''
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS memory_event_participants (
+            event_id TEXT NOT NULL,
+            person_id TEXT NOT NULL,
+            role_in_event TEXT DEFAULT '',
+            perspective TEXT DEFAULT 'heard_about',
+            can_use_first_person INTEGER DEFAULT 0,
+            can_mention INTEGER DEFAULT 1,
+            PRIMARY KEY (event_id, person_id)
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS conversation_states (
+            id TEXT PRIMARY KEY,
+            family_id TEXT DEFAULT 'local',
+            session_id TEXT DEFAULT 'default',
+            elder_person_id TEXT DEFAULT '',
+            current_persona_role_id TEXT DEFAULT '',
+            recent_person_ids TEXT DEFAULT '[]',
+            recent_event_ids TEXT DEFAULT '[]',
+            elder_emotion TEXT DEFAULT '',
+            ongoing_topic TEXT DEFAULT '',
+            unfinished_topics TEXT DEFAULT '[]',
+            relationship_focus TEXT DEFAULT '{}',
+            last_intent TEXT DEFAULT '',
+            summary TEXT DEFAULT '',
+            updated_at TEXT DEFAULT ''
+        )
+    """)
     # Migration: elder_profile add gender column
     try:
         conn.execute("ALTER TABLE elder_profile ADD COLUMN gender TEXT DEFAULT ''")

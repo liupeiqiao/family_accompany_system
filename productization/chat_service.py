@@ -31,6 +31,11 @@ from llm.prompts import (
     RESPONSE_USER,
     build_response_system,
 )
+from productization.family_cognition_service import (
+    build_family_cognition_context,
+    build_turn_cognition_prompt,
+    check_response_identity_boundaries,
+)
 
 ChatFn = Callable[[str, str, float], str]
 
@@ -49,6 +54,8 @@ class ChatContext:
     families: dict[str, FamilyProfile] = field(default_factory=dict)
     elder: ElderProfile = field(default_factory=ElderProfile)
     active_persona_role_label: str = ""
+    family_id: str = "local"
+    session_id: str = "default"
 
 
 @dataclass
@@ -75,14 +82,27 @@ def generate_chat_reply(
         families = _load_family_profiles()
         elder = _load_elder()
         context_source = "local"
+        family_id = "local"
+        session_id = "default"
     else:
         personas = context.personas
         memories = context.memories
         families = context.families
         elder = context.elder
         context_source = "cloud"
+        family_id = context.family_id
+        session_id = context.session_id
 
     persona = _select_default_persona(personas, getattr(context, "active_persona_role_label", ""))
+    cognition = build_family_cognition_context(
+        elder=elder,
+        families=families,
+        personas=personas,
+        memories=memories,
+        active_persona_role_label=persona.role_label,
+        family_id=family_id,
+        session_id=session_id,
+    )
 
     intent_result = _analyze_intent(user_input, llm)
     intent = intent_result.get("intent", "日常闲聊")
@@ -100,6 +120,14 @@ def generate_chat_reply(
     if selected.role_label in personas:
         persona = personas[selected.role_label]
 
+    cognition_prompt, cognitive_events, cognitive_people = build_turn_cognition_prompt(
+        cognition=cognition,
+        user_input=user_input,
+        mentioned_names=mentioned_names,
+        intent=intent,
+        emotion=emotion,
+        selected_role_label=persona.role_label,
+    )
     relevant_memories = _filter_memories(memories, mentioned_names, persona)
     scored_list = score_memories(
         relevant_memories,
@@ -120,6 +148,8 @@ def generate_chat_reply(
         selected.role_label if selected.reason != "default" else None,
     )
     family_context = _build_family_context(elder, families, mentioned_names)
+    if cognition_prompt:
+        family_context = f"{family_context}\n\n{cognition_prompt}" if family_context else cognition_prompt
     elder_intro = _build_elder_intro(elder)
 
     system_prompt = build_response_system(
@@ -135,7 +165,21 @@ def generate_chat_reply(
         elder_intro=elder_intro,
     )
 
-    response = _generate_safe_response(user_input, persona, elder, strategy, memory_context, mentioned_context, family_context, elder_intro, llm, system_prompt)
+    active_cognition_person = cognition.active_person()
+    response = _generate_safe_response(
+        user_input,
+        persona,
+        elder,
+        strategy,
+        memory_context,
+        mentioned_context,
+        family_context,
+        elder_intro,
+        llm,
+        system_prompt,
+        guard_events=cognitive_events,
+        speaker_person_id=active_cognition_person.id if active_cognition_person else "",
+    )
 
     debug = {
         "context_source": context_source,
@@ -151,6 +195,20 @@ def generate_chat_reply(
             {"subject": m.subject or "老人", "content": m.content[:40]}
             for m in top_memories
         ],
+        "family_cognition": {
+            "active_person": active_cognition_person.full_name if active_cognition_person else "",
+            "mentioned_people": [person.full_name for person in cognitive_people],
+            "memory_events": [
+                {
+                    "id": event.id,
+                    "title": event.title,
+                    "first_person_allowed": event.can_use_first_person(active_cognition_person.id)
+                    if active_cognition_person
+                    else False,
+                }
+                for event in cognitive_events
+            ],
+        },
         "scores": [
             {
                 "id": sr.memory.id,
@@ -213,6 +271,8 @@ def _generate_safe_response(
     elder_intro: str,
     chat_fn: ChatFn,
     system_prompt: str,
+    guard_events=None,
+    speaker_person_id: str = "",
 ) -> str:
     appellation = persona.appellation or elder.get_appellation() or "您"
     role_label = persona.role_label or "家人"
@@ -229,7 +289,12 @@ def _generate_safe_response(
 
         adapt_result = check_elderly_adaptation(response, appellation)
         safety_issues = safety_check(response)
-        if adapt_result["pass"] and not safety_issues:
+        identity_issues = check_response_identity_boundaries(
+            response,
+            events=guard_events or [],
+            speaker_person_id=speaker_person_id,
+        )
+        if adapt_result["pass"] and not safety_issues and not identity_issues:
             return response
 
         if attempt == 0:
@@ -241,7 +306,7 @@ def _generate_safe_response(
                 comfort_style=persona.comfort_style,
                 strategy=strategy,
                 memory_context=memory_context,
-                retry_hint=build_retry_hint(adapt_result["issues"], safety_issues),
+                retry_hint=build_retry_hint(adapt_result["issues"], safety_issues + identity_issues),
                 mentioned_persona_context=mentioned_context,
                 family_profiles_context=family_context,
                 elder_intro=elder_intro,

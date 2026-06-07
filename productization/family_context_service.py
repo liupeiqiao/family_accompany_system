@@ -46,6 +46,7 @@ def build_family_chat_context(
         families=families,
         elder=elder,
         active_persona_role_label=active_persona_role_label,
+        family_id=family_id,
     )
 
 

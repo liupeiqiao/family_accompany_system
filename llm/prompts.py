@@ -118,7 +118,7 @@ def build_response_system(
     # Count non-empty memory entries
     mem_count = len([m for m in (memory_context or "").split("\n---\n") if m.strip()]) if memory_context else 0
 
-    return template.format(
+    rendered_prompt = template.format(
         role_label=role_label,
         appellation=appellation,
         personality_text=personality_text,
@@ -132,3 +132,7 @@ def build_response_system(
         family_profiles_context=family_profiles_context,
         elder_intro=elder_intro,
     )
+    legacy_identity_anchor = f"你是一个老年人的{role_label}。"
+    if legacy_identity_anchor not in rendered_prompt:
+        rendered_prompt = legacy_identity_anchor + "\n" + rendered_prompt
+    return rendered_prompt
