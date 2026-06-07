@@ -34,3 +34,15 @@ def test_records_page_deletes_cloud_records_by_family_id():
     assert "export function deleteCloudPersona" in api_source
     assert "export function deleteCloudFamilyProfile" in api_source
     assert "export function deleteCloudMemory" in api_source
+
+
+def test_records_parse_preview_opens_in_modal_instead_of_import_panel():
+    source = (ROOT / "web" / "src" / "app" / "records" / "page.tsx").read_text(encoding="utf-8")
+
+    assert "const [isParsePreviewOpen, setParsePreviewOpen]" in source
+    assert "setParsePreviewOpen(true)" in source
+    assert 'className="recordsDraftModalOverlay"' in source
+    assert 'className="recordsDraftModal"' in source
+
+    import_panel = source.split('className="recordsImportPanel"', 1)[1].split('className="recordsDraftModalOverlay"', 1)[0]
+    assert 'className="recordsDraftPreview"' not in import_panel

@@ -291,6 +291,7 @@ export default function RecordsPage() {
   const [recordsSuccess, setRecordsSuccess] = useState("");
   const [syncPersonaToFamily, setSyncPersonaToFamily] = useState(true);
   const [mergeResult, setMergeResult] = useState<MergeImportResponse | null>(null);
+  const [isParsePreviewOpen, setParsePreviewOpen] = useState(false);
 
   useEffect(() => {
     if (!getAuthToken()) {
@@ -344,6 +345,8 @@ export default function RecordsPage() {
       setDraft(parsed);
       if (!hasDraft(parsed)) {
         setError("暂时没有解析出可导入内容，请补充资料后再试。");
+      } else {
+        setParsePreviewOpen(true);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "智能解析失败。");
@@ -379,6 +382,7 @@ export default function RecordsPage() {
       if (result.conflicts.length > 0) parts.push(`${result.conflicts.length} 条需人工确认`);
       setSuccess(`保存完成：${parts.join("，")}。`);
       setDraft(emptyDraft);
+      setParsePreviewOpen(false);
       await loadSavedRecords();
     } catch (err) {
       setError(err instanceof Error ? err.message : "保存失败，请稍后重试。");
@@ -491,7 +495,6 @@ export default function RecordsPage() {
     }
   }
 
-  const savedSections: SavedSection[] = ["elder", "persona", "family", "memory"];
   const totalCounts = {
     elder: countItems(sectionItems("elder", savedDraft)),
     persona: countItems(sectionItems("persona", savedDraft)),
@@ -541,18 +544,42 @@ export default function RecordsPage() {
               <p className="recordsEmpty">正在加载云端档案...</p>
             ) : hasDraft(savedDraft) ? (
               <div className="recordsSavedGroups">
-                {savedSections.map((section) => (
-                  <SavedGroup
-                    key={section}
-                    section={section}
-                    items={sectionItems(section, savedDraft)}
-                    fields={sectionFields(section)}
-                    expandedKey={expandedKey}
-                    setExpandedKey={setExpandedKey}
-                    onChange={(index, key, value) => updateListItem("saved", listSectionName(section), index, key, value)}
-                    onDelete={deleteSavedRecord}
-                  />
-                ))}
+                <SavedList
+                  section="elder"
+                  items={savedDraft.elder_profiles ?? []}
+                  fields={sectionFields("elder")}
+                  expandedKey={expandedKey}
+                  setExpandedKey={setExpandedKey}
+                  onChange={(index, key, value) => updateListItem("saved", "elder_profiles", index, key, value)}
+                  onDelete={deleteSavedRecord}
+                />
+                <SavedList
+                  section="persona"
+                  items={savedDraft.personas ?? []}
+                  fields={sectionFields("persona")}
+                  expandedKey={expandedKey}
+                  setExpandedKey={setExpandedKey}
+                  onChange={(index, key, value) => updateListItem("saved", "personas", index, key, value)}
+                  onDelete={deleteSavedRecord}
+                />
+                <SavedList
+                  section="family"
+                  items={savedDraft.family_profiles}
+                  fields={sectionFields("family")}
+                  expandedKey={expandedKey}
+                  setExpandedKey={setExpandedKey}
+                  onChange={(index, key, value) => updateListItem("saved", "family_profiles", index, key, value)}
+                  onDelete={deleteSavedRecord}
+                />
+                <SavedList
+                  section="memory"
+                  items={savedDraft.memories}
+                  fields={sectionFields("memory")}
+                  expandedKey={expandedKey}
+                  setExpandedKey={setExpandedKey}
+                  onChange={(index, key, value) => updateListItem("saved", "memories", index, key, value)}
+                  onDelete={deleteSavedRecord}
+                />
               </div>
             ) : (
               <p className="recordsEmpty">暂无已保存的云端档案或记忆。</p>
@@ -653,20 +680,54 @@ export default function RecordsPage() {
             ) : null}
 
             {hasDraft(draft) ? (
-              <section className="recordsDraftPreview">
-                <h3>解析预览</h3>
-                <MergePreview dedup={draft.dedup ?? { items: [] }} draft={draft} />
-                <EditableObject title="老人画像" data={draft.elder_profile} fields={elderFields} onChange={(key, value) => updateTopLevel("elder_profile", key, value)} />
-                <EditableObject title="AI 扮演角色" data={draft.persona} fields={personaFields} onChange={(key, value) => updateTopLevel("persona", key, value)} />
-                <EditableList title="家人档案" items={draft.family_profiles} fields={familyFields} onChange={(index, key, value) => updateListItem("draft", "family_profiles", index, key, value)} />
-                <EditableList title="家庭记忆" items={draft.memories} fields={memoryFields} onChange={(index, key, value) => updateListItem("draft", "memories", index, key, value)} />
+              <section className="recordsImportHint recordsDraftReady">
+                <strong>解析结果已准备好</strong>
+                <span>可在上层页面中查看、修改并导入。</span>
+                <button className="recordsMiniButton" type="button" onClick={() => setParsePreviewOpen(true)}>
+                  查看解析结果
+                </button>
               </section>
             ) : (
-              <p className="recordsImportHint">解析后可在页面查看与编辑</p>
+              <p className="recordsImportHint">解析后可在上层页面查看与编辑</p>
             )}
           </aside>
         </div>
       </section>
+      {hasDraft(draft) && isParsePreviewOpen ? (
+        <div className="recordsDraftModalOverlay" role="presentation" onMouseDown={() => setParsePreviewOpen(false)}>
+          <section
+            aria-modal="true"
+            className="recordsDraftModal"
+            role="dialog"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <header className="recordsDraftModalHeader">
+              <div>
+                <span>AI Parse Result</span>
+                <h2>解析预览</h2>
+              </div>
+              <button aria-label="关闭解析预览" className="recordsIconButton" type="button" onClick={() => setParsePreviewOpen(false)}>
+                ×
+              </button>
+            </header>
+            <div className="recordsDraftPreview">
+              <MergePreview dedup={draft.dedup ?? { items: [] }} draft={draft} />
+              <EditableObject title="老人画像" data={draft.elder_profile} fields={elderFields} onChange={(key, value) => updateTopLevel("elder_profile", key, value)} />
+              <EditableObject title="AI 扮演角色" data={draft.persona} fields={personaFields} onChange={(key, value) => updateTopLevel("persona", key, value)} />
+              <EditableList title="家人档案" items={draft.family_profiles} fields={familyFields} onChange={(index, key, value) => updateListItem("draft", "family_profiles", index, key, value)} />
+              <EditableList title="家庭记忆" items={draft.memories} fields={memoryFields} onChange={(index, key, value) => updateListItem("draft", "memories", index, key, value)} />
+            </div>
+            <footer className="recordsDraftModalActions">
+              <button className="recordsButton recordsButtonGhost" type="button" onClick={() => setParsePreviewOpen(false)}>
+                稍后处理
+              </button>
+              <button className="recordsButton recordsButtonPrimary" type="button" onClick={onSave} disabled={isSaving}>
+                {isSaving ? "保存中..." : "保存并导入"}
+              </button>
+            </footer>
+          </section>
+        </div>
+      ) : null}
     </main>
   );
 }
@@ -740,7 +801,7 @@ function RecordsStat({
   );
 }
 
-function SavedGroup({
+function SavedList({
   section,
   items,
   fields,
@@ -775,15 +836,16 @@ function SavedGroup({
           const itemKey = `${section}-${index}`;
           const isExpanded = expandedKey === itemKey;
           const tags = recordTags(section, item);
+          const summaryClassName = section === "memory" ? "memorySummary" : "profileSummary";
           return (
             <article className="recordsSavedItem" key={itemKey}>
               <div className="recordsItemContent">
                 <span className={`recordsDot ${meta.tone}`} aria-hidden="true" />
                 <div>
                   <strong>{displayRecordName(item, `${meta.title} ${index + 1}`)}</strong>
-                  <p>{recordSummary(section, item)}</p>
+                  <p className={summaryClassName}>{recordSummary(section, item)}</p>
                   {tags.length > 0 ? (
-                    <div className="recordsTags">
+                    <div className={section === "memory" ? "recordsTags memoryMeta" : "recordsTags"}>
                       {tags.map((tag) => <span key={tag}>{tag}</span>)}
                     </div>
                   ) : null}
