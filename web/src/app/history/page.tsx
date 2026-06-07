@@ -37,7 +37,6 @@ const timeFilterLabels: Record<TimeFilter, string> = {
 };
 
 const sidebarItems: { href: string; label: string; icon: IconName }[] = [
-  { href: "/elder", label: "旅程", icon: "journey" },
   { href: "/", label: "首页", icon: "home" },
   { href: "/family", label: "家庭空间", icon: "family" },
   { href: "/records", label: "档案与记忆", icon: "records" },
