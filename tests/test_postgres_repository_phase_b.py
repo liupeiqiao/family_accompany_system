@@ -39,6 +39,12 @@ def test_postgres_schema_defines_cloud_tables_and_indexes():
     ]:
         assert f"CREATE INDEX IF NOT EXISTS {index}" in schema
 
+    assert "CREATE TABLE IF NOT EXISTS conversation_states" in schema
+    assert "session_id TEXT NOT NULL DEFAULT 'default'" in schema
+    assert "elder_person_id TEXT DEFAULT ''" in schema
+    assert "current_persona_role_id TEXT DEFAULT ''" in schema
+    assert "idx_conversation_states_family_session" in schema
+
 
 def test_cloud_repository_factory_prefers_database_url(monkeypatch):
     import productization.cloud_repository as cloud_repository

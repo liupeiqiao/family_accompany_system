@@ -93,9 +93,9 @@ create table if not exists public.memory_event_participants (
 create table if not exists public.conversation_states (
   id uuid primary key default gen_random_uuid(),
   family_id uuid not null references public.families(id) on delete cascade,
-  session_id uuid references public.chat_sessions(id) on delete cascade,
-  elder_person_id uuid references public.persons(id) on delete set null,
-  current_persona_role_id uuid references public.persona_roles(id) on delete set null,
+  session_id text not null default 'default',
+  elder_person_id text not null default '',
+  current_persona_role_id text not null default '',
   recent_person_ids jsonb not null default '[]'::jsonb,
   recent_event_ids jsonb not null default '[]'::jsonb,
   elder_emotion text not null default '',
@@ -115,6 +115,7 @@ create index if not exists idx_persona_roles_family on public.persona_roles(fami
 create index if not exists idx_memory_events_family on public.memory_events(family_id);
 create index if not exists idx_memory_event_participants_person on public.memory_event_participants(person_id);
 create index if not exists idx_conversation_states_family on public.conversation_states(family_id);
+create unique index if not exists idx_conversation_states_family_session on public.conversation_states(family_id, session_id);
 
 alter table public.persons enable row level security;
 alter table public.relationships enable row level security;

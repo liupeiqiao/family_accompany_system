@@ -183,6 +183,27 @@ def test_chat_endpoint_keeps_conversation_state_for_same_session(monkeypatch):
     assert "王强" in prompts[-1]
 
 
+def test_web_text_chat_client_accepts_session_id_payload():
+    from pathlib import Path
+
+    source = Path("web/src/lib/backend-api.ts").read_text(encoding="utf-8")
+    send_chat_signature = source[source.index("export function sendChat"):source.index("): Promise<ChatResponse>", source.index("export function sendChat"))]
+
+    assert "session_id?: string" in send_chat_signature
+    assert "body: JSON.stringify(payload)" in source
+
+
+def test_elder_frontend_persists_voice_session_across_refreshes():
+    from pathlib import Path
+
+    source = Path("web/src/app/elder/page.tsx").read_text(encoding="utf-8")
+
+    assert "sessionStorage.getItem" in source
+    assert "sessionStorage.setItem" in source
+    assert "elder_voice_session_id" in source
+    assert "client_session_id: clientSessionId" in source
+
+
 def test_cloud_chat_permission_failure_returns_text_fallback(monkeypatch):
     from fastapi.testclient import TestClient
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from engine.conversation_state import ConversationState
 from engine import db
+from .cloud_repository import get_cloud_repository
 
 _STATE_CACHE: dict[tuple[str, str], ConversationState] = {}
 
@@ -14,16 +15,30 @@ def load_conversation_state(
     current_persona_role_id: str = "",
 ) -> ConversationState:
     key = _state_key(family_id, session_id)
-    try:
-        db.init_db()
-        stored = db.load_conversation_state(key[0], key[1])
-        if stored:
-            _STATE_CACHE[key] = stored
-            return stored
-    except Exception:
-        cached = _STATE_CACHE.get(key)
-        if cached:
-            return cached
+    cloud_checked = False
+    if _should_use_cloud_state(key[0]):
+        try:
+            stored = get_cloud_repository().load_conversation_state(family_id=key[0], session_id=key[1])
+            cloud_checked = True
+            if stored:
+                _STATE_CACHE[key] = stored
+                return stored
+        except Exception:
+            cached = _STATE_CACHE.get(key)
+            if cached:
+                return cached
+
+    if not cloud_checked:
+        try:
+            db.init_db()
+            stored = db.load_conversation_state(key[0], key[1])
+            if stored:
+                _STATE_CACHE[key] = stored
+                return stored
+        except Exception:
+            cached = _STATE_CACHE.get(key)
+            if cached:
+                return cached
 
     state = _STATE_CACHE.get(key) or ConversationState(
         family_id=key[0],
@@ -42,6 +57,13 @@ def load_conversation_state(
 def save_conversation_state(state: ConversationState) -> None:
     key = _state_key(state.family_id, state.session_id)
     _STATE_CACHE[key] = state
+    if _should_use_cloud_state(key[0]):
+        try:
+            get_cloud_repository().save_conversation_state(state)
+            return
+        except Exception:
+            pass
+
     try:
         db.init_db()
         db.save_conversation_state(state)
@@ -55,3 +77,7 @@ def clear_conversation_state_cache() -> None:
 
 def _state_key(family_id: str, session_id: str) -> tuple[str, str]:
     return (family_id or "local", session_id or "default")
+
+
+def _should_use_cloud_state(family_id: str) -> bool:
+    return bool(family_id and family_id != "local")

@@ -896,6 +896,7 @@ def handle_elder_voice_chat(
     voice_profile_id: str = "",
     client_session_id: str = "",
 ) -> ElderVoiceChatResponse:
+    request_session_id = client_session_id or uuid4().hex
     provider = get_voice_provider()
     try:
         asr = provider.transcribe(
@@ -937,7 +938,7 @@ def handle_elder_voice_chat(
             family_id=family_id,
             user_id=user_id,
             active_persona_role_label=str(selected_persona.get("role_label", "")),
-            session_id=client_session_id or "default",
+            session_id=request_session_id,
         )
     except Exception as exc:
         if isinstance(exc, (FamilyPermissionError, FamilyNotFoundError)):
@@ -977,7 +978,7 @@ def handle_elder_voice_chat(
             audio_url=audio_url,
             asr_provider=asr.provider,
             tts_provider=str(debug.get("tts_provider", "")),
-            session_id=client_session_id,
+            session_id=request_session_id,
         )
     )
 

@@ -501,6 +501,7 @@ export function sendChat(payload: {
   family_id: string;
   elder_id: string;
   persona_id: string;
+  session_id?: string;
   text: string;
   voice_profile_id?: string;
 }): Promise<ChatResponse> {

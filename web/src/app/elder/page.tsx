@@ -34,10 +34,21 @@ type ConversationTurn = {
 type SetupState = "loading" | "ready" | "missing";
 
 function createClientSessionId() {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return crypto.randomUUID();
+  const storageKey = "elder_voice_session_id";
+  if (typeof window !== "undefined") {
+    const existing = window.sessionStorage.getItem(storageKey);
+    if (existing) return existing;
   }
-  return `elder-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  let sessionId = "";
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    sessionId = crypto.randomUUID();
+  } else {
+    sessionId = `elder-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  }
+  if (typeof window !== "undefined") {
+    window.sessionStorage.setItem(storageKey, sessionId);
+  }
+  return sessionId;
 }
 
 function audioFormatFromMimeType(mimeType: string) {

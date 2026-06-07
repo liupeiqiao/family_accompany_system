@@ -235,6 +235,39 @@ def test_conversation_state_service_falls_back_to_memory_when_database_unavailab
     assert loaded.summary == "最近聊到王强"
 
 
+def test_conversation_state_service_prefers_cloud_repository_for_cloud_family(monkeypatch):
+    import productization.conversation_state_service as state_service
+
+    class FakeCloudRepository:
+        def __init__(self) -> None:
+            self.saved = None
+
+        def load_conversation_state(self, *, family_id: str, session_id: str):
+            assert family_id == "cloud-family"
+            assert session_id == "cloud-session"
+            return None
+
+        def save_conversation_state(self, state: ConversationState) -> None:
+            self.saved = state
+
+    repo = FakeCloudRepository()
+    clear_conversation_state_cache()
+    monkeypatch.setattr(state_service, "get_cloud_repository", lambda: repo)
+    monkeypatch.setattr(state_service.db, "load_conversation_state", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(state_service.db, "save_conversation_state", lambda *_args, **_kwargs: None)
+
+    state = load_conversation_state(
+        family_id="cloud-family",
+        session_id="cloud-session",
+        elder_person_id="elder-projected",
+    )
+    state.summary = "cloud turn"
+    save_conversation_state(state)
+
+    assert repo.saved is state
+    assert repo.saved.summary == "cloud turn"
+
+
 def test_chat_prompt_uses_family_cognition_context(monkeypatch):
     context = ChatContext(
         personas={

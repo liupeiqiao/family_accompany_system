@@ -9,6 +9,7 @@ import psycopg
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
+from engine.conversation_state import ConversationState
 from engine.family import normalize_family_relation
 
 from .cloud_repository import FamilyNotFoundError, FamilyPermissionError, FamilyRole, _safe_audio_extension
@@ -464,6 +465,60 @@ class PostgresCloudRepository:
             (session_id, family_id),
         )
 
+    def load_conversation_state(self, *, family_id: str, session_id: str) -> ConversationState | None:
+        row = self._fetch_one(
+            """
+            SELECT *
+            FROM conversation_states
+            WHERE family_id = %s AND session_id = %s
+            LIMIT 1
+            """,
+            (family_id, session_id or "default"),
+            required=False,
+        )
+        return _conversation_state_from_row(row) if row else None
+
+    def save_conversation_state(self, state: ConversationState) -> None:
+        self._fetch_one(
+            """
+            INSERT INTO conversation_states
+                (id, family_id, session_id, elder_person_id, current_persona_role_id,
+                 recent_person_ids, recent_event_ids, elder_emotion, ongoing_topic,
+                 unfinished_topics, relationship_focus, last_intent, summary, updated_at)
+            VALUES
+                (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, now())
+            ON CONFLICT (family_id, session_id)
+            DO UPDATE SET
+                elder_person_id = EXCLUDED.elder_person_id,
+                current_persona_role_id = EXCLUDED.current_persona_role_id,
+                recent_person_ids = EXCLUDED.recent_person_ids,
+                recent_event_ids = EXCLUDED.recent_event_ids,
+                elder_emotion = EXCLUDED.elder_emotion,
+                ongoing_topic = EXCLUDED.ongoing_topic,
+                unfinished_topics = EXCLUDED.unfinished_topics,
+                relationship_focus = EXCLUDED.relationship_focus,
+                last_intent = EXCLUDED.last_intent,
+                summary = EXCLUDED.summary,
+                updated_at = now()
+            RETURNING *
+            """,
+            (
+                _optional_uuid(state.id) or str(uuid4()),
+                state.family_id,
+                state.session_id or "default",
+                state.elder_person_id or "",
+                state.current_persona_role_id or "",
+                Jsonb(list(state.recent_person_ids)),
+                Jsonb(list(state.recent_event_ids)),
+                state.elder_emotion or "",
+                state.ongoing_topic or "",
+                Jsonb(list(state.unfinished_topics)),
+                Jsonb(dict(state.relationship_focus)),
+                state.last_intent or "",
+                state.summary or "",
+            ),
+        )
+
     def _connect(self):
         return psycopg.connect(self._database_url, row_factory=dict_row)
 
@@ -597,3 +652,21 @@ def _serialize_value(value: Any) -> Any:
     if isinstance(value, datetime | date):
         return value.isoformat()
     return value
+
+
+def _conversation_state_from_row(row: dict) -> ConversationState:
+    return ConversationState(
+        id=str(row.get("id") or ""),
+        family_id=str(row.get("family_id") or "local"),
+        session_id=str(row.get("session_id") or "default"),
+        elder_person_id=str(row.get("elder_person_id") or ""),
+        current_persona_role_id=str(row.get("current_persona_role_id") or ""),
+        recent_person_ids=list(row.get("recent_person_ids") or []),
+        recent_event_ids=list(row.get("recent_event_ids") or []),
+        elder_emotion=str(row.get("elder_emotion") or ""),
+        ongoing_topic=str(row.get("ongoing_topic") or ""),
+        unfinished_topics=list(row.get("unfinished_topics") or []),
+        relationship_focus=dict(row.get("relationship_focus") or {}),
+        last_intent=str(row.get("last_intent") or ""),
+        summary=str(row.get("summary") or ""),
+    )

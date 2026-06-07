@@ -9,6 +9,7 @@ from urllib import request as urlrequest
 from urllib.error import HTTPError
 from uuid import uuid4
 
+from engine.conversation_state import ConversationState
 from engine.family import normalize_family_relation
 
 FamilyRole = Literal["owner", "editor", "viewer"]
@@ -156,6 +157,12 @@ class CloudRepository(Protocol):
     def delete_chat_session(self, *, family_id: str, user_id: str, session_id: str) -> None:
         ...
 
+    def load_conversation_state(self, *, family_id: str, session_id: str) -> ConversationState | None:
+        ...
+
+    def save_conversation_state(self, state: ConversationState) -> None:
+        ...
+
 
 class InMemoryCloudRepository:
     """Deterministic cloud repository used for local API wiring and tests."""
@@ -171,6 +178,7 @@ class InMemoryCloudRepository:
         self._voice_profiles: dict[str, dict] = {}
         self._chat_sessions: dict[str, dict] = {}
         self._chat_messages: dict[str, dict] = {}
+        self._conversation_states: dict[str, dict] = {}
 
     def create_family(self, *, name: str, user_id: str) -> dict:
         family = {"id": uuid4().hex, "name": name.strip() or "我的家庭", "created_by": user_id}
@@ -512,6 +520,13 @@ class InMemoryCloudRepository:
             if msg.get("session_id") != session_id
         }
         self._chat_sessions.pop(session_id, None)
+
+    def load_conversation_state(self, *, family_id: str, session_id: str) -> ConversationState | None:
+        row = self._conversation_states.get(f"{family_id}:{session_id}")
+        return _conversation_state_from_row(row) if row else None
+
+    def save_conversation_state(self, state: ConversationState) -> None:
+        self._conversation_states[f"{state.family_id}:{state.session_id}"] = _conversation_state_to_row(state)
 
     def _append_chat_message(
         self,
@@ -899,6 +914,28 @@ class SupabaseCloudRepository:
             method="DELETE",
         )
 
+    def load_conversation_state(self, *, family_id: str, session_id: str) -> ConversationState | None:
+        rows = self._request(
+            f"conversation_states?family_id=eq.{family_id}&session_id=eq.{session_id}&select=*",
+            method="GET",
+        )
+        return _conversation_state_from_row(rows[0]) if rows else None
+
+    def save_conversation_state(self, state: ConversationState) -> None:
+        payload = _conversation_state_to_row(state)
+        rows = self._request(
+            f"conversation_states?family_id=eq.{state.family_id}&session_id=eq.{state.session_id}&select=id",
+            method="GET",
+        )
+        if rows:
+            self._request(
+                f"conversation_states?id=eq.{rows[0]['id']}",
+                method="PATCH",
+                payload=payload,
+            )
+            return
+        self._request("conversation_states", method="POST", payload=payload)
+
     def _require_member(self, family_id: str, user_id: str) -> FamilyRole:
         rows = self._request(
             f"family_memberships?family_id=eq.{family_id}&user_id=eq.{user_id}&select=role",
@@ -983,3 +1020,41 @@ def _safe_audio_extension(filename: str) -> str:
     match = re.search(r"\.([a-zA-Z0-9]+)$", filename or "")
     extension = f".{match.group(1).lower()}" if match else ".webm"
     return extension if extension in {".wav", ".mp3", ".m4a", ".webm", ".ogg"} else ".webm"
+
+
+def _conversation_state_to_row(state: ConversationState) -> dict:
+    return {
+        "id": state.id,
+        "family_id": state.family_id,
+        "session_id": state.session_id or "default",
+        "elder_person_id": state.elder_person_id or "",
+        "current_persona_role_id": state.current_persona_role_id or "",
+        "recent_person_ids": list(state.recent_person_ids),
+        "recent_event_ids": list(state.recent_event_ids),
+        "elder_emotion": state.elder_emotion or "",
+        "ongoing_topic": state.ongoing_topic or "",
+        "unfinished_topics": list(state.unfinished_topics),
+        "relationship_focus": dict(state.relationship_focus),
+        "last_intent": state.last_intent or "",
+        "summary": state.summary or "",
+    }
+
+
+def _conversation_state_from_row(row: dict | None) -> ConversationState | None:
+    if not row:
+        return None
+    return ConversationState(
+        id=str(row.get("id") or ""),
+        family_id=str(row.get("family_id") or "local"),
+        session_id=str(row.get("session_id") or "default"),
+        elder_person_id=str(row.get("elder_person_id") or ""),
+        current_persona_role_id=str(row.get("current_persona_role_id") or ""),
+        recent_person_ids=list(row.get("recent_person_ids") or []),
+        recent_event_ids=list(row.get("recent_event_ids") or []),
+        elder_emotion=str(row.get("elder_emotion") or ""),
+        ongoing_topic=str(row.get("ongoing_topic") or ""),
+        unfinished_topics=list(row.get("unfinished_topics") or []),
+        relationship_focus=dict(row.get("relationship_focus") or {}),
+        last_intent=str(row.get("last_intent") or ""),
+        summary=str(row.get("summary") or ""),
+    )

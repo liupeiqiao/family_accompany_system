@@ -256,9 +256,9 @@ ALTER TABLE chat_messages
 CREATE TABLE IF NOT EXISTS conversation_states (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     family_id UUID NOT NULL REFERENCES families(id) ON DELETE CASCADE,
-    session_id UUID REFERENCES chat_sessions(id) ON DELETE CASCADE,
-    elder_person_id UUID REFERENCES persons(id) ON DELETE SET NULL,
-    current_persona_role_id UUID REFERENCES persona_roles(id) ON DELETE SET NULL,
+    session_id TEXT NOT NULL DEFAULT 'default',
+    elder_person_id TEXT DEFAULT '',
+    current_persona_role_id TEXT DEFAULT '',
     recent_person_ids JSONB DEFAULT '[]'::jsonb,
     recent_event_ids JSONB DEFAULT '[]'::jsonb,
     elder_emotion TEXT DEFAULT '',
@@ -269,6 +269,18 @@ CREATE TABLE IF NOT EXISTS conversation_states (
     summary TEXT DEFAULT '',
     updated_at TIMESTAMPTZ DEFAULT now()
 );
+
+ALTER TABLE conversation_states
+    DROP CONSTRAINT IF EXISTS conversation_states_session_id_fkey,
+    DROP CONSTRAINT IF EXISTS conversation_states_elder_person_id_fkey,
+    DROP CONSTRAINT IF EXISTS conversation_states_current_persona_role_id_fkey,
+    ALTER COLUMN session_id TYPE TEXT USING COALESCE(session_id::text, 'default'),
+    ALTER COLUMN session_id SET DEFAULT 'default',
+    ALTER COLUMN session_id SET NOT NULL,
+    ALTER COLUMN elder_person_id TYPE TEXT USING COALESCE(elder_person_id::text, ''),
+    ALTER COLUMN elder_person_id SET DEFAULT '',
+    ALTER COLUMN current_persona_role_id TYPE TEXT USING COALESCE(current_persona_role_id::text, ''),
+    ALTER COLUMN current_persona_role_id SET DEFAULT '';
 
 CREATE INDEX IF NOT EXISTS idx_family_memberships_user ON family_memberships(user_id);
 CREATE INDEX IF NOT EXISTS idx_family_memberships_family ON family_memberships(family_id);
@@ -287,3 +299,4 @@ CREATE INDEX IF NOT EXISTS idx_voice_profiles_family ON voice_profiles(family_id
 CREATE INDEX IF NOT EXISTS idx_voice_samples_family ON voice_samples(family_id);
 CREATE INDEX IF NOT EXISTS idx_chat_messages_session ON chat_messages(session_id);
 CREATE INDEX IF NOT EXISTS idx_conversation_states_family ON conversation_states(family_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_conversation_states_family_session ON conversation_states(family_id, session_id);
