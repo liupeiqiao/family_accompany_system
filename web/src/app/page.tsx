@@ -4,45 +4,42 @@ import { useEffect, useState } from "react";
 
 import { AuthUser, clearAuthSession, getAuthUser } from "../lib/auth";
 
-const navItems = [
-  { label: "首页", href: "/", icon: "home", active: true },
-  { label: "家庭空间", href: "/family", icon: "family" },
-  { label: "档案与记忆", href: "/records", icon: "folder" },
-  { label: "对话历史", href: "/history", icon: "history" },
-  { label: "音色管理", href: "/voices", icon: "voice" },
-  { label: "系统设置", href: "/family", icon: "settings" },
-];
-
-const stats = [
-  { label: "今日陪伴", value: "2", suffix: "小时 36 分", icon: "clock" },
-  { label: "可用亲人音色", value: "5", suffix: "个", icon: "family" },
-  { label: "已沉淀家庭记忆", value: "128", suffix: "条", icon: "memory" },
+const familyNodes = [
+  { name: "奶奶", role: "AI 陪伴中", className: "grandma" },
+  { name: "爸爸", role: "AI 陪伴中", className: "dad" },
+  { name: "妈妈", role: "AI 陪伴中", className: "mom" },
+  { name: "女儿 · 小美", role: "AI 陪伴中", className: "daughter" },
+  { name: "儿子 · 小明", role: "AI 陪伴中", className: "son" },
 ];
 
 const features = [
   {
-    title: "AI 语音陪伴",
-    body: "自然对话，贴心陪伴\n让长辈畅聊每一天",
+    title: "AI 家人陪伴",
+    body: "7x24 小时温暖陪伴",
     href: "/elder",
     icon: "chat",
+    className: "companion",
   },
   {
-    title: "家庭共建空间",
-    body: "邀请家人一起建设\n共享温暖与关爱",
+    title: "家庭空间",
+    body: "共同维护家人档案",
     href: "/family",
     icon: "home-family",
+    className: "family",
   },
   {
-    title: "记忆与传承",
-    body: "珍藏回忆，传承家风\n留住家庭的故事",
+    title: "家庭记忆库",
+    body: "珍藏每一刻美好回忆",
     href: "/records",
     icon: "book",
+    className: "records",
   },
   {
-    title: "安全隐私保障",
-    body: "多重守护，隐私无忧\n全方位保护信息安全",
-    href: "/records",
-    icon: "shield",
+    title: "家人声音复刻",
+    body: "留住最熟悉的声音",
+    href: "/voices",
+    icon: "voice",
+    className: "voices",
   },
 ];
 
@@ -60,92 +57,66 @@ export default function HomePage() {
 
   return (
     <main className="productHome">
-      <aside className="homeSidebar" aria-label="产品导航">
+      <div className="homeBackdrop" aria-hidden="true" />
+      <header className="homeTopBar">
         <a className="homeBrand" href="/">
           <span className="homeLogo" aria-hidden="true">
             <Icon name="brand" />
           </span>
-          <span>
-            <strong>亲情陪伴系统</strong>
-            <small>让陪伴有声，让记忆延续</small>
-          </span>
+          <strong>亲情陪伴系统</strong>
+          <small>Beta</small>
         </a>
 
-        <nav className="homeNav">
-          {navItems.map((item) => (
-            <a className={item.active ? "homeNavItem active" : "homeNavItem"} href={item.href} key={item.label}>
-              <Icon name={item.icon} />
-              <span>{item.label}</span>
-            </a>
-          ))}
-        </nav>
-
-        <div className="homeUser">
-          <span className="homeAvatar" aria-hidden="true" />
-          <span>
-            <strong>小美</strong>
-            <small>{user ? user.phone : "管理员"}</small>
-          </span>
+        <div className="homeAuthArea">
           {user ? (
-            <button className="homeUserAction" onClick={logout} type="button" aria-label="退出登录">
+            <button className="homeLoginButton" onClick={logout} type="button">
               <Icon name="chevron" />
+              <span>{user.phone} · 退出</span>
             </button>
           ) : (
-            <a className="homeUserAction" href="/login" aria-label="前往登录">
-              <Icon name="chevron" />
+            <a className="homeLoginButton" href="/login">
+              <Icon name="family" />
+              <span>登录 / 注册</span>
             </a>
           )}
         </div>
-      </aside>
+      </header>
 
       <section className="homeHero" aria-label="首页产品入口">
-        <div className="homeHeroImage" aria-hidden="true" />
-        <div className="homeHeroVeil" aria-hidden="true" />
-        <div className="homeStatus">
-          <span />
-          陪伴服务运行中
-        </div>
-
         <div className="homeHeroContent">
           <h1>
-            让爱跨越距离，
-            <br />
-            AI 陪伴温暖每一天
+            即使相隔千里，<em>爱</em>也从未离开。
           </h1>
-          <p>为家人创建专属陪伴体验，守护长辈的幸福晚年</p>
-          <div className="homeCtas">
-            <a className="homePrimaryCta" href="/elder">
-              开始陪伴之旅
-            </a>
-          </div>
+          <p>AI 陪伴家人左右，让记忆永不褪色</p>
         </div>
 
-        <section className="homeStats" aria-label="陪伴概览">
-          {stats.map((item) => (
-            <article className="homeStat" key={item.label}>
-              <span className="homeStatIcon" aria-hidden="true">
-                <Icon name={item.icon} />
-              </span>
-              <span>
-                <small>{item.label}</small>
-                <strong>
-                  {item.value}
-                  <em>{item.suffix}</em>
-                </strong>
-              </span>
+        <div className="familyTreeStage" aria-label="家庭成员陪伴状态">
+          <div className="treeCrown" aria-hidden="true" />
+          <div className="treeTrunk" aria-hidden="true" />
+          {familyNodes.map((node) => (
+            <article className={`familyNode ${node.className}`} key={node.name}>
+              <span className="familyNodePhoto" aria-hidden="true" />
+              <strong>{node.name}</strong>
+              <small>
+                <i />
+                {node.role}
+              </small>
             </article>
           ))}
-        </section>
+        </div>
 
         <section className="homeFeatureGrid" aria-label="核心能力">
-          {features.map((feature) => (
-            <a className="homeFeatureCard" href={feature.href} key={feature.title}>
-              <span className="homeFeatureIcon" aria-hidden="true">
-                <Icon name={feature.icon} />
+          {features.map((panel) => (
+            <a className={`homeFeatureCard ${panel.className}`} href={panel.href} key={panel.title}>
+              <span>
+                <strong>{panel.title}</strong>
+                <small>{panel.body}</small>
+                <b>
+                  进入界面
+                  <Icon name="arrow" />
+                </b>
               </span>
-              <strong>{feature.title}</strong>
-              <span>{feature.body}</span>
-              <Icon name="arrow" />
+              <Icon name={panel.icon} />
             </a>
           ))}
         </section>
