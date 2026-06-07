@@ -127,6 +127,12 @@ def build_turn_cognition_prompt(
         cognition.active_persona_role = cognition.persona_roles[selected_role_label]
     speaker = cognition.active_person()
     mentioned_people = _resolve_people(cognition.graph, user_input, mentioned_names)
+    if not mentioned_people and _has_pronoun_reference(user_input):
+        mentioned_people = [
+            cognition.graph.persons[person_id]
+            for person_id in cognition.state.recent_person_ids
+            if person_id in cognition.graph.persons
+        ]
     if speaker and speaker.id not in {person.id for person in mentioned_people}:
         mentioned_people.insert(0, speaker)
 
@@ -146,6 +152,7 @@ def build_turn_cognition_prompt(
         intent=intent,
         ongoing_topic="、".join(_keywords_from_input(user_input)[:3]),
         relationship_focus=relation_focus,
+        summary=_turn_summary(cognition.graph, mentioned_people, intent, emotion, user_input),
     )
     sections = [
         cognition.graph.build_identity_context(speaker, cognition.elder_person, mentioned_people),
@@ -229,6 +236,7 @@ def _person_from_family_profile(profile: FamilyProfile, family_id: str) -> Perso
         family_id=family_id,
         full_name=profile.name,
         kind="family",
+        nicknames=_nicknames_from_profile(profile),
         gender=profile.gender,
         traits=profile.personality,
         habits=profile.habits,
@@ -411,6 +419,41 @@ def _relationship_focus(graph: FamilyGraph, speaker: Person | None, mentioned_pe
 
 def _keywords_from_input(user_input: str) -> list[str]:
     return [word for word in re.split(r"[\s，。！？,.!?]+", user_input or "") if word]
+
+
+def _has_pronoun_reference(user_input: str) -> bool:
+    return any(token in (user_input or "") for token in ("他", "她", "ta", "TA", "那孩子", "那个人"))
+
+
+def _turn_summary(
+    graph: FamilyGraph,
+    mentioned_people: list[Person],
+    intent: str,
+    emotion: str,
+    user_input: str,
+) -> str:
+    people = [person.full_name for person in mentioned_people if person.full_name]
+    parts = []
+    if people:
+        parts.append(f"最近聊到{'、'.join(dict.fromkeys(people))}")
+    if intent:
+        parts.append(f"意图{intent}")
+    if emotion:
+        parts.append(f"情绪{emotion}")
+    keywords = "、".join(_keywords_from_input(user_input)[:3])
+    if keywords:
+        parts.append(f"话题{keywords}")
+    return "；".join(parts)
+
+
+def _nicknames_from_profile(profile: FamilyProfile) -> list[str]:
+    values: list[str] = []
+    for text in [profile.notes, *profile.habits]:
+        for match in re.finditer(r"(?:小名|昵称|叫)([\u4e00-\u9fffA-Za-z0-9]{1,8})", text or ""):
+            nickname = match.group(1).strip("，。,.；;、 ")
+            if nickname and nickname != profile.name:
+                values.append(nickname)
+    return list(dict.fromkeys(values))
 
 
 def _event_keywords(event: MemoryEvent) -> list[str]:

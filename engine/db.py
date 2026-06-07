@@ -5,6 +5,7 @@ import json
 import sqlite3
 from datetime import datetime
 
+from .conversation_state import ConversationState
 from .family import normalize_family_relation
 
 DB_PATH = "companion.db"
@@ -433,5 +434,69 @@ def _row_to_elder_dict(row) -> dict:
 def delete_elder(full_name: str) -> None:
     conn = _connect()
     conn.execute("DELETE FROM elder_profile WHERE full_name = ?", (full_name,))
+    conn.commit()
+    conn.close()
+
+
+# ===== Conversation State =====
+
+def load_conversation_state(family_id: str, session_id: str) -> ConversationState | None:
+    conn = _connect()
+    row = conn.execute(
+        """
+        SELECT * FROM conversation_states
+        WHERE family_id = ? AND session_id = ?
+        ORDER BY updated_at DESC
+        LIMIT 1
+        """,
+        (family_id, session_id),
+    ).fetchone()
+    conn.close()
+    if row is None:
+        return None
+    return ConversationState(
+        id=row["id"],
+        family_id=row["family_id"],
+        session_id=row["session_id"],
+        elder_person_id=row["elder_person_id"],
+        current_persona_role_id=row["current_persona_role_id"],
+        recent_person_ids=json.loads(row["recent_person_ids"] or "[]"),
+        recent_event_ids=json.loads(row["recent_event_ids"] or "[]"),
+        elder_emotion=row["elder_emotion"],
+        ongoing_topic=row["ongoing_topic"],
+        unfinished_topics=json.loads(row["unfinished_topics"] or "[]"),
+        relationship_focus=json.loads(row["relationship_focus"] or "{}"),
+        last_intent=row["last_intent"],
+        summary=row["summary"],
+    )
+
+
+def save_conversation_state(state: ConversationState) -> None:
+    conn = _connect()
+    conn.execute(
+        """
+        INSERT OR REPLACE INTO conversation_states
+            (id, family_id, session_id, elder_person_id, current_persona_role_id,
+             recent_person_ids, recent_event_ids, elder_emotion, ongoing_topic,
+             unfinished_topics, relationship_focus, last_intent, summary, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            state.id,
+            state.family_id,
+            state.session_id,
+            state.elder_person_id,
+            state.current_persona_role_id,
+            json.dumps(state.recent_person_ids, ensure_ascii=False),
+            json.dumps(state.recent_event_ids, ensure_ascii=False),
+            state.elder_emotion,
+            state.ongoing_topic,
+            json.dumps(state.unfinished_topics, ensure_ascii=False),
+            json.dumps(state.relationship_focus, ensure_ascii=False),
+            state.last_intent,
+            state.summary,
+            state.updated_at.isoformat(),
+        ),
+    )
     conn.commit()
     conn.close()

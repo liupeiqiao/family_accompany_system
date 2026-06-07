@@ -149,6 +149,7 @@ class ChatRequest(BaseModel):
     family_id: str = Field(default="local")
     elder_id: str = ""
     persona_id: str = ""
+    session_id: str = "default"
     text: str
     voice_profile_id: str | None = None
 

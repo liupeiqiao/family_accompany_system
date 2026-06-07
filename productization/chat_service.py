@@ -36,6 +36,10 @@ from productization.family_cognition_service import (
     build_turn_cognition_prompt,
     check_response_identity_boundaries,
 )
+from productization.conversation_state_service import (
+    load_conversation_state,
+    save_conversation_state,
+)
 
 ChatFn = Callable[[str, str, float], str]
 
@@ -103,6 +107,16 @@ def generate_chat_reply(
         family_id=family_id,
         session_id=session_id,
     )
+    cognition.state = load_conversation_state(
+        family_id=family_id,
+        session_id=session_id,
+        elder_person_id=cognition.elder_person.id,
+        current_persona_role_id=cognition.active_persona_role.id if cognition.active_persona_role else "",
+    )
+    state_role = _persona_role_by_id(cognition, cognition.state.current_persona_role_id)
+    if state_role and state_role.role_label in personas:
+        cognition.active_persona_role = state_role
+        persona = personas[state_role.role_label]
 
     intent_result = _analyze_intent(user_input, llm)
     intent = intent_result.get("intent", "日常闲聊")
@@ -110,15 +124,18 @@ def generate_chat_reply(
     mentioned_names = intent_result.get("mentioned", []) or []
     talk_to = intent_result.get("talk_to", "")
 
-    selected = _select_persona_for_turn(
+    selected = _select_persona_for_turn_with_cognition(
         user_input=user_input,
         talk_to=talk_to,
         mentioned_names=mentioned_names,
         personas=personas,
+        cognition=cognition,
         default_role_label=persona.role_label,
     )
     if selected.role_label in personas:
         persona = personas[selected.role_label]
+    if selected.role_label in cognition.persona_roles:
+        cognition.active_persona_role = cognition.persona_roles[selected.role_label]
 
     cognition_prompt, cognitive_events, cognitive_people = build_turn_cognition_prompt(
         cognition=cognition,
@@ -180,6 +197,18 @@ def generate_chat_reply(
         guard_events=cognitive_events,
         speaker_person_id=active_cognition_person.id if active_cognition_person else "",
     )
+    save_conversation_state(cognition.state)
+    recent_person_names = [
+        cognition.graph.persons[person_id].full_name
+        for person_id in cognition.state.recent_person_ids
+        if person_id in cognition.graph.persons
+    ]
+    recent_event_titles = [
+        event.title
+        for event_id in cognition.state.recent_event_ids
+        for event in cognition.memory_events
+        if event.id == event_id
+    ]
 
     debug = {
         "context_source": context_source,
@@ -198,6 +227,10 @@ def generate_chat_reply(
         "family_cognition": {
             "active_person": active_cognition_person.full_name if active_cognition_person else "",
             "mentioned_people": [person.full_name for person in cognitive_people],
+            "recent_person_ids": recent_person_names,
+            "recent_event_ids": recent_event_titles,
+            "state_summary": cognition.state.summary,
+            "ongoing_topic": cognition.state.ongoing_topic,
             "memory_events": [
                 {
                     "id": event.id,
@@ -374,6 +407,124 @@ def _match_persona(talk_to: str, personas: dict[str, PersonaProfile]) -> str | N
         if talk_to in role_label or role_label in talk_to:
             return role_label
     return None
+
+
+def _select_persona_for_turn_with_cognition(
+    *,
+    user_input: str,
+    talk_to: str,
+    mentioned_names: list[str],
+    personas: dict[str, PersonaProfile],
+    cognition,
+    default_role_label: str,
+) -> PersonaSelection:
+    graph_selected = _select_persona_from_family_graph(
+        user_input=user_input,
+        talk_to=talk_to,
+        mentioned_names=mentioned_names,
+        cognition=cognition,
+    )
+    if graph_selected:
+        return graph_selected
+
+    state_role = _persona_role_by_id(cognition, cognition.state.current_persona_role_id)
+    if state_role and state_role.role_label in personas:
+        return PersonaSelection(state_role.role_label, "conversation_state", 0.75)
+
+    return _select_persona_for_turn(
+        user_input=user_input,
+        talk_to=talk_to,
+        mentioned_names=mentioned_names,
+        personas=personas,
+        default_role_label=default_role_label,
+    )
+
+
+def _select_persona_from_family_graph(
+    *,
+    user_input: str,
+    talk_to: str,
+    mentioned_names: list[str],
+    cognition,
+) -> PersonaSelection | None:
+    if not cognition.persona_roles:
+        return None
+
+    talk_to_person = cognition.graph.get_person(talk_to)
+    if talk_to_person:
+        role = _persona_role_for_person(cognition, talk_to_person.id)
+        if role:
+            return PersonaSelection(role.role_label, "family_graph_talk_to", 0.9)
+
+    mentioned_people = cognition.graph.resolve_mentions(user_input)
+    seen = {person.id for person in mentioned_people}
+    for name in mentioned_names:
+        person = cognition.graph.get_person(name)
+        if person and person.id not in seen:
+            mentioned_people.append(person)
+            seen.add(person.id)
+
+    for person in mentioned_people:
+        role = _persona_role_for_person(cognition, person.id)
+        direct_reason = _direct_call_reason(user_input, person)
+        if role and direct_reason:
+            return PersonaSelection(role.role_label, direct_reason, 0.92)
+
+    relation_role = _persona_role_for_relation_request(cognition, user_input)
+    if relation_role:
+        return PersonaSelection(relation_role.role_label, "family_graph_relation_call", 0.86)
+    return None
+
+
+def _persona_role_by_id(cognition, role_id: str):
+    if not role_id:
+        return None
+    for role in cognition.persona_roles.values():
+        if role.id == role_id:
+            return role
+    return None
+
+
+def _persona_role_for_person(cognition, person_id: str):
+    for role in cognition.persona_roles.values():
+        if role.person_id == person_id and role.can_speak_as_person:
+            return role
+    return None
+
+
+def _persona_role_for_relation_request(cognition, user_input: str):
+    relation_term = _requested_relation_term(user_input)
+    if not relation_term:
+        return None
+    matches = []
+    for role in cognition.persona_roles.values():
+        person = cognition.graph.persons.get(role.person_id)
+        if not person:
+            continue
+        relation = cognition.graph.get_relationship(person.id, cognition.elder_person.id)
+        if relation and relation_term in {relation.display_label, relation.relation_type}:
+            matches.append(role)
+    return matches[0] if len(matches) == 1 else None
+
+
+def _direct_call_reason(user_input: str, person) -> str:
+    text = user_input or ""
+    for alias in person.aliases():
+        if not alias:
+            continue
+        escaped = re.escape(alias)
+        if _starts_with_address(text, alias):
+            return "direct_name"
+        direct_patterns = [
+            rf"让{escaped}.*(说|聊|通话|陪我|跟我)",
+            rf"(想|想念|惦记){escaped}",
+            rf"想{escaped}了",
+            rf"(和|跟){escaped}.*(说|聊|通话)",
+            rf"{escaped}.*跟我.*(说|聊)",
+        ]
+        if any(re.search(pattern, text) for pattern in direct_patterns):
+            return "family_graph_direct_call"
+    return ""
 
 
 def _select_persona_for_turn(

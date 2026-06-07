@@ -123,6 +123,66 @@ def test_chat_endpoint_uses_cloud_family_context(monkeypatch):
     assert "去年中秋小明陪妈妈在院子里赏月" in captured_prompts[1]
 
 
+def test_chat_endpoint_keeps_conversation_state_for_same_session(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from api.main import app
+    from productization.cloud_repository import InMemoryCloudRepository
+    from productization.conversation_state_service import clear_conversation_state_cache
+
+    clear_conversation_state_cache()
+    repo = InMemoryCloudRepository()
+    family = repo.create_family(name="宋家", user_id="owner")
+    repo.upsert_elder_current(
+        family_id=family["id"],
+        user_id="owner",
+        payload={"full_name": "宋桂兰", "gender": "女"},
+    )
+    repo.create_family_profile(
+        family_id=family["id"],
+        user_id="owner",
+        payload={"name": "王强", "gender": "男", "relation": "儿子"},
+    )
+    repo.create_persona(
+        family_id=family["id"],
+        user_id="owner",
+        payload={"role_label": "儿子王强", "relation": "儿子", "appellation": "妈"},
+    )
+    monkeypatch.setattr("api.handlers.get_cloud_repository", lambda: repo)
+    prompts: list[str] = []
+
+    def fake_chat(system_prompt: str, user_prompt: str, temperature: float = 0.7):
+        prompts.append(system_prompt)
+        if "JSON" in system_prompt:
+            if "他别太累了" in user_prompt:
+                return '{"intent":"担忧焦虑","emotion":"担心","confidence":0.9,"talk_to":"陪伴者","mentioned":[]}'
+            return '{"intent":"确认事实","emotion":"平静","confidence":0.9,"talk_to":"陪伴者","mentioned":["王强"]}'
+        if "他别太累了" in user_prompt:
+            return "妈，我会注意别太累，您放心。"
+        return "妈，最近工作是有点忙。"
+
+    monkeypatch.setattr("productization.chat_service.llm_client.chat", fake_chat)
+
+    client = TestClient(app)
+    first = client.post(
+        "/api/chat",
+        json={"family_id": family["id"], "session_id": "text-state-session", "text": "王强最近工作忙不忙？"},
+        headers={"X-User-Id": "owner"},
+    )
+    second = client.post(
+        "/api/chat",
+        json={"family_id": family["id"], "session_id": "text-state-session", "text": "他别太累了。"},
+        headers={"X-User-Id": "owner"},
+    )
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert second.json()["text"].startswith("妈，我会注意")
+    assert second.json()["debug"]["family_cognition"]["recent_person_ids"] == ["王强"]
+    assert second.json()["debug"]["family_cognition"]["state_summary"]
+    assert "王强" in prompts[-1]
+
+
 def test_cloud_chat_permission_failure_returns_text_fallback(monkeypatch):
     from fastapi.testclient import TestClient
 

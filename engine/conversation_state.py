@@ -32,6 +32,7 @@ class ConversationState:
         intent: str = "",
         ongoing_topic: str = "",
         relationship_focus: dict | None = None,
+        summary: str = "",
     ) -> None:
         if current_persona_role_id:
             self.current_persona_role_id = current_persona_role_id
@@ -42,6 +43,8 @@ class ConversationState:
         self.ongoing_topic = ongoing_topic or self.ongoing_topic
         if relationship_focus:
             self.relationship_focus = relationship_focus
+        if summary:
+            self.summary = summary
         self.updated_at = datetime.now()
 
     def to_prompt_context(self) -> str:
@@ -54,6 +57,8 @@ class ConversationState:
             lines.append(f"- 持续话题：{self.ongoing_topic}")
         if self.unfinished_topics:
             lines.append(f"- 未完成话题：{'、'.join(self.unfinished_topics)}")
+        if self.summary:
+            lines.append(f"- 会话摘要：{self.summary}")
         if self.relationship_focus:
             relation = self.relationship_focus.get("relation_label", "")
             if relation:

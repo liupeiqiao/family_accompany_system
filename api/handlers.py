@@ -772,6 +772,7 @@ def handle_chat(request: ChatRequest, user_id: str = "demo-user") -> ChatRespons
                 repo=get_cloud_repository(),
                 family_id=request.family_id,
                 user_id=user_id,
+                session_id=request.session_id,
             )
         except Exception as exc:
             if isinstance(exc, (FamilyPermissionError, FamilyNotFoundError)):
@@ -936,6 +937,7 @@ def handle_elder_voice_chat(
             family_id=family_id,
             user_id=user_id,
             active_persona_role_label=str(selected_persona.get("role_label", "")),
+            session_id=client_session_id or "default",
         )
     except Exception as exc:
         if isinstance(exc, (FamilyPermissionError, FamilyNotFoundError)):

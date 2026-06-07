@@ -17,6 +17,7 @@ def build_family_chat_context(
     family_id: str,
     user_id: str,
     active_persona_role_label: str = "",
+    session_id: str = "default",
 ) -> ChatContext:
     elder = _elder_from_record(repo.get_elder_current(family_id=family_id, user_id=user_id))
     families = {
@@ -47,6 +48,7 @@ def build_family_chat_context(
         elder=elder,
         active_persona_role_label=active_persona_role_label,
         family_id=family_id,
+        session_id=session_id or "default",
     )
 
 
